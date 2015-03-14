@@ -25,7 +25,7 @@ import threading
 import transaction
 import unittest
 from pprint import pprint
-from StringIO import StringIO
+from io import StringIO
 
 import zope.component
 from zope.testing import module, renormalizing
@@ -141,7 +141,7 @@ def setUp(test):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             try:
                 cur.execute('SELECT * FROM ' + table)
-            except psycopg2.ProgrammingError, err:
+            except psycopg2.ProgrammingError as err:
                 print(err)
             else:
                 pprint([dict(e) for e in cur.fetchall()])

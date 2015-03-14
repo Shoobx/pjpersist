@@ -1,7 +1,7 @@
 import datetime
 import pprint
 import random
-
+from six import xrange
 
 DTIMES = [
     datetime.datetime(2013,1,22,18,59),

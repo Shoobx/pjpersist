@@ -23,7 +23,8 @@ import sys
 import tempfile
 import time
 import transaction
-import cPickle
+from six.moves import pickle
+from six import xrange
 import cProfile
 
 from pjpersist import datamanager
@@ -161,7 +162,7 @@ class PerformanceBase(object):
                 '[person.name for person in people.values()]', globals(), locals(),
                 filename=self.profile_output+'_fast_read_values')
         else:
-            [person.name for person in people.values()]
+            [person.name for person in list(people.values())]
         t2 = time.time()
         transaction.commit()
         self.printResult('Fast Read (values)', t1, t2, peopleCnt)
@@ -184,9 +185,9 @@ class PerformanceBase(object):
         # Profile object caching
         transaction.begin()
         # cache warmup
-        [person.name for person in people.values()]
+        [person.name for person in list(people.values())]
         t1 = time.time()
-        [person.name for person in people.values()]
+        [person.name for person in list(people.values())]
         #cProfile.runctx(
         #    '[person.name for person in people.values()]', globals(), locals())
         t2 = time.time()
@@ -195,10 +196,10 @@ class PerformanceBase(object):
 
         transaction.begin()
         # cache warmup
-        [person.name for person in people.values()]
+        [person.name for person in list(people.values())]
         t1 = time.time()
-        [person.name for person in people.values()]
-        [person.name for person in people.values()]
+        [person.name for person in list(people.values())]
+        [person.name for person in list(people.values())]
         #cProfile.runctx(
         #    '[person.name for person in people.values()]', globals(), locals())
         t2 = time.time()
@@ -225,7 +226,7 @@ class PerformanceBase(object):
     def delete(self, people, peopleCnt):
         # Profile deletion
         t1 = time.time()
-        for name in people.keys():
+        for name in list(people.keys()):
             if PROFILE:
                 cProfile.runctx(
                     'del people[name]', globals(), locals(),

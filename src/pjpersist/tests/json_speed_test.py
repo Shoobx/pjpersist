@@ -18,8 +18,8 @@ DATA_ORIG = {
         Vestibulum augue augue,
         pellentesque quis sollicitudin id, adipiscing.
         """,
-    'list': range(100),
-    'dict': dict((str(i), 'a') for i in xrange(100)),
+    'list': list(range(100)),
+    'dict': dict((str(i), 'a') for i in range(100)),
     'int': 100,
     'float': 100.123456
 }

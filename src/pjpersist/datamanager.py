@@ -18,6 +18,7 @@ import UserDict
 import binascii
 import hashlib
 import logging
+import six
 import os
 import psycopg2
 import psycopg2.extensions
@@ -105,7 +106,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
     def execute(self, sql, args=None):
         # Convert SQLBuilder object to string
-        if not isinstance(sql, basestring):
+        if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
         # Flush the data manager before any select.
         if self.flush and sql.strip().split()[0].lower() == 'select':
@@ -121,7 +122,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
             try:
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # XXX: ugly: we're creating here missing tables on the fly
                 msg = e.message
                 TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
@@ -141,7 +142,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
                     try:
                         return self._execute_and_log(sql, args)
-                    except psycopg2.Error, e:
+                    except psycopg2.Error as e:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
@@ -155,7 +156,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             try:
                 # otherwise just execute the given sql
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
@@ -317,7 +318,7 @@ class PJDataManager(object):
         return binascii.hexlify(id)
 
     def create_tables(self, tables):
-        if isinstance(tables, basestring):
+        if isinstance(tables, six.string_types):
             tables = [tables]
 
         for tbl in tables:
@@ -380,11 +381,9 @@ class PJDataManager(object):
             else:
                 column_data.update(builtins)
 
-            columns = []
-            values = []
-            for colname, value in column_data.items():
-                columns.append(colname)
-                values.append(value)
+            columns = list(column_data.keys())
+            values = list(column_data.values())
+
             placeholders = ', '.join(['%s'] * len(columns))
             columns = ', '.join(columns)
             sql = "INSERT INTO %s (%s) VALUES (%s)" % (
@@ -404,7 +403,7 @@ class PJDataManager(object):
 
             columns = []
             values = []
-            for colname, value in column_data.items():
+            for colname, value in list(column_data.items()):
                 columns.append(colname+'=%s')
                 values.append(value)
             columns = ', '.join(columns)
@@ -536,7 +535,7 @@ class PJDataManager(object):
         # Just in case the object was modified before removal, let's remove it
         # from the modification list. Note that all sub-objects need to be
         # deleted too!
-        for key, reg_obj in self._registered_objects.items():
+        for key, reg_obj in list(self._registered_objects.items()):
             if self._get_doc_object(reg_obj) is obj:
                 del self._registered_objects[key]
         # We are not doing anything fancy here, since the object might be
@@ -594,7 +593,7 @@ class PJDataManager(object):
         self._report_stats()
         try:
             self._conn.commit()
-        except psycopg2.Error, e:
+        except psycopg2.Error as e:
             check_for_conflict(e, "DataManager.commit")
             raise
         self.__init__(self._conn)

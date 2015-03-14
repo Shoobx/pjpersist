@@ -67,7 +67,7 @@ class AttributeAnnotations(DictMixin):
         if annotations is None:
             return []
 
-        return annotations.keys()
+        return list(annotations.keys())
 
     def __iter__(self):
         annotations = getattr(self.obj, self.ATTR_NAME, None)

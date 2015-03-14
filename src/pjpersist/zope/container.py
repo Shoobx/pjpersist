@@ -105,14 +105,14 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
         return obj
 
     def items(self):
-        items = super(SimplePJContainer, self).items()
+        items = list(super(SimplePJContainer, self).items())
         for key, obj in items:
             obj._v_name = key
             obj._v_parent = self
         return items
 
     def values(self):
-        return [v for k, v in self.items()]
+        return [v for k, v in list(self.items())]
 
     def __setitem__(self, key, obj):
         super(SimplePJContainer, self).__setitem__(key, obj)
@@ -352,7 +352,7 @@ class PJContainer(contained.Contained,
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
-            return self._cache.iteritems()
+            return iter(self._cache.items())
         result = self.raw_find(self._pj_get_items_filter())
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
@@ -464,16 +464,18 @@ class PJContainer(contained.Contained,
             return cur.fetchone()[0]
 
     def clear(self):
-        for key in self.keys():
+        for key in list(self.keys()):
             del self[key]
 
-    def __nonzero__(self):
+    def __bool__(self):
         where = self._pj_add_items_filter(None) or True
         select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
                            where=where)
         with self._pj_jar.getCursor() as cur:
             cur.execute(select)
             return cur.fetchone()[0] > 0
+
+    __nonzero__ = __bool__
 
 
 class IdNamesPJContainer(PJContainer):
@@ -523,12 +525,12 @@ class IdNamesPJContainer(PJContainer):
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
         result = self.raw_find(None)
-        return iter(unicode(row['id']) for row in result)
+        return iter(str(row['id']) for row in result)
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
-            return self._cache.iteritems()
+            return self._cache.items()
         # Load all objects from the database.
         result = self.raw_find(self._pj_get_items_filter())
         items = [(row['id'],

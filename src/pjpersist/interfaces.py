@@ -17,13 +17,13 @@ from __future__ import absolute_import, print_function, unicode_literals, divisi
 import datetime
 import decimal
 import persistent.interfaces
+import six
 import transaction.interfaces
 import types
 import zope.interface
 import zope.schema
 
-PJ_NATIVE_TYPES = (
-    bool, int, long, float, unicode, types.NoneType)
+PJ_NATIVE_TYPES = (bool, float, type(None)) + six.integer_types + six.text_types
 REFERENCE_SAFE_TYPES = (
     datetime.datetime, datetime.date, datetime.time, decimal.Decimal)
 
@@ -204,10 +204,10 @@ class IColumnSerialization(zope.interface.Interface):
     """
 
     _pj_column_fields = zope.schema.Tuple(
-        title=u'Column Fields',
-        description=(u'A list of zope.schema fields that represent columns '
-                     u'in the storage table. Fields cannot be named `id` or '
-                     u'`data` as those attributes are reserved.'),
+        title='Column Fields',
+        description=('A list of zope.schema fields that represent columns '
+                     'in the storage table. Fields cannot be named `id` or '
+                     '`data` as those attributes are reserved.'),
         required=True)
 
     def _pj_get_column_fields():

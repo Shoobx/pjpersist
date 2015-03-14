@@ -16,7 +16,7 @@ import datetime
 import doctest
 import persistent
 import pprint
-import copy_reg
+from six.moves import copyreg
 
 from pjpersist import interfaces, serialize, testing
 
@@ -61,7 +61,7 @@ Constant = Constant()
 class CopyReggedConstant(object):
     def custom_reduce_fn(self):
         return 'CopyReggedConstant'
-copy_reg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
+copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
 
