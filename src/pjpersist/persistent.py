@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """Persistent Object Support"""
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, division
 import persistent
 import zope.interface
 

@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """PJ Persistence Performance Test"""
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, division
 import logging
 import optparse
 import os

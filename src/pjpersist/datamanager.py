@@ -13,7 +13,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistent Data Manager"""
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, division
 import UserDict
 import binascii
 import hashlib

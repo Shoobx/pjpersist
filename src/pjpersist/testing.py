@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """Mongo Persistence Testing Support"""
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, division
 import atexit
 import doctest
 import logging

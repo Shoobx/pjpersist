@@ -13,7 +13,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Mapping Implementations"""
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, division
 import UserDict
 
 from pjpersist import serialize
