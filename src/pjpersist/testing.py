@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """Mongo Persistence Testing Support"""
-from __future__ import absolute_import, unicode_literals, division
+from __future__ import absolute_import, print_function, unicode_literals, division
 import atexit
 import doctest
 import logging
@@ -142,7 +142,7 @@ def setUp(test):
             try:
                 cur.execute('SELECT * FROM ' + table)
             except psycopg2.ProgrammingError, err:
-                print err
+                print(err)
             else:
                 pprint([dict(e) for e in cur.fetchall()])
         if isolate:

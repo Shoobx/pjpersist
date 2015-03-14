@@ -17,7 +17,7 @@ from pjpersist import testing, mquery
 
 
 def run(sqlx):
-    print sqlx.__sqlrepr__('postgres')
+    print(sqlx.__sqlrepr__('postgres'))
 
 
 def test_convert():

@@ -1907,7 +1907,7 @@ checker = renormalizing.RENormalizing([
     zope.lifecycleevent.interfaces.IObjectModifiedEvent
     )
 def handleObjectModifiedEvent(object, event):
-    print event.__class__.__name__+':', repr(object)
+    print(event.__class__.__name__+':', repr(object))
 
 
 def setUp(test):

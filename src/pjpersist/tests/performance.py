@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """PJ Persistence Performance Test"""
-from __future__ import absolute_import, unicode_literals, division
+from __future__ import absolute_import, print_function, unicode_literals, division
 import logging
 import optparse
 import os
@@ -100,7 +100,7 @@ class PerformanceBase(object):
         if count:
             ops = "%d ops/second" % (count / dur)
 
-        print '%-25s %.4f secs %s' % (text, dur, ops)
+        print('%-25s %.4f secs %s' % (text, dur, ops))
 
         PJLOGGER.debug('=========== done: %s', text)
 
@@ -474,7 +474,7 @@ def main(args=None):
 
     testing.setUpSerializers(None)
 
-    print 'PJ ---------------'
+    print('PJ ---------------')
     PerformancePJ().run_basic_crud(options)
-    print 'ZODB  ---------------'
+    print('ZODB  ---------------')
     PerformanceZODB().run_basic_crud(options)
