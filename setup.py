@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function, unicode_literals, division
+from __future__ import absolute_import, print_function, division
 
 """Setup
 """
@@ -13,7 +13,7 @@ except:
 
 def read(*rnames):
     text = open(os.path.join(os.path.dirname(__file__), *rnames)).read()
-    return unicode(text, 'utf-8').encode('ascii', 'xmlcharrefreplace')
+    return text
 
 
 setup(
@@ -50,7 +50,6 @@ setup(
             'mock'
         ),
         zope=(
-            'rwproperty',
             'zope.container',
         ),
     ),

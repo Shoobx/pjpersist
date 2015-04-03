@@ -1511,9 +1511,9 @@ class IPerson(zope.interface.Interface):
     phone = zope.schema.TextLine(title=u'Phone')
 
 
+@zope.interface.implementer(IPerson)
 class ColumnPerson(SimpleColumnSerialization, container.PJContained,
                    persistent.Persistent):
-    zope.interface.implements(IPerson)
     _p_pj_table = 'cperson'
     _pj_column_fields = select_fields(IPerson, 'name')
 
@@ -1916,9 +1916,8 @@ def setUp(test):
 
     # since the table gets created in PJContainer.__init__ we need to provide
     # a IPJDataManagerProvider
+    @zope.interface.implementer(interfaces.IPJDataManagerProvider)
     class Provider(object):
-        zope.interface.implements(interfaces.IPJDataManagerProvider)
-
         def get(self, database):
             return test.globs['dm']
 

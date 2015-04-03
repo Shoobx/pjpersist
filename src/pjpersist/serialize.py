@@ -13,7 +13,7 @@
 #
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
-from __future__ import absolute_import, print_function, unicode_literals, division
+from __future__ import absolute_import, print_function, division
 import copy
 from six.moves import copyreg
 import six
@@ -26,6 +26,7 @@ import repoze.lru
 import types
 import zope.interface
 from zope.dottedname.resolve import resolve
+
 
 from pjpersist import interfaces
 
@@ -51,16 +52,15 @@ PYTHON_TO_PG_TYPES = {
 }
 
 
-if six.PY3:
-    PYTHON_TO_PG_TYPES.update({
-        int: "bigint"
-    })
-
-else:
+if six.PY2:
     PYTHON_TO_PG_TYPES.update({
         int: "bigint",
         long: "bigint",
         unicode: "text"
+    })
+else:
+    PYTHON_TO_PG_TYPES.update({
+        int: "bigint"
     })
 
 
@@ -74,6 +74,7 @@ def get_dotted_name(obj, escape=False):
     # start with _.
     name = 'u'+name if name.startswith('_') else name
     return name
+
 
 class PersistentDict(persistent.dict.PersistentDict):
     _p_pj_sub_object = True
@@ -109,7 +110,6 @@ class PersistentList(persistent.list.PersistentList):
 
 
 class DBRef(object):
-
     def __init__(self, table, id, database=None):
         self.table = table
         self.id = id
@@ -134,9 +134,9 @@ class DBRef(object):
 class Binary(str):
     pass
 
-class ObjectSerializer(object):
-    zope.interface.implements(interfaces.IObjectSerializer)
 
+@zope.interface.implementer(interfaces.IObjectWriter)
+class ObjectSerializer(object):
     def can_read(self, state):
         raise NotImplementedError
 
@@ -150,9 +150,8 @@ class ObjectSerializer(object):
         raise NotImplementedError
 
 
+@zope.interface.implementer(interfaces.IObjectWriter)
 class ObjectWriter(object):
-    zope.interface.implements(interfaces.IObjectWriter)
-
     def __init__(self, jar):
         self._jar = jar
 
@@ -239,7 +238,8 @@ class ObjectWriter(object):
         if type(obj) in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
-        if isinstance(obj, str):
+
+        if isinstance(obj, bytes):
             # In Python 2, strings can be ASCII, encoded unicode or binary
             # data. Unfortunately, BSON cannot handle that. So, if we have a
             # string that cannot be UTF-8 decoded (luckily ASCII is a valid
@@ -373,9 +373,8 @@ class ObjectWriter(object):
         return obj._p_oid
 
 
+@zope.interface.implementer(interfaces.IObjectReader)
 class ObjectReader(object):
-    zope.interface.implements(interfaces.IObjectReader)
-
     def __init__(self, jar):
         self._jar = jar
         self.preferPersistent = True

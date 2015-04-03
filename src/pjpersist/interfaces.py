@@ -23,7 +23,7 @@ import types
 import zope.interface
 import zope.schema
 
-PJ_NATIVE_TYPES = (bool, float, type(None)) + six.integer_types + six.text_types
+PJ_NATIVE_TYPES = (bool, float, type(None)) + six.integer_types + six.string_types
 REFERENCE_SAFE_TYPES = (
     datetime.datetime, datetime.date, datetime.time, decimal.Decimal)
 

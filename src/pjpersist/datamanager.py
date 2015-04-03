@@ -1,4 +1,4 @@
-##############################################################################
+	##############################################################################
 #
 # Copyright (c) 2011 Zope Foundation and Contributors.
 # Copyright (c) 2014 Shoobx, Inc.
@@ -14,7 +14,8 @@
 ##############################################################################
 """PostGreSQL/JSONB Persistent Data Manager"""
 from __future__ import absolute_import, print_function, unicode_literals, division
-import UserDict
+
+from collections import Mapping
 import binascii
 import hashlib
 import logging
@@ -36,6 +37,15 @@ import zope.interface
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
+
+
+
+if six.PY2:
+    def str2ascii(s):
+        return str(s)
+else:
+    def str2ascii(s):
+        return s.encode('ascii')
 
 
 PJ_ACCESS_LOGGING = False
@@ -66,7 +76,7 @@ THREAD_NAMES = []
 THREAD_COUNTERS = {}
 
 mhash = hashlib.md5()
-mhash.update(socket.gethostname())
+mhash.update(str2ascii(socket.gethostname()))
 HOSTNAME_HASH = mhash.digest()[:3]
 PID_HASH = struct.pack(">H", os.getpid() % 0xFFFF)
 
@@ -203,7 +213,7 @@ def check_for_conflict(e, sql):
         raise interfaces.ConflictError(str(e), sql)
 
 
-class Root(UserDict.DictMixin):
+class Root(Mapping):
 
     table = 'persistence_root'
 
@@ -262,10 +272,14 @@ class Root(UserDict.DictMixin):
             cur.execute(sb.Select(sb.Field(self.table, 'name')))
             return [doc['name'] for doc in cur.fetchall()]
 
+    def __len__(self):
+        return len(self.keys())
 
+    def __iter__(self):
+        return iter(self.keys())
+
+@zope.interface.implementer(interfaces.IPJDataManager)
 class PJDataManager(object):
-    zope.interface.implements(interfaces.IPJDataManager)
-
     root = None
 
     def __init__(self, conn, root_table=None):

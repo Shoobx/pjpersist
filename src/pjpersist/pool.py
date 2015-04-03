@@ -27,9 +27,8 @@ LOCAL = threading.local()
 # XXX: THIS SEEMS MAJORLY BROKEN< SINCE CONNECTIONS ARE NEVER RETURNED TO THE
 # POOL.
 
+@zope.interface.implementer(interfaces.IPJDataManagerProvider)
 class PJDataManagerProvider(object):
-    zope.interface.implements(interfaces.IPJDataManagerProvider)
-
     def __init__(self, user=None, password=None, host='localhost', port=5432,
                  pool_min_conn=1, pool_max_conn=8):
         self.user = user
