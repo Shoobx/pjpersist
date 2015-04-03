@@ -23,7 +23,13 @@ import types
 import zope.interface
 import zope.schema
 
-PJ_NATIVE_TYPES = (bool, float, type(None)) + six.integer_types + six.string_types
+PJ_NATIVE_TYPES = (bool, float, type(None)) + six.integer_types + (str,)
+
+if six.PY2:
+    PJ_NATIVE_TYPES += (unicode,)
+else:
+    PJ_NATIVE_TYPES += (bytes,)
+
 REFERENCE_SAFE_TYPES = (
     datetime.datetime, datetime.date, datetime.time, decimal.Decimal)
 
