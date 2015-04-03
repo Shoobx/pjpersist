@@ -62,6 +62,10 @@ PJ_ENABLE_GLOBAL_QUERY_STATS = False
 GLOBAL_QUERY_STATS = threading.local()
 GLOBAL_QUERY_STATS.report = None
 
+# Maximum query length to output qith query log
+MAX_QUERY_ARGUMENT_LENGTH = 500
+
+
 PJ_AUTO_CREATE_TABLES = True
 
 # set to True to automatically create IColumnSerialization columns
@@ -173,6 +177,13 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 check_for_conflict(e, sql)
                 raise
 
+    def _sanitize_arg(self, arg):
+        r = repr(arg)
+        if len(r) > MAX_QUERY_ARGUMENT_LENGTH:
+            r = r[:MAX_QUERY_ARGUMENT_LENGTH] + "..."
+            return r
+        return arg
+
     def _execute_and_log(self, sql, args):
         # Very useful logging of every SQL command with traceback to code.
         __traceback_info__ = (self.datamanager.database, sql, args)
@@ -183,16 +194,24 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             t1 = time.time()
             db = self.datamanager.database
 
+            debug = (PJ_ACCESS_LOGGING or
+                     PJ_ENABLE_QUERY_STATS or
+                     PJ_ENABLE_QUERY_STATS)
+
+            if debug:
+                saneargs = [self._sanitize_arg(a) for a in args] \
+                    if args else args
+
             if PJ_ACCESS_LOGGING:
-                self.log_query(sql, args, t1-t0)
+                self.log_query(sql, saneargs, t1-t0)
 
             if PJ_ENABLE_QUERY_STATS:
-                self.datamanager._query_report.record(sql, args, t1-t0, db)
+                self.datamanager._query_report.record(sql, saneargs, t1-t0, db)
 
             if PJ_ENABLE_GLOBAL_QUERY_STATS:
                 if getattr(GLOBAL_QUERY_STATS, 'report', None) is None:
                     GLOBAL_QUERY_STATS.report = QueryReport()
-                GLOBAL_QUERY_STATS.report.record(sql, args, t1-t0, db)
+                GLOBAL_QUERY_STATS.report.record(sql, saneargs, t1-t0, db)
         return res
 
 
@@ -301,16 +320,54 @@ class PJDataManager(object):
         self._needs_to_join = True
         self._object_cache = {}
         self.annotations = {}
+
+        self._txn_active = False
+        self.requestTransactionOptions()  # No special options
+
         self.transaction_manager = transaction.manager
         if self.root is None:
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
 
+    def requestTransactionOptions(self, readonly=None, deferrable=None,
+                                  isolation=None):
+        if self._txn_active:
+            LOG.warning("Cannot set transaction options while transaction "
+                        "is already active.")
+        self._txn_readonly = readonly
+        self._txn_deferrable = deferrable
+        self._txn_isolation = isolation
+
+    def _setTransactionOptions(self, cur):
+        modes = []
+        if self._txn_readonly:
+            dfr = "DEFERRABLE" if self._txn_deferrable else ""
+            modes.append("READ ONLY %s" % dfr)
+
+        if self._txn_isolation:
+            assert self._txn_isolation in ["SERIALIZABLE",
+                                           "REPEATABLE READ",
+                                           "READ COMMITTED",
+                                           "READ UNCOMMITTED"]
+            modes.append("ISOLATION LEVEL %s" % self._txn_isolation)
+
+        if not modes:
+            return
+
+        stmt = "SET TRANSACTION %s" % (", ".join(modes))
+        cur.execute("BEGIN")
+        cur.execute(stmt)
+
     def getCursor(self, flush=True):
         def factory(*args, **kwargs):
             return PJPersistCursor(self, flush, *args, **kwargs)
-        return self._conn.cursor(cursor_factory=factory)
+        cur = self._conn.cursor(cursor_factory=factory)
+
+        if not self._txn_active:
+            self._setTransactionOptions(cur)
+            self._txn_active = True
+        return cur
 
     def createId(self):
         # 4 bytes current time
@@ -496,7 +553,7 @@ class PJDataManager(object):
             # locate the suitable data manager for this.
             dmp = zope.component.getUtility(interfaces.IPJDataManagerProvider)
             dm = dmp.get(dbref.database)
-            assert dm.database == dbref.database
+            assert dm.database == dbref.database, (dm.database, dbref.database)
             return dm.load(dbref, klass)
 
         return self._reader.get_ghost(dbref, klass)

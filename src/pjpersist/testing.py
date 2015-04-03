@@ -185,8 +185,6 @@ class DatabaseLayer(object):
 
         self.save_PJ_ACCESS_LOGGING = datamanager.PJ_ACCESS_LOGGING
         datamanager.PJ_ACCESS_LOGGING = True
-        self.save_ADD_TB = datamanager.PJPersistCursor.ADD_TB
-        datamanager.ADD_TB = True
 
         setUpLogging(datamanager.TABLE_LOG, copy_to_stdout=True)
         setUpLogging(datamanager.LOG, copy_to_stdout=True)
@@ -199,7 +197,6 @@ class DatabaseLayer(object):
         tearDownLogging(datamanager.TABLE_LOG)
 
         datamanager.PJ_ACCESS_LOGGING = self.save_PJ_ACCESS_LOGGING
-        datamanager.PJPersistCursor.ADD_TB = self.save_ADD_TB
 
 
 db_layer = DatabaseLayer("db_layer")
@@ -237,7 +234,6 @@ def log_sql_to_file(fname, add_tb=True, tb_limit=15):
     datamanager.PJ_ENABLE_QUERY_STATS = True
     datamanager.PJ_ACCESS_LOGGING = True
     datamanager.TABLE_LOG.setLevel(logging.DEBUG)
-    datamanager.PJPersistCursor.ADD_TB = add_tb
     datamanager.PJPersistCursor.TB_LIMIT = tb_limit
 
     fh = logging.FileHandler(fname)
