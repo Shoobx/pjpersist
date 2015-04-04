@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """Thread-aware PG/JSONB Connection Pool"""
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals, division
 import logging
 import threading
 import psycopg2
@@ -27,9 +27,8 @@ LOCAL = threading.local()
 # XXX: THIS SEEMS MAJORLY BROKEN< SINCE CONNECTIONS ARE NEVER RETURNED TO THE
 # POOL.
 
+@zope.interface.implementer(interfaces.IPJDataManagerProvider)
 class PJDataManagerProvider(object):
-    zope.interface.implements(interfaces.IPJDataManagerProvider)
-
     def __init__(self, user=None, password=None, host='localhost', port=5432,
                  pool_min_conn=1, pool_max_conn=8):
         self.user = user

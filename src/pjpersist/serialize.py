@@ -13,9 +13,10 @@
 #
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
 import copy
-import copy_reg
+from six.moves import copyreg
+import six
 import datetime
 
 import persistent.interfaces
@@ -25,6 +26,7 @@ import repoze.lru
 import types
 import zope.interface
 from zope.dottedname.resolve import resolve
+
 
 from pjpersist import interfaces
 
@@ -38,12 +40,9 @@ TABLE_KLASS_MAP = {}
 
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
-    unicode: "text",
     str: "text",
     bool: "bool",
     float: "double",
-    int: "integer",
-    long: "bigint",
     #Decimal: "number",
     datetime.date: "date",
     datetime.time: "time",
@@ -51,6 +50,18 @@ PYTHON_TO_PG_TYPES = {
     datetime.timedelta: "interval",
     list: "array",
 }
+
+
+if six.PY2:
+    PYTHON_TO_PG_TYPES.update({
+        int: "bigint",
+        long: "bigint",
+        unicode: "text"
+    })
+else:
+    PYTHON_TO_PG_TYPES.update({
+        int: "bigint"
+    })
 
 
 def get_dotted_name(obj, escape=False):
@@ -63,6 +74,7 @@ def get_dotted_name(obj, escape=False):
     # start with _.
     name = 'u'+name if name.startswith('_') else name
     return name
+
 
 class PersistentDict(persistent.dict.PersistentDict):
     _p_pj_sub_object = True
@@ -98,7 +110,6 @@ class PersistentList(persistent.list.PersistentList):
 
 
 class DBRef(object):
-
     def __init__(self, table, id, database=None):
         self.table = table
         self.id = id
@@ -123,9 +134,9 @@ class DBRef(object):
 class Binary(str):
     pass
 
-class ObjectSerializer(object):
-    zope.interface.implements(interfaces.IObjectSerializer)
 
+@zope.interface.implementer(interfaces.IObjectWriter)
+class ObjectSerializer(object):
     def can_read(self, state):
         raise NotImplementedError
 
@@ -139,9 +150,8 @@ class ObjectSerializer(object):
         raise NotImplementedError
 
 
+@zope.interface.implementer(interfaces.IObjectWriter)
 class ObjectWriter(object):
-    zope.interface.implements(interfaces.IObjectWriter)
-
     def __init__(self, jar):
         self._jar = jar
 
@@ -170,7 +180,7 @@ class ObjectWriter(object):
                 getattr(obj, '_pj_reference_safe', False)):
             seen.append(id(obj))
         # Get the state of the object. Only pickable objects can be reduced.
-        reduce_fn = copy_reg.dispatch_table.get(type(obj))
+        reduce_fn = copyreg.dispatch_table.get(type(obj))
         if reduce_fn is not None:
             reduced = reduce_fn(obj)
         else:
@@ -191,12 +201,12 @@ class ObjectWriter(object):
                 obj_state = {}
         # We are trying very hard to create a clean JSONB (sub-)document. But
         # we need a little bit of meta-data to help us out later.
-        if factory == copy_reg._reconstructor and \
+        if factory == copyreg._reconstructor and \
                args == (obj.__class__, object, None):
             # This is the simple case, which means we can produce a nicer
             # JSONB output.
             state = {'_py_type': get_dotted_name(args[0])}
-        elif factory == copy_reg.__newobj__ and args == (obj.__class__,):
+        elif factory == copyreg.__newobj__ and args == (obj.__class__,):
             # Another simple case for persistent objects that do not want
             # their own document.
             state = {interfaces.PY_TYPE_ATTR_NAME: get_dotted_name(args[0])}
@@ -228,7 +238,8 @@ class ObjectWriter(object):
         if type(obj) in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
-        if isinstance(obj, str):
+
+        if isinstance(obj, bytes):
             # In Python 2, strings can be ASCII, encoded unicode or binary
             # data. Unfortunately, BSON cannot handle that. So, if we have a
             # string that cannot be UTF-8 decoded (luckily ASCII is a valid
@@ -246,7 +257,7 @@ class ObjectWriter(object):
             if serializer.can_write(obj):
                 return serializer.write(obj)
 
-        if isinstance(obj, (type, types.ClassType)):
+        if isinstance(obj, six.class_types):
             # We frequently store class and function paths as meta-data, so we
             # need to be able to properly encode those.
             return {'_py_type': 'type',
@@ -274,8 +285,8 @@ class ObjectWriter(object):
             data = []
             for key, value in obj.items():
                 data.append((key, self.get_state(value, pobj, seen)))
-                has_non_string_key |= not isinstance(key, basestring)
-                if (not isinstance(key, basestring) or '\0' in key):
+                has_non_string_key |= not isinstance(key, six.string_types)
+                if (not isinstance(key, six.string_types) or '\0' in key):
                     has_non_string_key = True
             if not has_non_string_key:
                 # The easy case: all keys are strings:
@@ -362,9 +373,8 @@ class ObjectWriter(object):
         return obj._p_oid
 
 
+@zope.interface.implementer(interfaces.IObjectReader)
 class ObjectReader(object):
-    zope.interface.implements(interfaces.IObjectReader)
-
     def __init__(self, jar):
         self._jar = jar
         self.preferPersistent = True
@@ -445,12 +455,12 @@ class ObjectReader(object):
         if '_py_type' in state:
             # Handle the simplified case.
             klass = self.simple_resolve(state.pop('_py_type'))
-            sub_obj = copy_reg._reconstructor(klass, object, None)
+            sub_obj = copyreg._reconstructor(klass, object, None)
         elif interfaces.PY_TYPE_ATTR_NAME in state:
             # Another simple case for persistent objects that do not want
             # their own document.
             klass = self.simple_resolve(state.pop(interfaces.PY_TYPE_ATTR_NAME))
-            sub_obj = copy_reg.__newobj__(klass)
+            sub_obj = copyreg.__newobj__(klass)
         else:
             factory = self.simple_resolve(state.pop('_py_factory'))
             factory_args = self.get_object(state.pop('_py_factory_args'), obj)
@@ -515,7 +525,7 @@ class ObjectReader(object):
             if 'dict_data' in state:
                 items = state['dict_data']
             else:
-                items = state.items()
+                items = list(state.items())
             sub_obj = dict(
                 [(self.get_object(name, obj), self.get_object(value, obj))
                  for name, value in items])

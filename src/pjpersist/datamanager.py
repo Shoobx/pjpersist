@@ -13,11 +13,13 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistent Data Manager"""
-from __future__ import absolute_import
-import UserDict
+from __future__ import absolute_import, print_function, unicode_literals, division
+
+from collections import Mapping
 import binascii
 import hashlib
 import logging
+import six
 import os
 import psycopg2
 import psycopg2.extensions
@@ -35,6 +37,19 @@ import zope.interface
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
+
+
+
+if six.PY2:
+    def str2ascii(s):
+        return str(s)
+    def ascii2str(s):
+        return str(s)
+else:
+    def str2ascii(s):
+        return s.encode('ascii')
+    def ascii2str(s):
+        return s.decode('ascii')
 
 
 PJ_ACCESS_LOGGING = False
@@ -69,7 +84,7 @@ THREAD_NAMES = []
 THREAD_COUNTERS = {}
 
 mhash = hashlib.md5()
-mhash.update(socket.gethostname())
+mhash.update(str2ascii(socket.gethostname()))
 HOSTNAME_HASH = mhash.digest()[:3]
 PID_HASH = struct.pack(">H", os.getpid() % 0xFFFF)
 
@@ -109,7 +124,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
     def execute(self, sql, args=None):
         # Convert SQLBuilder object to string
-        if not isinstance(sql, basestring):
+        if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
         # Flush the data manager before any select.
         if self.flush and sql.strip().split()[0].lower() == 'select':
@@ -125,9 +140,9 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
             try:
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # XXX: ugly: we're creating here missing tables on the fly
-                msg = e.message
+                msg = e.args[0]
                 TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
                 # if the exception message matches
                 m = re.search('relation "(.*?)" does not exist', msg)
@@ -145,7 +160,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
                     try:
                         return self._execute_and_log(sql, args)
-                    except psycopg2.Error, e:
+                    except psycopg2.Error as e2:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
@@ -159,7 +174,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             try:
                 # otherwise just execute the given sql
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
@@ -221,7 +236,7 @@ def check_for_conflict(e, sql):
         raise interfaces.ConflictError(str(e), sql)
 
 
-class Root(UserDict.DictMixin):
+class Root(Mapping):
 
     table = 'persistence_root'
 
@@ -280,10 +295,14 @@ class Root(UserDict.DictMixin):
             cur.execute(sb.Select(sb.Field(self.table, 'name')))
             return [doc['name'] for doc in cur.fetchall()]
 
+    def __len__(self):
+        return len(self.keys())
 
+    def __iter__(self):
+        return iter(self.keys())
+
+@zope.interface.implementer(interfaces.IPJDataManager)
 class PJDataManager(object):
-    zope.interface.implements(interfaces.IPJDataManager)
-
     root = None
 
     def __init__(self, conn, root_table=None):
@@ -366,15 +385,15 @@ class PJDataManager(object):
         if tname not in THREAD_NAMES:
             THREAD_NAMES.append(tname)
         tidx = THREAD_NAMES.index(tname)
-        id += struct.pack(">i", tidx)[-1]
+        id += struct.pack(">i", tidx)[-1:]
         # 2 bytes counter
         THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
         THREAD_COUNTERS[tidx] += 1 % 0xFFFF
         id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
-        return binascii.hexlify(id)
+        return ascii2str(binascii.hexlify(id))
 
     def create_tables(self, tables):
-        if isinstance(tables, basestring):
+        if isinstance(tables, six.string_types):
             tables = [tables]
 
         for tbl in tables:
@@ -429,6 +448,7 @@ class PJDataManager(object):
         # Create id if it is None.
         if id is None:
             id = self.createId()
+
         # Insert the document into the table.
         with self.getCursor() as cur:
             builtins = dict(id=id, data=Json(doc))
@@ -437,11 +457,9 @@ class PJDataManager(object):
             else:
                 column_data.update(builtins)
 
-            columns = []
-            values = []
-            for colname, value in column_data.items():
-                columns.append(colname)
-                values.append(value)
+            columns = list(column_data.keys())
+            values = list(column_data.values())
+
             placeholders = ', '.join(['%s'] * len(columns))
             columns = ', '.join(columns)
             sql = "INSERT INTO %s (%s) VALUES (%s)" % (
@@ -461,7 +479,7 @@ class PJDataManager(object):
 
             columns = []
             values = []
-            for colname, value in column_data.items():
+            for colname, value in list(column_data.items()):
                 columns.append(colname+'=%s')
                 values.append(value)
             columns = ', '.join(columns)
@@ -593,7 +611,7 @@ class PJDataManager(object):
         # Just in case the object was modified before removal, let's remove it
         # from the modification list. Note that all sub-objects need to be
         # deleted too!
-        for key, reg_obj in self._registered_objects.items():
+        for key, reg_obj in list(self._registered_objects.items()):
             if self._get_doc_object(reg_obj) is obj:
                 del self._registered_objects[key]
         # We are not doing anything fancy here, since the object might be
@@ -651,7 +669,7 @@ class PJDataManager(object):
         self._report_stats()
         try:
             self._conn.commit()
-        except psycopg2.Error, e:
+        except psycopg2.Error as e:
             check_for_conflict(e, "DataManager.commit")
             raise
         self.__init__(self._conn)

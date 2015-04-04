@@ -13,12 +13,12 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Mapping Implementations"""
-from __future__ import absolute_import
-import UserDict
+from __future__ import absolute_import, print_function, unicode_literals, division
 
+from collections import Mapping
 from pjpersist import serialize
 
-class PJTableMapping(UserDict.DictMixin, object):
+class PJTableMapping(Mapping, object):
     __pj_table__ = None
     __pj_mapping_key__ = 'key'
 

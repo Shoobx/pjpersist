@@ -50,10 +50,10 @@ def select(conn, query, print_sql=False):
                 'postgres'
             )
             if print_sql:
-                print 'SQL> ', sql
+                print('SQL> ', sql)
             cur.execute(sql)
             for e in cur.fetchall():
-                print e[0]
+                print(e[0])
     finally:
         conn.rollback()
 

@@ -13,14 +13,12 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers"""
-import UserDict
 import json
 import persistent
 import transaction
 import zope.component
 import warnings
 
-from rwproperty import getproperty, setproperty
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
 
@@ -28,12 +26,12 @@ import pjpersist.sqlbuilder as sb
 from pjpersist import interfaces, serialize
 from pjpersist.zope import interfaces as zinterfaces
 from pjpersist.mquery import Converter
+from collections import MutableMapping
 
 USE_CONTAINER_CACHE = True
 
 
 class PJContained(contained.Contained):
-
     _v_name = None
     _pj_name_attr = None
     _pj_name_getter = None
@@ -44,7 +42,7 @@ class PJContained(contained.Contained):
     _pj_parent_setter = None
     _v_parent = None
 
-    @getproperty
+    @property
     def __name__(self):
         if self._v_name is None:
             if self._pj_name_attr is not None:
@@ -52,13 +50,14 @@ class PJContained(contained.Contained):
             elif self._pj_name_getter is not None:
                 self._v_name = self._pj_name_getter()
         return self._v_name
-    @setproperty
+
+    @__name__.setter
     def __name__(self, value):
         if self._pj_name_setter is not None:
             self._pj_name_setter(value)
         self._v_name = value
 
-    @getproperty
+    @property
     def __parent__(self):
         if self._v_parent is None:
             if self._pj_parent_attr is not None:
@@ -66,7 +65,8 @@ class PJContained(contained.Contained):
             elif self._pj_parent_getter is not None:
                 self._v_parent = self._pj_parent_getter()
         return self._v_parent
-    @setproperty
+
+    @__parent__.setter
     def __parent__(self, value):
         if self._pj_parent_setter is not None:
             self._pj_parent_setter(value)
@@ -105,14 +105,14 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
         return obj
 
     def items(self):
-        items = super(SimplePJContainer, self).items()
+        items = list(super(SimplePJContainer, self).items())
         for key, obj in items:
             obj._v_name = key
             obj._v_parent = self
         return items
 
     def values(self):
-        return [v for k, v in self.items()]
+        return [v for k, v in list(self.items())]
 
     def __setitem__(self, key, obj):
         super(SimplePJContainer, self).__setitem__(key, obj)
@@ -125,11 +125,20 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
             self._p_jar.remove(obj)
         self._p_changed = True
 
+    def __eq__(self, other):
+        return self is other
 
+    def __ne__(self, other):
+        return self is not other
+
+    def __hash__(self):
+        return id(self)
+
+
+@zope.interface.implementer(IContainer, zinterfaces.IPJContainer)
 class PJContainer(contained.Contained,
                   persistent.Persistent,
-                  UserDict.DictMixin):
-    zope.interface.implements(IContainer, zinterfaces.IPJContainer)
+                  MutableMapping):
     _pj_table = None
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'
@@ -245,7 +254,7 @@ class PJContainer(contained.Contained,
         return obj
 
     def __cmp__(self, other):
-        # UserDict implements the semantics of implementing comparison of
+        # Mapping implements the semantics of implementing comparison of
         # items to determine equality, which is not what we want for a
         # container, so we revert back to the default object comparison.
         return cmp(id(self), id(other))
@@ -335,7 +344,6 @@ class PJContainer(contained.Contained,
         res = self.count(qry)
         return res > 0
 
-
     def __iter__(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
@@ -352,7 +360,7 @@ class PJContainer(contained.Contained,
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
-            return self._cache.iteritems()
+            return iter(self._cache.items())
         result = self.raw_find(self._pj_get_items_filter())
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
@@ -464,16 +472,27 @@ class PJContainer(contained.Contained,
             return cur.fetchone()[0]
 
     def clear(self):
-        for key in self.keys():
+        for key in list(self.keys()):
             del self[key]
 
-    def __nonzero__(self):
+    def __bool__(self):
         where = self._pj_add_items_filter(None) or True
         select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
                            where=where)
         with self._pj_jar.getCursor() as cur:
             cur.execute(select)
             return cur.fetchone()[0] > 0
+
+    __nonzero__ = __bool__
+
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        return self is not other
+
+    def __hash__(self):
+        return id(self)
 
 
 class IdNamesPJContainer(PJContainer):
@@ -523,12 +542,12 @@ class IdNamesPJContainer(PJContainer):
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
         result = self.raw_find(None)
-        return iter(unicode(row['id']) for row in result)
+        return iter(str(row['id']) for row in result)
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
-            return self._cache.iteritems()
+            return self._cache.items()
         # Load all objects from the database.
         result = self.raw_find(self._pj_get_items_filter())
         items = [(row['id'],

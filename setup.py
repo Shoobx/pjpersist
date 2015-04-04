@@ -1,12 +1,19 @@
+from __future__ import absolute_import, print_function, division
+
 """Setup
 """
 import os
 from setuptools import setup, find_packages
 
 
+try:
+    unicode
+except:
+    unicode = str
+
 def read(*rnames):
     text = open(os.path.join(os.path.dirname(__file__), *rnames)).read()
-    return unicode(text, 'utf-8').encode('ascii', 'xmlcharrefreplace')
+    return text
 
 
 setup(
@@ -43,7 +50,6 @@ setup(
             'mock'
         ),
         zope=(
-            'rwproperty',
             'zope.container',
         ),
     ),
