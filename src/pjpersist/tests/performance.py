@@ -99,7 +99,7 @@ class PerformanceBase(object):
         text += ':'
         ops = ''
         if count:
-            ops = "%d ops/second" % (count / dur)
+            ops = "%f ops/second" % (count / dur)
 
         print('%-25s %.4f secs %s' % (text, dur, ops))
 
