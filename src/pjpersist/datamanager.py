@@ -1,4 +1,4 @@
-	##############################################################################
+##############################################################################
 #
 # Copyright (c) 2011 Zope Foundation and Contributors.
 # Copyright (c) 2014 Shoobx, Inc.
@@ -43,9 +43,13 @@ from pjpersist.querystats import QueryReport
 if six.PY2:
     def str2ascii(s):
         return str(s)
+    def ascii2str(s):
+        return str(s)
 else:
     def str2ascii(s):
         return s.encode('ascii')
+    def ascii2str(s):
+        return s.decode('ascii')
 
 
 PJ_ACCESS_LOGGING = False
@@ -138,7 +142,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 return self._execute_and_log(sql, args)
             except psycopg2.Error as e:
                 # XXX: ugly: we're creating here missing tables on the fly
-                msg = e.message
+                msg = e.args[0]
                 TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
                 # if the exception message matches
                 m = re.search('relation "(.*?)" does not exist', msg)
@@ -156,7 +160,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
                     try:
                         return self._execute_and_log(sql, args)
-                    except psycopg2.Error as e:
+                    except psycopg2.Error as e2:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
@@ -381,12 +385,12 @@ class PJDataManager(object):
         if tname not in THREAD_NAMES:
             THREAD_NAMES.append(tname)
         tidx = THREAD_NAMES.index(tname)
-        id += struct.pack(">i", tidx)[-1]
+        id += struct.pack(">i", tidx)[-1:]
         # 2 bytes counter
         THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
         THREAD_COUNTERS[tidx] += 1 % 0xFFFF
         id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
-        return binascii.hexlify(id)
+        return ascii2str(binascii.hexlify(id))
 
     def create_tables(self, tables):
         if isinstance(tables, six.string_types):
@@ -444,6 +448,7 @@ class PJDataManager(object):
         # Create id if it is None.
         if id is None:
             id = self.createId()
+
         # Insert the document into the table.
         with self.getCursor() as cur:
             builtins = dict(id=id, data=Json(doc))
