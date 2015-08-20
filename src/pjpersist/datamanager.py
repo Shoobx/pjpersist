@@ -28,10 +28,13 @@ import random
 import re
 import socket
 import struct
+import sys
 import threading
 import time
+import traceback
 import transaction
 import zope.interface
+
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
@@ -67,6 +70,16 @@ TABLE_LOG = logging.getLogger('pjpersist.table')
 
 THREAD_NAMES = []
 THREAD_COUNTERS = {}
+
+# When a conflict error is thrown we want to ensure it gets
+# handled properly at a higher level (i.e. the transaction is
+# retried). In cases where is it not handled correctly we
+# will have the traceback of where the conflict occurred
+# for debugging later.
+# Make sure you set CONFLICT_TRACEBACK_INFO.traceback to None
+# after the error is processed.
+CONFLICT_TRACEBACK_INFO = threading.local()
+CONFLICT_TRACEBACK_INFO.traceback = None
 
 mhash = hashlib.md5()
 mhash.update(socket.gethostname())
@@ -217,6 +230,9 @@ def check_for_conflict(e, sql):
         psycopg2.errorcodes.DEADLOCK_DETECTED
     )
     if e.pgcode in serialization_errors:
+        t, v, b = sys.exc_info()
+        CONFLICT_TRACEBACK_INFO.traceback = traceback.format_exception(
+            t, v, b)
         LOG.warning("Conflict detected with code %s sql: %s", e.pgcode, sql)
         raise interfaces.ConflictError(str(e), sql)
 
