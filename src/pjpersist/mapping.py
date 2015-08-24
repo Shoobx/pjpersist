@@ -14,9 +14,11 @@
 ##############################################################################
 """PostGreSQL/JSONB Mapping Implementations"""
 from __future__ import absolute_import
+import json
 import UserDict
 
-from pjpersist import serialize
+from pjpersist import serialize, interfaces
+
 
 class PJTableMapping(UserDict.DictMixin, object):
     __pj_table__ = None
@@ -30,8 +32,7 @@ class PJTableMapping(UserDict.DictMixin, object):
 
     def __getitem__(self, key):
         filter = self.__pj_filter__()
-        filter += ''' AND data @> '{"%s": "%s"}' ''' % (
-            self.__pj_mapping_key__, key)
+        filter += ''' AND data @> '%s' ''' % json.dumps({self.__pj_mapping_key__: key})
         with self._pj_jar.getCursor() as cur:
             cur.execute(
                 'SELECT id FROM ' + self.__pj_table__ + ' WHERE ' + filter)
@@ -46,6 +47,7 @@ class PJTableMapping(UserDict.DictMixin, object):
         # the data manager, the value might not be in the DB at all at this
         # point, so registering it manually ensures that new objects get added.
         self._pj_jar.register(value)
+        setattr(value, interfaces.TABLE_ATTR_NAME, self.__pj_table__)
         setattr(value, self.__pj_mapping_key__, key)
 
     def __delitem__(self, key):
