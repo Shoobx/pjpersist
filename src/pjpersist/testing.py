@@ -213,6 +213,7 @@ class PJTestCase(unittest.TestCase):
         self.dm = datamanager.PJDataManager(self.conn)
 
     def tearDown(self):
+        datamanager.CONFLICT_TRACEBACK_INFO.traceback = None
         #module.tearDown(self)
         tearDownSerializers(self)
         transaction.abort()

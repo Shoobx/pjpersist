@@ -1269,12 +1269,17 @@ class DatamanagerConflictTest(testing.PJTestCase):
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
 
+        self.assertIsNone(
+            datamanager.CONFLICT_TRACEBACK_INFO.traceback)
+
         #Finish in order 2 - 1
 
         dm2.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
             dm1.tpc_finish(None)
 
+        self.assertIsNotNone(
+            datamanager.CONFLICT_TRACEBACK_INFO.traceback)
         transaction.abort()
 
         conn2.close()
