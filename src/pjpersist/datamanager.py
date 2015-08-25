@@ -48,11 +48,9 @@ PJ_ACCESS_LOGGING = False
 # Enable query statistics reporting after transaction ends
 PJ_ENABLE_QUERY_STATS = False
 
-# Enable logging queries to global query statistics report. If you enable this,
-# make sure you set GLOBAL_QUERY_STATS.report to None after each report.
-PJ_ENABLE_GLOBAL_QUERY_STATS = False
-GLOBAL_QUERY_STATS = threading.local()
-GLOBAL_QUERY_STATS.report = None
+# you can register listeners to GLOBAL_QUERY_STATS_LISTENERS with
+# `register_query_stats_listener`.
+GLOBAL_QUERY_STATS_LISTENERS = set()
 
 # Maximum query length to output qith query log
 MAX_QUERY_ARGUMENT_LENGTH = 500
@@ -203,6 +201,9 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             if debug:
                 saneargs = [self._sanitize_arg(a) for a in args] \
                     if args else args
+            else:
+                # We don't want to do expensive sanitization in prod mode
+                saneargs = args
 
             if PJ_ACCESS_LOGGING:
                 self.log_query(sql, saneargs, t1-t0)
@@ -210,10 +211,9 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             if PJ_ENABLE_QUERY_STATS:
                 self.datamanager._query_report.record(sql, saneargs, t1-t0, db)
 
-            if PJ_ENABLE_GLOBAL_QUERY_STATS:
-                if getattr(GLOBAL_QUERY_STATS, 'report', None) is None:
-                    GLOBAL_QUERY_STATS.report = QueryReport()
-                GLOBAL_QUERY_STATS.report.record(sql, saneargs, t1-t0, db)
+            for rep in GLOBAL_QUERY_STATS_LISTENERS:
+                dt = t1 - t0
+                rep.record(sql, saneargs, dt, db)
         return res
 
 
@@ -703,3 +703,22 @@ def get_database_name_from_dsn(dsn):
         return None
 
     return m.groups()[0]
+
+
+def register_query_stats_listener(listener):
+    """Register new query stats listener
+
+    All executed sql statements will be reported via the `listner.report()`.
+    Note, that queries from all threads will be reported to the same registered
+    object.
+
+    `listener` object has to implement `record(sql, args, time, db)` method.
+    QueryReport object may be used for this for detailed query analysis.
+    """
+    GLOBAL_QUERY_STATS_LISTENERS.add(listener)
+
+
+def unregister_query_stats_listener(listener):
+    """Unregister listener, registered by `register_query_stats_listener`
+    """
+    GLOBAL_QUERY_STATS_LISTENERS.remove(listener)
