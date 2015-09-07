@@ -14,14 +14,12 @@
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
 from __future__ import absolute_import
-import copy
 import copy_reg
 import datetime
 
 import persistent.interfaces
 import persistent.dict
 import persistent.list
-import repoze.lru
 import types
 import zope.interface
 from zope.dottedname.resolve import resolve
@@ -32,7 +30,6 @@ from pjpersist import interfaces
 ALWAYS_READ_FULL_DOC = True
 
 SERIALIZERS = []
-OID_CLASS_LRU = repoze.lru.LRUCache(20000)
 AVAILABLE_NAME_MAPPINGS = set()
 PATH_RESOLVE_CACHE = {}
 TABLE_KLASS_MAP = {}
@@ -437,24 +434,18 @@ class ObjectReader(object):
 
     def resolve(self, dbref):
         __traceback_info__ = dbref
-        # 1. Check the global oid-based lookup cache. Use the hash of the id,
-        #    since otherwise the comparison is way too expensive.
-        klass = OID_CLASS_LRU.get(hash(dbref))
-        if klass is not None:
-            return klass
-        # 2. Try to optimize on whether there's just one class stored in one
+        # 1. Try to optimize on whether there's just one class stored in one
         #    table, that can save us one DB query
         if dbref.table in TABLE_KLASS_MAP:
             results = TABLE_KLASS_MAP[dbref.table]
             if len(results) == 1:
                 # there must be just ONE, otherwise we need to check the JSONB
                 klass = list(results)[0]
-                OID_CLASS_LRU.put(hash(dbref), klass)
                 return klass
         # from this point on we need the dbref.id
         if dbref.id is None:
             raise ImportError(dbref)
-        # 3. Get the class from the object state
+        # 2. Get the class from the object state
         #    Multiple object types are stored in the table. We have to
         #    look at the object (JSONB) to find out the type.
         if dbref in self._jar._latest_states:
@@ -485,7 +476,6 @@ class ObjectReader(object):
             klass = self.simple_resolve(obj_doc[interfaces.PY_TYPE_ATTR_NAME])
         else:
             raise ImportError(dbref)
-        OID_CLASS_LRU.put(hash(dbref), klass)
         return klass
 
     def get_non_persistent_object(self, state, obj):

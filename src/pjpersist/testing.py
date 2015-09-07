@@ -223,7 +223,6 @@ class PJTestCase(unittest.TestCase):
 
 
 def resetCaches():
-    serialize.OID_CLASS_LRU.__init__(20000)
     serialize.AVAILABLE_NAME_MAPPINGS.__init__()
     serialize.PATH_RESOLVE_CACHE = {}
     serialize.TABLE_KLASS_MAP = {}
