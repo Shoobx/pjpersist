@@ -354,7 +354,7 @@ class PJContainer(contained.Contained,
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
             return self._cache.iteritems()
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
                  for row in result]
