@@ -267,16 +267,18 @@ class PJContainer(contained.Contained,
         return obj
 
     def _real_setitem(self, key, value):
-        # Make sure the value is in the database, since we might want
-        # to use its oid.
-        if value._p_oid is None:
-            self._pj_jar.insert(value)
-
         # This call by itself causes the state to change _p_changed to True.
+        # but make sure we set attributes before eventually inserting...
+        # saves eventually one more UPDATE query
         if self._pj_mapping_key is not None:
             setattr(value, self._pj_mapping_key, key)
         if self._pj_parent_key is not None:
             setattr(value, self._pj_parent_key, self._pj_get_parent_key_value())
+
+        # Make sure the value is in the database, since we might want
+        # to use its oid.
+        if value._p_oid is None:
+            self._pj_jar.insert(value)
 
     def __setitem__(self, key, value):
         # When the key is None, we need to determine it.
@@ -335,7 +337,6 @@ class PJContainer(contained.Contained,
         res = self.count(qry)
         return res > 0
 
-
     def __iter__(self):
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
@@ -350,10 +351,10 @@ class PJContainer(contained.Contained,
         return list(self.__iter__())
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
                  for row in result]
@@ -464,8 +465,15 @@ class PJContainer(contained.Contained,
             return cur.fetchone()[0]
 
     def clear(self):
-        for key in self.keys():
+        # why items? it seems to be better to bulk-load all objects that going
+        # to be deleted with one SQL query, because __delitem__ will anyway
+        # load state, but then with one query for each object
+        for key, value in self.items():
             del self[key]
+        # Signal the container that the cache is now complete.
+        # we just removed all objects, eh?
+        self._cache.clear()
+        self._cache_mark_complete()
 
     def __nonzero__(self):
         where = self._pj_add_items_filter(None) or True
@@ -522,15 +530,15 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
-        result = self.raw_find(None)
+        result = self.raw_find(None, fields=('id',))
         return iter(unicode(row['id']) for row in result)
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
         # Load all objects from the database.
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['id'],
                   self._load_one(row['id'], row['data']))
                  for row in result]
