@@ -351,7 +351,7 @@ class PJContainer(contained.Contained,
         return list(self.__iter__())
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
         result = self.raw_find()
