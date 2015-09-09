@@ -527,7 +527,7 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
-        result = self.raw_find(None)
+        result = self.raw_find(None, fields=('id',))
         return iter(unicode(row['id']) for row in result)
 
     def iteritems(self):
