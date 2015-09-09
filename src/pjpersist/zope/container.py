@@ -267,16 +267,18 @@ class PJContainer(contained.Contained,
         return obj
 
     def _real_setitem(self, key, value):
-        # Make sure the value is in the database, since we might want
-        # to use its oid.
-        if value._p_oid is None:
-            self._pj_jar.insert(value)
-
         # This call by itself causes the state to change _p_changed to True.
+        # but make sure we set attributes before eventually inserting...
+        # saves eventually one more UPDATE query
         if self._pj_mapping_key is not None:
             setattr(value, self._pj_mapping_key, key)
         if self._pj_parent_key is not None:
             setattr(value, self._pj_parent_key, self._pj_get_parent_key_value())
+
+        # Make sure the value is in the database, since we might want
+        # to use its oid.
+        if value._p_oid is None:
+            self._pj_jar.insert(value)
 
     def __setitem__(self, key, value):
         # When the key is None, we need to determine it.
@@ -334,7 +336,6 @@ class PJContainer(contained.Contained,
 
         res = self.count(qry)
         return res > 0
-
 
     def __iter__(self):
         # If the cache contains all objects, we can just return the cache keys.
