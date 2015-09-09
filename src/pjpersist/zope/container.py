@@ -466,6 +466,10 @@ class PJContainer(contained.Contained,
     def clear(self):
         for key in self.keys():
             del self[key]
+        # Signal the container that the cache is now complete.
+        # we just removed all objects, eh?
+        self._cache.clear()
+        self._cache_mark_complete()
 
     def __nonzero__(self):
         where = self._pj_add_items_filter(None) or True
