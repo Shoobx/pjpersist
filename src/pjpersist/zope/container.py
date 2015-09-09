@@ -538,7 +538,7 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             return self._cache.iteritems()
         # Load all objects from the database.
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['id'],
                   self._load_one(row['id'], row['data']))
                  for row in result]
