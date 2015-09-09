@@ -531,7 +531,7 @@ class IdNamesPJContainer(PJContainer):
         return iter(unicode(row['id']) for row in result)
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
         # Load all objects from the database.
