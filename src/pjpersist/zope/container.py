@@ -465,7 +465,10 @@ class PJContainer(contained.Contained,
             return cur.fetchone()[0]
 
     def clear(self):
-        for key in self.keys():
+        # why items? it seems to be better to bulk-load all objects that going
+        # to be deleted with one SQL query, because __delitem__ will anyway
+        # load state, but then with one query for each object
+        for key, value in self.items():
             del self[key]
         # Signal the container that the cache is now complete.
         # we just removed all objects, eh?
