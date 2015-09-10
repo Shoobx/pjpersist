@@ -517,22 +517,21 @@ class ObjectReader(object):
         # the code was:
         # if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
         stateIsDict = isinstance(state, dict)
-        state_py_type = None
         if stateIsDict:
             state_py_type = state.get('_py_type')
-        if state_py_type == 'BINARY':
-            # Binary data in Python 2 is presented as a string. We will
-            # convert back to binary when serializing again.
-            return state['data'].decode('base64')
-        if state_py_type == 'DBREF':
-            # Load a persistent object. Using the _jar.load() method to make
-            # sure we're loading from right database and caching is properly
-            # applied.
-            dbref = DBRef(state['table'], state['id'], state['database'])
-            return self._jar.load(dbref)
-        if state_py_type == 'type':
-            # Convert a simple object reference, mostly classes.
-            return self.simple_resolve(state['path'])
+            if state_py_type == 'BINARY':
+                # Binary data in Python 2 is presented as a string. We will
+                # convert back to binary when serializing again.
+                return state['data'].decode('base64')
+            if state_py_type == 'DBREF':
+                # Load a persistent object. Using the _jar.load() method to make
+                # sure we're loading from right database and caching is properly
+                # applied.
+                dbref = DBRef(state['table'], state['id'], state['database'])
+                return self._jar.load(dbref)
+            if state_py_type == 'type':
+                # Convert a simple object reference, mostly classes.
+                return self.simple_resolve(state['path'])
 
         # Give the custom serializers a chance to weigh in.
         for serializer in SERIALIZERS:
