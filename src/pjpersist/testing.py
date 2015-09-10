@@ -111,9 +111,7 @@ def cleanDB(conn=None):
 
 
 def setUpSerializers(test):
-    serialize.SERIALIZERS = [serializers.DateTimeSerializer(),
-                             serializers.DateSerializer(),
-                             serializers.TimeSerializer()]
+    serialize.SERIALIZERS = []
 
 
 def tearDownSerializers(test):

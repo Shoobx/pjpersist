@@ -261,25 +261,22 @@ Custom Serializers
 
 (A patch to demonstrate)
 
-  >>> del serialize.SERIALIZERS[1]
-
   >>> dm.root['stephan'].birthday = datetime.date(1981, 1, 25)
   >>> transaction.commit()
 
   >>> pprint.pprint(
   ...     fetchone(person_cn,
   ...         """data @> '{"name": "Stephan Richter"}'""")['data']['birthday'])
-  {u'_py_factory': u'datetime.date',
-   u'_py_factory_args': [{u'_py_type': u'BINARY', u'data': u'B70BGQ==\n'}]}
+  {u'_py_type': u'datetime.date', u'value': u'1981-01-25'}
 
-As you can see, the serialization of the birthay is all but ideal. We can,
+As you can see, the serialization of the birthay is an ISO string. We can,
 however, provide a custom serializer that uses the ordinal to store the data.
 
   >>> class DateSerializer(serialize.ObjectSerializer):
   ...
   ...     def can_read(self, state):
   ...         return isinstance(state, dict) and \
-  ...                state.get('_py_type') == 'datetime.date'
+  ...                state.get('_py_type') == 'custom_date'
   ...
   ...     def read(self, state):
   ...         return datetime.date.fromordinal(state['ordinal'])
@@ -288,7 +285,7 @@ however, provide a custom serializer that uses the ordinal to store the data.
   ...         return isinstance(obj, datetime.date)
   ...
   ...     def write(self, obj):
-  ...         return {'_py_type': 'datetime.date',
+  ...         return {'_py_type': 'custom_date',
   ...                 'ordinal': obj.toordinal()}
 
   >>> serialize.SERIALIZERS.append(DateSerializer())
@@ -307,7 +304,7 @@ Let's have a look again:
                          u'database': u'pjpersist_test',
                          u'id': u'0001020304050607080a0b0c0',
                          u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date', u'ordinal': 723205},
+            u'birthday': {u'_py_type': u'custom_date', u'ordinal': 723205},
             u'friends': {u'roy': {u'_py_type': u'DBREF',
                                   u'database': u'pjpersist_test',
                                   u'id': u'0001020304050607080a0b0c0',
@@ -317,13 +314,13 @@ Let's have a look again:
                        u'area': u'978',
                        u'country': u'+1',
                        u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00'},
+            u'today': {u'_py_type': u'custom_date', u'ordinal': 735367},
             u'visited': [u'Germany', u'USA']},
    'id': u'0001020304050607080a0b0c0'}
 
-
 Much better!
+
+  >>> del serialize.SERIALIZERS[:]
 
 
 Persistent Objects as Sub-Documents
@@ -363,7 +360,8 @@ of another document:
                          u'database': u'pjpersist_test',
                          u'id': u'0001020304050607080a0b0c0',
                          u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date', u'ordinal': 723205},
+            u'birthday': {u'_py_type': u'datetime.date',
+                          u'value': u'1981-01-25'},
             u'car': {u'_py_persistent_type': u'__main__.Car',
                      u'make': u'Ford',
                      u'model': u'Explorer',
@@ -377,8 +375,7 @@ of another document:
                        u'area': u'978',
                        u'country': u'+1',
                        u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00'},
+            u'today': {u'_py_type': u'datetime.date', u'value': u'2014-05-14'},
             u'visited': [u'Germany', u'USA']},
    'id': u'0001020304050607080a0b0c0'}
 
