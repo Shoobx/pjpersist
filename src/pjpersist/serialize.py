@@ -513,17 +513,24 @@ class ObjectReader(object):
         return sub_obj
 
     def get_object(self, state, obj):
-        if isinstance(state, dict) and state.get('_py_type') == 'BINARY':
+        # stateIsDict and state_py_type: optimization to avoid X lookups
+        # the code was:
+        # if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
+        stateIsDict = isinstance(state, dict)
+        state_py_type = None
+        if stateIsDict:
+            state_py_type = state.get('_py_type')
+        if state_py_type == 'BINARY':
             # Binary data in Python 2 is presented as a string. We will
             # convert back to binary when serializing again.
             return state['data'].decode('base64')
-        if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
+        if state_py_type == 'DBREF':
             # Load a persistent object. Using the _jar.load() method to make
             # sure we're loading from right database and caching is properly
             # applied.
             dbref = DBRef(state['table'], state['id'], state['database'])
             return self._jar.load(dbref)
-        if isinstance(state, dict) and state.get('_py_type') == 'type':
+        if state_py_type == 'type':
             # Convert a simple object reference, mostly classes.
             return self.simple_resolve(state['path'])
 
@@ -532,7 +539,7 @@ class ObjectReader(object):
             if serializer.can_read(state):
                 return serializer.read(state)
 
-        if isinstance(state, dict) and (
+        if stateIsDict and (
             '_py_factory' in state
             or '_py_constant' in state
             or '_py_type' in state
@@ -549,7 +556,7 @@ class ObjectReader(object):
                 setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
                 sub_obj._p_jar = self._jar
             return sub_obj
-        if isinstance(state, dict):
+        if stateIsDict:
             # All dictionaries are converted to persistent dictionaries, so
             # that state changes are detected. Also convert all value states
             # to objects.
