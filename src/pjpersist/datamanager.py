@@ -297,6 +297,74 @@ class Root(UserDict.DictMixin):
             return [doc['name'] for doc in cur.fetchall()]
 
 
+"""
+experiment: trying to push SQL command execution to a thread via a queue
+
+the idea is to allow pjpersist to continue with serialization while
+the SQL command executes
+
+problems:
+- how to raise SQL exceptions to PJDataManager?
+- with s.app tests it seems SQL commands get interleaved with serialization,
+  but there's NO win in overall runtime, in fact WriterQueue is slower, WHY???
+"""
+
+KILL = object()
+DEBUG = True
+
+import Queue
+
+
+class WriterQueue(threading.Thread):
+    def __init__(self, dm):
+        super(WriterQueue, self).__init__(name="pjpersist-writer-thread")
+        self.daemon = True
+        self.dm = dm
+        self.queue = Queue.Queue()
+        self.running = True
+        self.cur = self.dm.getCursor()
+
+    def run(self):
+        while self.running:
+            item = self.queue.get()
+            # try:
+            #     item = self.queue.get(block=False)
+            # except Queue.Empty:
+            #     time.sleep(0.0001)
+            #     continue
+            if item is KILL:
+                return
+            # XXX: catch exceptions
+            #      and biggest headache: raise those exceptions to PJDataManager
+            self.do(item)
+            self.queue.task_done()
+
+    def do(self, item):
+        sql, params = item
+        if DEBUG:
+            print '--- do  ', sql, params
+        # with self.dm.getCursor() as cur:
+        #     cur.execute(sql, *params)
+        self.cur.execute(sql, *params)
+        if DEBUG:
+            print '--- done', sql, params
+
+    def addCommand(self, sql, *params):
+        if DEBUG:
+            print '--- addCommand', sql, params
+        self.queue.put((sql, params))
+
+    def join(self, timeout=None):
+        if DEBUG:
+            print '--- join'
+        self.queue.join()
+        self.queue.put(KILL)
+        self.running = False
+        super(WriterQueue, self).join(timeout)
+        if DEBUG:
+            print '--- join done'
+
+
 class PJDataManager(object):
     zope.interface.implements(interfaces.IPJDataManager)
 
@@ -330,6 +398,22 @@ class PJDataManager(object):
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
+
+        self._writerqueue = None
+
+    def addCommand(self, sql, *params):
+        if self._writerqueue is None:
+            self._writerqueue = WriterQueue(self)
+            self._writerqueue.start()
+
+        self._writerqueue.addCommand(sql, *params)
+
+    def waitForWriterQueue(self):
+        if self._writerqueue is None:
+            return
+
+        self._writerqueue.join()
+        self._writerqueue = None
 
     def requestTransactionOptions(self, readonly=None, deferrable=None,
                                   isolation=None):
@@ -446,44 +530,46 @@ class PJDataManager(object):
         if id is None:
             id = self.createId()
         # Insert the document into the table.
-        with self.getCursor() as cur:
-            builtins = dict(id=id, data=Json(doc))
-            if column_data is None:
-                column_data = builtins
-            else:
-                column_data.update(builtins)
+        #with self.getCursor() as cur:
+        builtins = dict(id=id, data=Json(doc))
+        if column_data is None:
+            column_data = builtins
+        else:
+            column_data.update(builtins)
 
-            columns = []
-            values = []
-            for colname, value in column_data.items():
-                columns.append(colname)
-                values.append(value)
-            placeholders = ', '.join(['%s'] * len(columns))
-            columns = ', '.join(columns)
-            sql = "INSERT INTO %s (%s) VALUES (%s)" % (
-                table, columns, placeholders)
+        columns = []
+        values = []
+        for colname, value in column_data.items():
+            columns.append(colname)
+            values.append(value)
+        placeholders = ', '.join(['%s'] * len(columns))
+        columns = ', '.join(columns)
+        sql = "INSERT INTO %s (%s) VALUES (%s)" % (
+            table, columns, placeholders)
 
-            cur.execute(sql, tuple(values))
+        #cur.execute(sql, tuple(values))
+        self.addCommand(sql, tuple(values))
         return id
 
     def _update_doc(self, database, table, doc, id, column_data=None):
         # Insert the document into the table.
-        with self.getCursor() as cur:
-            builtins = dict(data=Json(doc))
-            if column_data is None:
-                column_data = builtins
-            else:
-                column_data.update(builtins)
+        #with self.getCursor() as cur:
+        builtins = dict(data=Json(doc))
+        if column_data is None:
+            column_data = builtins
+        else:
+            column_data.update(builtins)
 
-            columns = []
-            values = []
-            for colname, value in column_data.items():
-                columns.append(colname+'=%s')
-                values.append(value)
-            columns = ', '.join(columns)
-            sql = "UPDATE %s SET %s WHERE id = %%s" % (table, columns)
+        columns = []
+        values = []
+        for colname, value in column_data.items():
+            columns.append(colname+'=%s')
+            values.append(value)
+        columns = ', '.join(columns)
+        sql = "UPDATE %s SET %s WHERE id = %%s" % (table, columns)
 
-            cur.execute(sql, tuple(values) + (id,))
+        #cur.execute(sql, tuple(values) + (id,))
+        self.addCommand(sql, tuple(values) + (id,))
         return id
 
     def _get_doc(self, database, table, id):
@@ -526,6 +612,8 @@ class PJDataManager(object):
             written.add(obj_id)
             todo = set(self._registered_objects.keys()) - written
 
+        self.waitForWriterQueue()
+
     def _get_doc_object(self, obj):
         seen = []
         # Make sure we write the object representing a document in a
@@ -547,6 +635,7 @@ class PJDataManager(object):
         if id(obj) in self._registered_objects:
             obj._p_changed = False
             del self._registered_objects[id(obj)]
+        self.waitForWriterQueue()
         return res
 
     def load(self, dbref, klass=None):
@@ -653,6 +742,8 @@ class PJDataManager(object):
                 self._modified_objects[id(obj)] = obj
 
     def abort(self, transaction):
+        self.waitForWriterQueue()
+        
         self._report_stats()
         try:
             self._conn.rollback()
