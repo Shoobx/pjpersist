@@ -266,7 +266,7 @@ class PJContainer(contained.Contained,
             raise KeyError(key)
         return obj
 
-    def _real_setitem(self, key, value):
+    def _set_mapping_and_parent(self, key, value):
         # This call by itself causes the state to change _p_changed to True.
         # but make sure we set attributes before eventually inserting...
         # saves eventually one more UPDATE query
@@ -274,6 +274,9 @@ class PJContainer(contained.Contained,
             setattr(value, self._pj_mapping_key, key)
         if self._pj_parent_key is not None:
             setattr(value, self._pj_parent_key, self._pj_get_parent_key_value())
+
+    def _real_setitem(self, key, value):
+        self._set_mapping_and_parent(key, value)
 
         # Make sure the value is in the database, since we might want
         # to use its oid.
@@ -548,12 +551,17 @@ class IdNamesPJContainer(PJContainer):
         return iter(items)
 
     def _real_setitem(self, key, value):
+        # set these before inserting
+        self._set_mapping_and_parent(key, value)
+
         # We want JSONB document ids to be our keys, so pass it to insert(), if
         # key is provided
         if value._p_oid is None:
             self._pj_jar.insert(value, key)
 
-        super(IdNamesPJContainer, self)._real_setitem(key, value)
+        # no need for super, _set_mapping_and_parent does the job,
+        # updating mapping and parent BEFORE inserting saves one SQL query
+        # super(IdNamesPJContainer, self)._real_setitem(key, value)
 
 
 class AllItemsPJContainer(PJContainer):

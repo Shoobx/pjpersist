@@ -34,6 +34,10 @@ AVAILABLE_NAME_MAPPINGS = set()
 PATH_RESOLVE_CACHE = {}
 TABLE_KLASS_MAP = {}
 
+FMT_DATE = "%Y-%m-%d"
+FMT_TIME = "%H:%M:%S"
+FMT_DATETIME = "%Y-%m-%dT%H:%M:%S"
+
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
     unicode: "text",
@@ -268,7 +272,8 @@ class ObjectWriter(object):
 
     def get_state(self, obj, pobj=None, seen=None):
         seen = seen or []
-        if type(obj) in interfaces.PJ_NATIVE_TYPES:
+        objectType = type(obj)
+        if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
         if isinstance(obj, str):
@@ -281,13 +286,22 @@ class ObjectWriter(object):
                 return obj
             except UnicodeError:
                 return {'_py_type': 'BINARY', 'data': obj.encode('base64')}
-
         # Some objects might not naturally serialize well and create a very
         # ugly JSONB entry. Thus, we allow custom serializers to be
         # registered, which can encode/decode different types of objects.
         for serializer in SERIALIZERS:
             if serializer.can_write(obj):
                 return serializer.write(obj)
+
+        if objectType == datetime.date:
+            return {'_py_type': 'datetime.date',
+                    'value': obj.strftime(FMT_DATE)}
+        if objectType == datetime.time:
+            return {'_py_type': 'datetime.time',
+                    'value': obj.strftime(FMT_TIME)}
+        if objectType == datetime.datetime:
+            return {'_py_type': 'datetime.datetime',
+                    'value': obj.strftime(FMT_DATETIME)}
 
         if isinstance(obj, (type, types.ClassType)):
             # We frequently store class and function paths as meta-data, so we
@@ -513,26 +527,42 @@ class ObjectReader(object):
         return sub_obj
 
     def get_object(self, state, obj):
-        if isinstance(state, dict) and state.get('_py_type') == 'BINARY':
-            # Binary data in Python 2 is presented as a string. We will
-            # convert back to binary when serializing again.
-            return state['data'].decode('base64')
-        if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
-            # Load a persistent object. Using the _jar.load() method to make
-            # sure we're loading from right database and caching is properly
-            # applied.
-            dbref = DBRef(state['table'], state['id'], state['database'])
-            return self._jar.load(dbref)
-        if isinstance(state, dict) and state.get('_py_type') == 'type':
-            # Convert a simple object reference, mostly classes.
-            return self.simple_resolve(state['path'])
+        # stateIsDict and state_py_type: optimization to avoid X lookups
+        # the code was:
+        # if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
+        # this methods gets called a gazillion times, so being fast is crucial
+        stateIsDict = isinstance(state, dict)
+        if stateIsDict:
+            state_py_type = state.get('_py_type')
+            if state_py_type == 'BINARY':
+                # Binary data in Python 2 is presented as a string. We will
+                # convert back to binary when serializing again.
+                return state['data'].decode('base64')
+            if state_py_type == 'DBREF':
+                # Load a persistent object. Using the _jar.load() method to make
+                # sure we're loading from right database and caching is properly
+                # applied.
+                dbref = DBRef(state['table'], state['id'], state['database'])
+                return self._jar.load(dbref)
+            if state_py_type == 'type':
+                # Convert a simple object reference, mostly classes.
+                return self.simple_resolve(state['path'])
+            if state_py_type == 'datetime.date':
+                return datetime.datetime.strptime(
+                    state['value'], FMT_DATE).date()
+            if state_py_type == 'datetime.time':
+                return datetime.datetime.strptime(
+                    state['value'], FMT_TIME).time()
+            if state_py_type == 'datetime.datetime':
+                return datetime.datetime.strptime(
+                    state['value'], FMT_DATETIME)
 
         # Give the custom serializers a chance to weigh in.
         for serializer in SERIALIZERS:
             if serializer.can_read(state):
                 return serializer.read(state)
 
-        if isinstance(state, dict) and (
+        if stateIsDict and (
             '_py_factory' in state
             or '_py_constant' in state
             or '_py_type' in state
@@ -549,7 +579,7 @@ class ObjectReader(object):
                 setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
                 sub_obj._p_jar = self._jar
             return sub_obj
-        if isinstance(state, dict):
+        if stateIsDict:
             # All dictionaries are converted to persistent dictionaries, so
             # that state changes are detected. Also convert all value states
             # to objects.
