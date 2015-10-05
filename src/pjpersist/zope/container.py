@@ -283,6 +283,10 @@ class PJContainer(contained.Contained,
         if value._p_oid is None:
             self._pj_jar.insert(value)
 
+        # Also add the item to the container cache.
+        # _pj_jar.insert and _cache insert must be close!
+        self._cache[key] = value
+
     def __setitem__(self, key, value):
         # When the key is None, we need to determine it.
         if key is None:
@@ -293,8 +297,6 @@ class PJContainer(contained.Contained,
                 key = getattr(value, self._pj_mapping_key)
         # We want to be as close as possible to using the Zope semantics.
         contained.setitem(self, self._real_setitem, key, value)
-        # Also add the item to the container cache.
-        self._cache[key] = value
 
     def add(self, value, key=None):
         # We are already supporting ``None`` valued keys, which prompts the key
@@ -558,6 +560,10 @@ class IdNamesPJContainer(PJContainer):
         # key is provided
         if value._p_oid is None:
             self._pj_jar.insert(value, key)
+
+        # Also add the item to the container cache.
+        # _pj_jar.insert and _cache insert must be close!
+        self._cache[key] = value
 
         # no need for super, _set_mapping_and_parent does the job,
         # updating mapping and parent BEFORE inserting saves one SQL query

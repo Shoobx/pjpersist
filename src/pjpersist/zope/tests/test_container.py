@@ -944,6 +944,137 @@ def doctest_PJContainer_cache_complete():
 
     """
 
+
+def doctest_PJContainer_cache_events():
+    """PJContainer: _cache insert/delete with events
+    (regression: events missed freshly inserted objects)
+
+      >>> transaction.commit()
+      >>> ppl = dm.root['people'] = container.PJContainer('person')
+
+    Set cache complete
+
+      >>> ppl.clear()
+
+      >>> ppl._cache_complete
+      True
+
+    INSERT
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
+      ...     )
+      ... def handleObjectAddedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectAddedEvent)
+
+    We want to see that the container in the event handler HAS the just added
+    object.
+
+      >>> len(ppl)
+      0
+
+    Add a single object
+
+      >>> ppl[u'stephan'] = Person(u'Stephan')
+      container length: 1
+
+    DELETE
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
+      ...     )
+      ... def handleObjectRemovedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectRemovedEvent)
+
+      >>> len(ppl)
+      1
+
+    Remove the very first object
+
+      >>> del ppl[ppl.keys()[0]]
+      container length: 0
+
+    """
+
+
+def doctest_IdNamesPJContainer_cache_events():
+    """IdNamesPJContainer: _cache insert/delete with events
+    (regression: events missed freshly inserted objects)
+
+      >>> transaction.commit()
+      >>> ppl = dm.root['people'] = container.IdNamesPJContainer('person')
+
+    Set cache complete
+
+      >>> ppl.clear()
+
+      >>> ppl._cache_complete
+      True
+
+    INSERT
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
+      ...     )
+      ... def handleObjectAddedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectAddedEvent)
+
+    We want to see that the container in the event handler HAS the just added
+    object.
+
+      >>> len(ppl)
+      0
+
+      >>> ppl.add(Person(u'Stephan'))
+      container length: 1
+
+    DELETE
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
+      ...     )
+      ... def handleObjectRemovedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectRemovedEvent)
+
+      >>> len(ppl)
+      1
+
+    Remove the very first object
+
+      >>> del ppl[ppl.keys()[0]]
+      container length: 0
+
+    """
+
+
 def doctest_IdNamesPJContainer_basic():
     """IdNamesPJContainer: basic
 
