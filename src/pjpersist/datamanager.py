@@ -350,7 +350,6 @@ class PJDataManager(object):
                                            "READ COMMITTED",
                                            "READ UNCOMMITTED"]
             modes.append("ISOLATION LEVEL %s" % self._txn_isolation)
-
         if not modes:
             return
 
@@ -364,6 +363,8 @@ class PJDataManager(object):
         cur = self._conn.cursor(cursor_factory=factory)
 
         if not self._txn_active:
+            # clear any traceback before starting next txn
+            CONFLICT_TRACEBACK_INFO.traceback = None
             self._setTransactionOptions(cur)
             self._txn_active = True
         return cur
