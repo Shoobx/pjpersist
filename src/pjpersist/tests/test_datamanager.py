@@ -1414,7 +1414,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 2)
+        self.assertEquals(len(ctb), 17)
         transaction.abort()
 
         # start another transaction and verify the traceback
