@@ -230,9 +230,7 @@ def check_for_conflict(e, sql):
         psycopg2.errorcodes.DEADLOCK_DETECTED
     )
     if e.pgcode in serialization_errors:
-        t, v, b = sys.exc_info()
-        CONFLICT_TRACEBACK_INFO.traceback = traceback.format_exception(
-            t, v, b)
+        CONFLICT_TRACEBACK_INFO.traceback = traceback.format_stack()
         LOG.warning("Conflict detected with code %s sql: %s", e.pgcode, sql)
         raise interfaces.ConflictError(str(e), sql)
 
@@ -352,7 +350,6 @@ class PJDataManager(object):
                                            "READ COMMITTED",
                                            "READ UNCOMMITTED"]
             modes.append("ISOLATION LEVEL %s" % self._txn_isolation)
-
         if not modes:
             return
 
@@ -366,6 +363,8 @@ class PJDataManager(object):
         cur = self._conn.cursor(cursor_factory=factory)
 
         if not self._txn_active:
+            # clear any traceback before starting next txn
+            CONFLICT_TRACEBACK_INFO.traceback = None
             self._setTransactionOptions(cur)
             self._txn_active = True
         return cur

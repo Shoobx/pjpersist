@@ -1269,17 +1269,12 @@ class DatamanagerConflictTest(testing.PJTestCase):
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
 
-        self.assertIsNone(
-            datamanager.CONFLICT_TRACEBACK_INFO.traceback)
-
         #Finish in order 2 - 1
 
         dm2.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
             dm1.tpc_finish(None)
 
-        self.assertIsNotNone(
-            datamanager.CONFLICT_TRACEBACK_INFO.traceback)
         transaction.abort()
 
         conn2.close()
@@ -1385,6 +1380,53 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         conn2.close()
         conn1.close()
+
+    def test_conflict_tracebacks(self):
+        """Verify conflict tracebacks are captured properly
+        and reset on the next transaction."""
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        foo = Foo('foo-first')
+        self.dm.root['foo'] = foo
+
+        self.dm.tpc_finish(None)
+
+        conn1 = testing.getConnection(testing.DBNAME)
+        dm1 = datamanager.PJDataManager(conn1)
+        dm1.root['foo'].name = 'foo-second'
+
+        conn2 = testing.getConnection(testing.DBNAME)
+        dm2 = datamanager.PJDataManager(conn2)
+
+        del dm2.root['foo']
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        #Finish in order 2 - 1
+
+        dm2.tpc_finish(None)
+        with self.assertRaises(interfaces.ConflictError):
+            dm1.tpc_finish(None)
+
+        # verify by length that we have the full traceback
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNotNone(ctb)
+        self.assertEquals(len(ctb), 17)
+        transaction.abort()
+
+        # start another transaction and verify the traceback
+        # is reset
+        datamanager.PJDataManager(conn2)
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        conn2.close()
+        conn1.close()
+
 
     def test_conflict_commit_1(self):
         """Test conflict on commit
