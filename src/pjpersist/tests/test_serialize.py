@@ -275,7 +275,7 @@ def doctest_ObjectWriter_get_non_persistent_state():
       CircularReferenceError: <__main__.This object at 0x3051550>
     """
 
-def doctest_ObjectWriter_get_non_persistent_state_circluar_references():
+def doctest_ObjectWriter_get_non_persistent_state_circular_references():
     r"""ObjectWriter: get_non_persistent_state(): Circular References
 
     This test checks that circular references are not incorrectly detected.
