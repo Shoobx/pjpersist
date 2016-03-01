@@ -204,20 +204,22 @@ class ObjectWriter(object):
         return db_name, table_name
 
     def get_non_persistent_state(self, obj, seen):
-        __traceback_info__ = obj, type(obj)
+        objectId = id(obj)
+        objectType = type(obj)
+        __traceback_info__ = obj, objectType, objectId, list(seen)
         # XXX: Look at the pickle library how to properly handle all types and
         # old-style classes with all of the possible pickle extensions.
 
         # Only non-persistent, custom objects can produce unresolvable
         # circular references.
-        if id(obj) in seen:
+        if objectId in seen:
             raise interfaces.CircularReferenceError(obj)
         # Add the current object to the list of seen objects.
-        if not (type(obj) in interfaces.REFERENCE_SAFE_TYPES or
+        if not (objectType in interfaces.REFERENCE_SAFE_TYPES or
                 getattr(obj, '_pj_reference_safe', False)):
-            seen.append(id(obj))
+            seen.append(objectId)
         # Get the state of the object. Only pickable objects can be reduced.
-        reduce_fn = copy_reg.dispatch_table.get(type(obj))
+        reduce_fn = copy_reg.dispatch_table.get(objectType)
         if reduce_fn is not None:
             reduced = reduce_fn(obj)
         else:
@@ -227,7 +229,7 @@ class ObjectWriter(object):
         # sure we handle that case gracefully.
         if isinstance(reduced, str):
             # When the reduced state is just a string it represents a name in
-            # a module. The module will be extrated from __module__.
+            # a module. The module will be extracted from __module__.
             return {'_py_constant': obj.__module__+'.'+reduced}
         if len(reduced) == 2:
             factory, args = reduced
@@ -271,8 +273,9 @@ class ObjectWriter(object):
         return dbref.as_json()
 
     def get_state(self, obj, pobj=None, seen=None):
-        seen = seen or []
         objectType = type(obj)
+        seen = seen or []
+        __traceback_info__ = obj, objectType, pobj, list(seen)
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
