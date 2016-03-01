@@ -203,21 +203,13 @@ class ObjectWriter(object):
             return db_name, get_dotted_name(obj.__class__, True)
         return db_name, table_name
 
-    def get_non_persistent_state(self, obj, seen):
+    def get_non_persistent_state(self, obj):
         objectId = id(obj)
         objectType = type(obj)
-        __traceback_info__ = obj, objectType, objectId, list(seen)
+        __traceback_info__ = obj, objectType, objectId
         # XXX: Look at the pickle library how to properly handle all types and
         # old-style classes with all of the possible pickle extensions.
 
-        # Only non-persistent, custom objects can produce unresolvable
-        # circular references.
-        if objectId in seen:
-            raise interfaces.CircularReferenceError(obj)
-        # Add the current object to the list of seen objects.
-        if not (objectType in interfaces.REFERENCE_SAFE_TYPES or
-                getattr(obj, '_pj_reference_safe', False)):
-            seen.append(objectId)
         # Get the state of the object. Only pickable objects can be reduced.
         reduce_fn = copy_reg.dispatch_table.get(objectType)
         if reduce_fn is not None:
@@ -251,12 +243,13 @@ class ObjectWriter(object):
             state = {interfaces.PY_TYPE_ATTR_NAME: get_dotted_name(args[0])}
         else:
             state = {'_py_factory': get_dotted_name(factory),
-                     '_py_factory_args': self.get_state(args, obj, seen)}
+                     '_py_factory_args': self.get_state(args, obj)}
         for name, value in obj_state.items():
-            state[name] = self.get_state(value, obj, seen)
+            state[name] = self.get_state(value, obj)
         return state
 
-    def get_persistent_state(self, obj, seen):
+    def get_persistent_state(self, obj):
+        #seen.add(id(obj))
         __traceback_info__ = obj
         # Persistent sub-objects are stored by reference, the key being
         # (table name, oid).
@@ -272,10 +265,12 @@ class ObjectWriter(object):
         # deserialization later.
         return dbref.as_json()
 
-    def get_state(self, obj, pobj=None, seen=None):
+    def get_state(self, obj, pobj=None):
         objectType = type(obj)
-        seen = seen or []
-        __traceback_info__ = obj, objectType, pobj, list(seen)
+        # in_seen = seen
+        # if seen is None:
+        #     seen = set()
+        __traceback_info__ = obj, objectType, pobj
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
@@ -325,7 +320,7 @@ class ObjectWriter(object):
         if isinstance(obj, (tuple, list, PersistentList)):
             # Make sure that all values within a list are serialized
             # correctly. Also convert any sequence-type to a simple list.
-            return [self.get_state(value, pobj, seen) for value in obj]
+            return [self.get_state(value, pobj) for value in obj]
         if isinstance(obj, (dict, PersistentDict)):
             # Same as for sequences, make sure that the contained values are
             # properly serialized.
@@ -333,7 +328,7 @@ class ObjectWriter(object):
             has_non_string_key = False
             data = []
             for key, value in obj.items():
-                data.append((key, self.get_state(value, pobj, seen)))
+                data.append((key, self.get_state(value, pobj)))
                 has_non_string_key |= not isinstance(key, basestring)
                 if (not isinstance(key, basestring) or '\0' in key):
                     has_non_string_key = True
@@ -351,11 +346,23 @@ class ObjectWriter(object):
             # Only create a persistent reference, if the object does not want
             # to be a sub-document.
             if not getattr(obj, interfaces.SUB_OBJECT_ATTR_NAME, False):
-                return self.get_persistent_state(obj, seen)
+                return self.get_persistent_state(obj)
             # This persistent object is a sub-document, so it is treated like
             # a non-persistent object.
 
-        return self.get_non_persistent_state(obj, seen)
+        try:
+            res = self.get_non_persistent_state(obj)
+        except RuntimeError as re:
+            # let it run into a RuntimeError...
+            # it's hard to catch a non-persistent - non-persistent circular
+            #    reference while NOT catching a
+            #    >>> anobj = object()
+            #    >>> alist = [anobj, anobj]
+            if re.args[0] == 'maximum recursion depth exceeded':
+                raise interfaces.CircularReferenceError(obj)
+            else:
+                raise
+        return res
 
     def get_full_state(self, obj):
         doc = self.get_state(obj.__getstate__(), obj)

@@ -576,7 +576,7 @@ circular references are detected and reported:
   >>> dm.root['top'] = top
   Traceback (most recent call last):
   ...
-  CircularReferenceError: <__main__.Foo object at 0x7fec75731890>
+  CircularReferenceError: <...>
 
 
 Circular Persistent References

@@ -235,7 +235,7 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> this = This(1)
-      >>> writer.get_non_persistent_state(this, [])
+      >>> writer.get_non_persistent_state(this)
       {'num': 1, '_py_type': '__main__.This'}
 
     A simple old-style class:
@@ -245,14 +245,14 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> that = That(1)
-      >>> writer.get_non_persistent_state(that, [])
+      >>> writer.get_non_persistent_state(that)
       {'num': 1, '_py_type': '__main__.That'}
 
     The method also handles persistent classes that do not want their own
     document:
 
       >>> top = Top()
-      >>> writer.get_non_persistent_state(top, [])
+      >>> writer.get_non_persistent_state(top)
       {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top'}
 
     And then there are the really weird cases, which is the reason we usually
@@ -261,80 +261,11 @@ def doctest_ObjectWriter_get_non_persistent_state():
       >>> orig_serializers = serialize.SERIALIZERS
       >>> serialize.SERIALIZERS = []
 
-      >>> writer.get_non_persistent_state(datetime.date(2011, 11, 1), [])
+      >>> writer.get_non_persistent_state(datetime.date(2011, 11, 1))
       {'_py_factory': 'datetime.date',
        '_py_factory_args': [{'data': 'B9sLAQ==\n', '_py_type': 'BINARY'}]}
 
       >>> serialize.SERIALIZERS = orig_serializers
-
-    Circular object references cause an error:
-
-      >>> writer.get_non_persistent_state(this, [id(this)])
-      Traceback (most recent call last):
-      ...
-      CircularReferenceError: <__main__.This object at 0x3051550>
-    """
-
-def doctest_ObjectWriter_get_non_persistent_state_circular_references():
-    r"""ObjectWriter: get_non_persistent_state(): Circular References
-
-    This test checks that circular references are not incorrectly detected.
-
-      >>> writer = serialize.ObjectWriter(dm)
-
-    1. Make sure that only the same *instance* is recognized as circular
-       reference.
-
-       >>> class Compare(object):
-       ...   def __init__(self, x):
-       ...       self.x = x
-       ...   def __eq__(self, other):
-       ...       return self.x == other.x
-
-       >>> seen = []
-       >>> c1 = Compare(1)
-       >>> writer.get_non_persistent_state(c1, seen)
-       {'x': 1, '_py_type': '__main__.Compare'}
-       >>> seen == [id(c1)]
-       True
-
-       >>> c2 = Compare(1)
-       >>> writer.get_non_persistent_state(c2, seen)
-       {'x': 1, '_py_type': '__main__.Compare'}
-       >>> seen == [id(c1), id(c2)]
-       True
-
-    2. Objects that are declared safe of circular references are not added to
-       the list of seen objects. These are usually objects that are comprised
-       of other simple types, so that they do not contain other complex
-       objects in their serialization output.
-
-       A default example is ``datetime.date``, which is not a PostGreSQL-native
-       type, but only references simple integers and serializes into a binary
-       string.
-
-         >>> import datetime
-         >>> d = datetime.date(2013, 10, 16)
-         >>> seen = []
-         >>> writer.get_non_persistent_state(d, seen)
-         {'_py_factory': 'datetime.date',
-          '_py_factory_args': [{'data': 'B90KEA==\n', '_py_type': 'BINARY'}]}
-         >>> seen
-         []
-
-       Types can also declare themselves as reference safe:
-
-         >>> class Ref(object):
-         ...   _pj_reference_safe = True
-         ...   def __init__(self, x):
-         ...       self.x = x
-
-         >>> one = Ref(1)
-         >>> seen = []
-         >>> writer.get_non_persistent_state(one, seen)
-         {'x': 1, '_py_type': '__main__.Ref'}
-         >>> seen
-         []
     """
 
 def doctest_ObjectWriter_get_persistent_state():
@@ -348,7 +279,7 @@ def doctest_ObjectWriter_get_persistent_state():
       >>> foo = Foo()
       >>> foo._p_oid
 
-      >>> pprint.pprint(writer.get_persistent_state(foo, []))
+      >>> pprint.pprint(writer.get_persistent_state(foo))
       {'_py_type': 'DBREF',
        'database': 'pjpersist_test',
        'id': '0001020304050607080a0b0c0',
@@ -363,7 +294,7 @@ def doctest_ObjectWriter_get_persistent_state():
 
     The next time the object simply returns its reference:
 
-      >>> pprint.pprint(writer.get_persistent_state(foo, []))
+      >>> pprint.pprint(writer.get_persistent_state(foo))
       {'_py_type': 'DBREF',
        'database': 'pjpersist_test',
        'id': '0001020304050607080a0b0c0',
@@ -500,6 +431,55 @@ def doctest_ObjectWriter_get_state_sub_doc_object_with_no_pobj():
       True
       >>> t2._p_pj_doc_object is top
       True
+    """
+
+def doctest_ObjectWriter_get_state_same_obj_in_dict():
+    """ObjectWriter: get_state():
+
+    If get_state gets the very same object in a structure it must not fail.
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+      >>> pdict = serialize.PersistentDict()
+      >>> one = Simple()
+      >>> one.data = 'data'
+      >>> pdict['one'] = one
+      >>> pdict['two'] = one
+
+      >> from cPickle import dumps
+      
+      >> print dumps(pdict)
+      
+      >> import pickletools
+      >> pickletools.dis(dumps(pdict))
+
+      >>> pprint.pprint(writer.get_state(pdict))
+      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'},
+       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'}}
+
+    """
+
+def doctest_ObjectWriter_get_state_same_obj_in_list():
+    """ObjectWriter: get_state():
+
+    If get_state gets the very same object in a structure it must not fail.
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+      >>> plist = serialize.PersistentList()
+      >>> one = Simple()
+      >>> one.data = 'data'
+      >>> plist.append(one)
+      >>> plist.append(one)
+
+      >> from cPickle import dumps
+
+      >> print dumps(plist, protocol=0)
+
+      >>> pprint.pprint(writer.get_state(plist))
+      [{'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'},
+       {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'}]
+
     """
 
 def doctest_ObjectWriter_get_full_state():
