@@ -650,9 +650,6 @@ class PJDataManager(object):
                 obj_registered = getattr(obj, '_pj_object_registered', None)
                 if obj_registered is not None:
                     obj_registered(self)
-            if id(obj) not in self._modified_objects:
-                obj = self._get_doc_object(obj)
-                self._modified_objects[id(obj)] = obj
 
     def abort(self, transaction):
         self._report_stats()
