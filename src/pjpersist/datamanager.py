@@ -313,7 +313,6 @@ class PJDataManager(object):
         self._registered_objects = {}
         self._loaded_objects = {}
         self._inserted_objects = {}
-        self._modified_objects = {}
         self._removed_objects = {}
         # The latest states written to the database.
         self._latest_states = {}
@@ -645,8 +644,9 @@ class PJDataManager(object):
             return
 
         if obj is not None:
-            if id(obj) not in self._registered_objects:
-                self._registered_objects[id(obj)] = obj
+            obj_id = id(obj)
+            if obj_id not in self._registered_objects:
+                self._registered_objects[obj_id] = obj
                 obj_registered = getattr(obj, '_pj_object_registered', None)
                 if obj_registered is not None:
                     obj_registered(self)
