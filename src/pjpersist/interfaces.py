@@ -117,6 +117,10 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
     root = zope.interface.Attribute(
         """Get the root object, which is a mapping.""")
 
+    flush_before_query = zope.interface.Attribute(
+        """Flush changes before any query operation, set to False to disable
+        this feature.""")
+
     def create_tables(tables):
         """Create passed tables and persistence_name_map, use this instead
         of PJ_AUTO_CREATE_TABLES"""
