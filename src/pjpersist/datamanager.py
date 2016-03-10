@@ -299,7 +299,6 @@ class PJDataManager(object):
     zope.interface.implements(interfaces.IPJDataManager)
 
     root = None
-    flush_before_query = True
 
     def __init__(self, conn, root_table=None):
         self._conn = conn
@@ -566,8 +565,6 @@ class PJDataManager(object):
         self.abort(None)
 
     def flush(self):
-        if not self.flush_before_query:
-            return
         # Now write every registered object, but make sure we write each
         # object just once.
         self._flush_objects()
