@@ -194,9 +194,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             t1 = time.time()
             db = self.datamanager.database
 
-            debug = (PJ_ACCESS_LOGGING or
-                     PJ_ENABLE_QUERY_STATS or
-                     PJ_ENABLE_QUERY_STATS)
+            debug = (PJ_ACCESS_LOGGING or PJ_ENABLE_QUERY_STATS)
 
             if debug:
                 saneargs = [self._sanitize_arg(a) for a in args] \
