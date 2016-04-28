@@ -125,6 +125,12 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         # Flush the data manager before any select.
         if self.flush and sql.strip().split()[0].lower() == 'select':
             self.datamanager.flush()
+        want_ro_trans = get_want_readonly_transaction()
+        if want_ro_trans[0]:
+            cmd = sql.strip().split()[0].lower()
+            if cmd in ('update', 'insert'):
+                LOG.log(want_ro_trans[1],
+                        "data update found in a readonly transaction: %s", sql)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
         # cache of the data manager. (SR)
@@ -716,3 +722,80 @@ def unregister_query_stats_listener(listener):
     """Unregister listener, registered by `register_query_stats_listener`
     """
     GLOBAL_QUERY_STATS_LISTENERS.remove(listener)
+
+
+class TransactionCache(object):
+    """Cache that lives only during transaction
+
+    Invalidation happens on commit or abort.
+    """
+
+    def __init__(self):
+        self._storage = None
+
+    def get(self, key):
+        return self._get_storage().get(key)
+
+    def set(self, key, value):
+        self._get_storage().set(key, value)
+
+    def invalidate(self, key):
+        self._get_storage().invalidate(key)
+
+    def _get_storage(self):
+        if self._storage is not None:
+            return self._storage
+        txn = transaction.get()
+
+        storage = None
+        for hook, args, kw in txn.getAfterCommitHooks():
+            if isinstance(hook, TransactionCacheStorage):
+                storage = hook
+                break
+        else:
+            storage = TransactionCacheStorage()
+            txn.addAfterCommitHook(storage)
+
+        self._storage = storage
+        return storage
+
+
+class TransactionCacheStorage(object):
+    """Storage for TransactionCache
+
+    Will invalidate automatically on transaction commit or abort, if was added
+    to transaction afterCommitHooks.
+    """
+    def __init__(self):
+        self._cache = {}
+
+    def __call__(self, success):
+        self._cache = {}
+
+    def set(self, key, value):
+        self._cache[key] = value
+
+    def get(self, key):
+        return self._cache.get(key)
+
+    def invalidate(self, key):
+        try:
+            del self._cache[key]
+        except KeyError:
+            pass
+
+
+WANT_RO_TRANS = 'pjpersist.want_readonly_transactions'
+
+
+def get_want_readonly_transaction():
+    cache = TransactionCache()
+    data = cache.get(WANT_RO_TRANS)
+    if data is None:
+        data = (False, logging.ERROR)
+    return data
+
+
+def set_want_readonly_transaction(state, log_level=logging.ERROR):
+    cache = TransactionCache()
+    cache.set(WANT_RO_TRANS, (state, log_level))
