@@ -356,9 +356,7 @@ class PJDataManager(object):
         if not modes:
             return
 
-        stmt = "SET TRANSACTION %s" % (", ".join(modes))
-        cur.execute("BEGIN")
-        cur.execute(stmt)
+        cur.execute("BEGIN %s" % (", ".join(modes)))
 
     def getCursor(self, flush=True):
         def factory(*args, **kwargs):
