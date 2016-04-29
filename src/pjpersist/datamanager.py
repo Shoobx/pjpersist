@@ -125,12 +125,6 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         # Flush the data manager before any select.
         if self.flush and sql.strip().split()[0].lower() == 'select':
             self.datamanager.flush()
-        want_ro_trans = get_want_readonly_transaction()
-        if want_ro_trans[0]:
-            cmd = sql.strip().split()[0].lower()
-            if cmd in ('update', 'insert'):
-                LOG.log(want_ro_trans[1],
-                        "data update found in a readonly transaction: %s", sql)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
         # cache of the data manager. (SR)
@@ -411,6 +405,7 @@ class PJDataManager(object):
                 (table,))
             if not cur.rowcount:
                 LOG.info("Creating data table %s" % table)
+                _check_transaction_write(database, table)
                 if extra_columns:
                     extra_columns += ', '
                 cur.execute('''
@@ -445,6 +440,7 @@ class PJDataManager(object):
         # Create id if it is None.
         if id is None:
             id = self.createId()
+        _check_transaction_write(database, table, doc)
         # Insert the document into the table.
         with self.getCursor() as cur:
             builtins = dict(id=id, data=Json(doc))
@@ -467,7 +463,8 @@ class PJDataManager(object):
         return id
 
     def _update_doc(self, database, table, doc, id, column_data=None):
-        # Insert the document into the table.
+        _check_transaction_write(database, table, doc)
+        # Update the document data in the table.
         with self.getCursor() as cur:
             builtins = dict(data=Json(doc))
             if column_data is None:
@@ -594,8 +591,10 @@ class PJDataManager(object):
             self.setstate(obj)
         # Now we remove the object from PostGreSQL.
         dbname, table = self._get_table_from_object(obj)
+        _check_transaction_write(dbname, table, obj)
         with self.getCursor() as cur:
-            cur.execute('DELETE FROM %s WHERE id = %%s' % table, (obj._p_oid.id,))
+            cur.execute('DELETE FROM %s WHERE id = %%s' % table,
+                        (obj._p_oid.id,))
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
@@ -797,3 +796,12 @@ def get_want_readonly_transaction():
 def set_want_readonly_transaction(state, log_level=logging.ERROR):
     cache = TransactionCache()
     cache.set(WANT_RO_TRANS, (state, log_level))
+
+
+def _check_transaction_write(database='N/A', table='N/A', doc='N/A'):
+    want_ro_trans = get_want_readonly_transaction()
+    if want_ro_trans[0]:
+        LOG.log(
+            want_ro_trans[1],
+            "data update found in a readonly transaction: %s %s %s",
+            database, table, doc)
