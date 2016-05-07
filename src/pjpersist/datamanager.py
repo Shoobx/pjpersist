@@ -90,6 +90,26 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 
+def createId():
+    # 4 bytes current time
+    id = struct.pack(">i", int(time.time()))
+    # 3 bytes machine
+    id += HOSTNAME_HASH
+    # 2 bytes pid
+    id += PID_HASH
+    # 1 byte thread id
+    tname = threading.currentThread().name
+    if tname not in THREAD_NAMES:
+        THREAD_NAMES.append(tname)
+    tidx = THREAD_NAMES.index(tname)
+    id += struct.pack(">i", tidx)[-1]
+    # 2 bytes counter
+    THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
+    THREAD_COUNTERS[tidx] += 1 % 0xFFFF
+    id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
+    return binascii.hexlify(id)
+
+
 class Json(psycopg2.extras.Json):
     """In logs, we want to have the JSON value not just Json object at <>"""
     def __repr__(self):
@@ -367,23 +387,7 @@ class PJDataManager(object):
         return cur
 
     def createId(self):
-        # 4 bytes current time
-        id = struct.pack(">i", int(time.time()))
-        # 3 bytes machine
-        id += HOSTNAME_HASH
-        # 2 bytes pid
-        id += PID_HASH
-        # 1 byte thread id
-        tname = threading.currentThread().name
-        if tname not in THREAD_NAMES:
-            THREAD_NAMES.append(tname)
-        tidx = THREAD_NAMES.index(tname)
-        id += struct.pack(">i", tidx)[-1]
-        # 2 bytes counter
-        THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
-        THREAD_COUNTERS[tidx] += 1 % 0xFFFF
-        id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
-        return binascii.hexlify(id)
+        return createId()
 
     def create_tables(self, tables):
         if isinstance(tables, basestring):
