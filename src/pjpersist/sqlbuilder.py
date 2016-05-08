@@ -222,3 +222,20 @@ class NoTables(SQLExpression):
 
     def tablesUsed(self, db):
         return {}
+
+
+class Function(SQLExpression):
+
+    def __init__(self, fname, *args):
+        self.fname = fname
+        self.args = args
+
+    def __sqlrepr__(self, db):
+        args = [sqlrepr(arg, db) for arg in self.args]
+        return "%s(%s)" % (self.fname, ', '.join(args))
+
+
+class ARRAY_TO_STRING(Function):
+
+    def __init__(self, array, sep):
+        Function.__init__(self, 'array_to_string', array, sep)

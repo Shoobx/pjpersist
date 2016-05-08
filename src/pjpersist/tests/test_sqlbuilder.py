@@ -24,6 +24,7 @@ def run(expr):
 
 def doctest_sqlbuilder():
     r"""We have functions that correspond to the JSON operators:
+
         >>> run(sb.PGArray([sb.PGArray(['a', 'b']),
         ...         sb.PGArray(['c', 'd'])]))
         "array[array['a', 'b'], array['c', 'd']]"
@@ -75,6 +76,13 @@ def doctest_sqlbuilder():
           ...
         AssertionError: Postgres-specific feature, sorry.
 
+    Basic function support:
+
+        >>> run(sb.Function('do', 1, 'foo'))
+        "do(1, 'foo')"
+
+        >>> run(sb.ARRAY_TO_STRING(sb.Field('table', 'col'), ', '))
+        "array_to_string(table.col, ', ')"
     """
 
 
