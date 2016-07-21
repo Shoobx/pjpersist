@@ -66,7 +66,9 @@ def get_dotted_name(obj, escape=False):
     name = 'u'+name if name.startswith('_') else name
     return name
 
+
 class PersistentDict(persistent.dict.PersistentDict):
+    # SUB_OBJECT_ATTR_NAME:
     _p_pj_sub_object = True
 
     def __init__(self, data=None, **kwargs):
@@ -96,6 +98,7 @@ class PersistentDict(persistent.dict.PersistentDict):
 
 
 class PersistentList(persistent.list.PersistentList):
+    # SUB_OBJECT_ATTR_NAME:
     _p_pj_sub_object = True
 
 
@@ -380,6 +383,12 @@ class ObjectWriter(object):
         # data is not used right away,
         db_name, table_name = self.get_table_name(obj)
 
+        if obj._p_oid is None:
+            # if not yet added,
+            # _p_jar needs to be set early for self.get_state and subobjects
+            # for subobjects _p_jar to be set
+            obj._p_jar = self._jar
+
         if ref_only:
             # We only want to get OID quickly. Trying to reduce the full state
             # might cause infinite recursion loop. (Example: 2 new objects
@@ -409,7 +418,6 @@ class ObjectWriter(object):
             doc_id = self._jar._insert_doc(
                 db_name, table_name, doc, id, column_data)
             stored = True
-            obj._p_jar = self._jar
             obj._p_oid = DBRef(table_name, doc_id, db_name)
             # Make sure that any other code accessing this object in this
             # session, gets the same instance.

@@ -855,10 +855,36 @@ def doctest_PJDataManager_sub_objects():
     """
 
 
+def doctest_PJDataManager_sub_objects_add_modify():
+    """PJDataManager: Make sure that subobject modifications get noticed
+    after the first object add
+
+      >>> foo = Foo('one')
+      >>> bar = Bar('bar')
+
+      >>> bar._p_pj_sub_object = True
+      >>> bar._p_pj_doc_object = foo
+      >>> foo.bar = bar
+
+      >>> dm.root['one'] = foo
+      >>> dm.tpc_finish(None)
+
+    Now change a subobject property
+
+      >>> bar.name = 'new'
+      >>> dm.tpc_finish(None)
+
+    And reload from the DB:
+
+      >>> dm.root['one'].bar.name
+      u'new'
+"""
+
+
 def doctest_PJDataManager_complex_sub_objects():
     """PJDataManager: Never store objects marked as _p_pj_sub_object
 
-    Let's construct comlpex object with several levels of containment.
+    Let's construct complex object with several levels of containment.
     _p_pj_doc_object will point to an object, that is subobject itself.
 
       >>> foo = Foo('one')

@@ -566,6 +566,87 @@ def doctest_ObjectWriter_store_with_new_object_references():
         'id': u'0001020304050607080a0b0c0'}]
     """
 
+def doctest_ObjectWriter_store_sub_persistent():
+    """ObjectWriter: store()
+    Make sure that subobject modifications get noticed after the
+    first object add
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+    Simply store an object:
+
+      >>> top = Top()
+      >>> top.top = Tier2()
+      >>> writer.store(top)
+      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2'}},
+        'id': u'0001020304050607080a0b0c0'}]
+
+    Now that we have an object, update the subobject property:
+
+      >>> top.top.name = 'top'
+
+    JUST commit here to see whether the subobject changes are noticed by the
+    persistence system
+
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2',
+                          u'name': u'top'}},
+        'id': u'0001020304050607080a0b0c0'}]
+    """
+
+def doctest_ObjectWriter_store_notsub_persistent():
+    """ObjectWriter: store()
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+    Simply store an object:
+
+      >>> top = Top()
+      >>> top.top = Foo()
+      >>> writer.store(top)
+      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_type': u'DBREF',
+                          u'database': u'pjpersist_test',
+                          u'id': u'0001020304050607080a0b0c0',
+                          u'table': u'Foo'}},
+        'id': u'0001020304050607080a0b0c0'}]
+      >>> dumpTable('Foo')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
+        'id': u'5790ba2db25d2b42d000ccd3'}]
+
+    Now that we have an object, update the subobject property:
+
+      >>> top.top.name = 'top'
+
+    JUST commit here to see whether the subobject changes are noticed by the
+    persistence system
+
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_type': u'DBREF',
+                          u'database': u'pjpersist_test',
+                          u'id': u'0001020304050607080a0b0c0',
+                          u'table': u'Foo'}},
+        'id': u'0001020304050607080a0b0c0'}]
+
+    Here we have the name set:
+
+      >>> dumpTable('Foo')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo',
+                 u'name': u'top'},
+        'id': u'5790ba49b25d2b494600d22d'}]
+    """
+
 def doctest_ObjectReader_simple_resolve():
     """ObjectReader: simple_resolve()
 
