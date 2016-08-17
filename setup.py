@@ -11,7 +11,7 @@ def read(*rnames):
 
 setup(
     name='pjpersist',
-    version='0.8.12',
+    version='0.8.13',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',

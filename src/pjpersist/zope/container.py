@@ -166,7 +166,7 @@ class PJContainer(contained.Contained,
         else:
             return 'zodb-'+''.join("%02x" % ord(x) for x in self._p_oid).strip()
 
-    def _pj_get_items_filter(self):
+    def _pj_get_resolve_filter(self):
         """return a filter that selects the rows of the current container"""
         queries = []
         # Make sure that we only look through objects that have the mapping
@@ -183,16 +183,14 @@ class PJContainer(contained.Contained,
             queries.append(sb.JGET(datafld, self._pj_parent_key) == pv)
         return sb.AND(*queries)
 
-    def _pj_add_items_filter(self, qry):
+    def _pj_get_list_filter(self):
+        return self._pj_get_resolve_filter()
+
+    def _combine_filters(self, *qries):
         # need to work around here an <expr> AND None situation, which
         # would become <sqlexpr> AND NULL
-        itemsqry = self._pj_get_items_filter()
-        if qry is not None:
-            if itemsqry is not None:
-                return qry & itemsqry
-            else:
-                return qry
-        return itemsqry
+        notnones = [q for q in qries if q is not None]
+        return sb.AND(*notnones)
 
     @property
     def _cache(self):
@@ -408,7 +406,7 @@ class PJContainer(contained.Contained,
     def raw_find(self, qry=None, fields=(), **kwargs):
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
-        qry = self._pj_add_items_filter(qry)
+        qry = self._combine_filters(self._pj_get_list_filter(), qry)
 
         # returning the cursor instead of fetchall at the cost of not closing it
         # iterating over the cursor is better and this way we expose rowcount
@@ -433,12 +431,14 @@ class PJContainer(contained.Contained,
                 'Missing parameter, at least qry or id must be specified.')
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
-        tbl = sb.Table(self._pj_table)
-        if qry is None:
-            qry = (tbl.id == id)
-        elif id is not None:
-            qry = qry & (tbl.id == id)
-        qry = self._pj_add_items_filter(qry)
+
+        if id is not None:
+            tbl = sb.Table(self._pj_table)
+            qry = self._combine_filters(
+                self._pj_get_resolve_filter(), qry, (tbl.id == id))
+        else:
+            qry = self._combine_filters(
+                self._pj_get_list_filter(), qry)
 
         with self._pj_jar.getCursor() as cur:
             cur.execute(sb.Select(sb.Field(self._pj_table, '*'), qry, limit=2))
@@ -458,7 +458,7 @@ class PJContainer(contained.Contained,
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
 
-        where = self._pj_add_items_filter(qry)
+        where = self._combine_filters(self._pj_get_list_filter(), qry)
         count = sb.func.COUNT(sb.Field(self._pj_table, 'id'))
         if where is None:
             select = sb.Select(count)
@@ -481,7 +481,7 @@ class PJContainer(contained.Contained,
         self._cache_mark_complete()
 
     def __nonzero__(self):
-        where = self._pj_add_items_filter(None) or True
+        where = self._combine_filters(self._pj_get_list_filter(), None) or True
         select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
                            where=where)
         with self._pj_jar.getCursor() as cur:
@@ -517,8 +517,8 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             raise KeyError(key)
         # We do not have a cache entry, so we look up the object.
-        filter = self._pj_get_items_filter()
-        obj = self.find_one(filter, id=key)
+        filter = self._pj_get_resolve_filter()
+        obj = self.find_one(qry=filter, id=key)
         if obj is None:
             raise KeyError(key)
         return obj

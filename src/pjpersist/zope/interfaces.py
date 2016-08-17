@@ -51,15 +51,13 @@ class IPJContainer(zope.interface.Interface):
         the parent of the item.
         """
 
-    def _pj_get_items_filter():
+    def _pj_get_resolve_filter():
+        """Returns a query to filter to apply when querying for single id
+        """
+
+    def _pj_get_list_filter():
         """Returns a query spec representing a filter that only returns
         objects in this container."""
-
-    def _pj_add_items_filter(filter):
-        """Applies the item filter items to the provided filter.
-
-        Keys that are already in the passed in filter are not overwritten.
-        """
 
     def convert_mongo_query(spec):
         """BBB: providing support for mongo style queries"""
