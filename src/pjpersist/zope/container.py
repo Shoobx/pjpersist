@@ -189,7 +189,10 @@ class PJContainer(contained.Contained,
     def _combine_filters(self, *qries):
         # need to work around here an <expr> AND None situation, which
         # would become <sqlexpr> AND NULL
+
         notnones = [q for q in qries if q is not None]
+        if not notnones:
+            return sb.const.TRUE
         return sb.AND(*notnones)
 
     @property
@@ -481,7 +484,7 @@ class PJContainer(contained.Contained,
         self._cache_mark_complete()
 
     def __nonzero__(self):
-        where = self._combine_filters(self._pj_get_list_filter(), None) or True
+        where = self._pj_get_list_filter() or True
         select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
                            where=where)
         with self._pj_jar.getCursor() as cur:
