@@ -52,7 +52,7 @@ class IPJContainer(zope.interface.Interface):
         """
 
     def _pj_get_resolve_filter():
-        """Returns a query to filter to apply when querying for single id
+        """Returns a query to apply when querying for single id
         """
 
     def _pj_get_list_filter():
