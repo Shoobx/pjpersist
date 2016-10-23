@@ -28,7 +28,10 @@ import cProfile
 
 from pjpersist import datamanager
 from pjpersist import testing
+from pjpersist import serialize
 from pjpersist.zope import container
+
+from pjpersist.tests import random_data
 
 import zope.container
 import zope.container.btree
@@ -42,7 +45,9 @@ MULTIPLE_CLASSES = True
 PROFILE = False
 PROFILE_OUTPUT = '/tmp/cprofile'
 LOG_SQL = False
-BIGDATA = True
+BIGDATA = random_data.BIGDICT
+#BIGDATA = random_data.HUGEDICT
+
 CLEAR_CACHE = False
 
 
@@ -51,15 +56,16 @@ class People(container.PJContainer):
     _pj_table = 'person'
     _pj_mapping_key = 'name'
 
+@serialize.table('address')
 class Address(persistent.Persistent):
-    _p_pj_table = 'address'
+    #_p_pj_table = 'address'
 
     def __init__(self, city):
         self.city = city
 
+@serialize.table('person')
 class Person(persistent.Persistent, container.PJContained):
-    _p_pj_table = 'person'
-    _p_pj_store_type = True
+    #_p_pj_table = 'person'
 
     name = None
     age = None
@@ -71,13 +77,14 @@ class Person(persistent.Persistent, container.PJContained):
         self.age = age
         self.address = Address('Boston %i' %age)
         # let's have some data for JSON
-        if BIGDATA:
-            self.data = BIGDICT
+        if BIGDATA is not None:
+            self.data = BIGDATA
 
     def __repr__(self):
         return '<%s %s @ %s [%s]>' %(
             self.__class__.__name__, self.name, self.age, self.__name__)
 
+@serialize.table('person')
 class Person2(Person):
     pass
 
@@ -238,36 +245,52 @@ class PerformanceBase(object):
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.slow_read(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.read_list(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.read_list_values(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.fast_read_values(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.fast_read(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if CLEAR_CACHE:
             people = self.getPeople(options)
         self.object_caching(people, peopleCnt)
+        if LOG_SQL:
+            people._p_jar._report_stats()
 
         if options.modify:
             if CLEAR_CACHE:
                 people = self.getPeople(options)
             self.modify(people, peopleCnt)
+            if LOG_SQL:
+                people._p_jar._report_stats()
 
         if options.delete:
             if CLEAR_CACHE:
                 people = self.getPeople(options)
             self.delete(people, peopleCnt)
+            if LOG_SQL:
+                people._p_jar._report_stats()
 
 
 def getConnection(database=None):

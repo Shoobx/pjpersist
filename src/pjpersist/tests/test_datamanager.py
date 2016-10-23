@@ -14,9 +14,12 @@
 """PJ Data Manager Tests"""
 import doctest
 import persistent
-import transaction
 import unittest
+import logging
 from pprint import pprint
+
+import transaction
+import mock
 from zope.testing import module
 
 from pjpersist import interfaces, serialize, testing, datamanager
@@ -135,8 +138,7 @@ def doctest_PJDataManager_object_dump_load_reset():
 
       >>> dm = datamanager.PJDataManager(
       ...     conn,
-      ...     root_table = 'proot',
-      ...     name_map_table = 'coll_pypath_map')
+      ...     root_table = 'proot')
 
     There are two convenience methods that let you serialize and de-serialize
     objects explicitly:
@@ -162,6 +164,8 @@ def doctest_PJDataManager_object_dump_load_reset():
       False
       >>> dm._registered_objects
       {}
+
+      >>> dm.commit(None)
 
     Let's now reset the data manager, so we do not hit a cache while loading
     the object again:
@@ -205,7 +209,7 @@ def doctest_PJDataManager_flush():
 
       >>> foo = Foo('foo')
       >>> foo_ref = dm.dump(foo)
-      >>> dm.reset()
+      >>> dm.commit(None)
 
     Let's now load the object again and make a modification:
 
@@ -259,7 +263,8 @@ def doctest_PJDataManager_insert():
 
     Let's make sure it is really in PostGreSQL:
 
-      >>> dm.reset()
+      >>> dm.commit(None)
+
       >>> foo_new = dm.load(foo_ref)
       >>> foo_new
       <Foo foo>
@@ -286,10 +291,12 @@ def doctest_PJDataManager_insert():
 
       >>> dm.flush()
       >>> dumpTable(dm._get_table_from_object(foo2)[1])
-      [{'data': {u'name': u'foo'},
-        'id': u'aa8e42b8a33ef7c8636dbfec'},
-       {'data': {u'name': u'Foo 2'},
-        'id': u'33854572bdfb5445858a8470'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'foo'},
+        'id': u'0001020304050607080a0b0c0'},
+       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'Foo 2'},
+        'id': u'0001020304050607080a0b0c0'}]
     """
 
 
@@ -300,7 +307,8 @@ def doctest_PJDataManager_remove():
 
       >>> foo = Foo('foo')
       >>> foo_ref = dm.insert(foo)
-      >>> dm.reset()
+
+      >>> dm.commit(None)
 
     Let's now load the object and remove it.
 
@@ -326,7 +334,8 @@ def doctest_PJDataManager_remove():
     There is an edge case, if the object is inserted and removed in the same
     transaction:
 
-      >>> dm.reset()
+      >>> dm.commit(None)
+
       >>> foo3 = Foo('Foo 3')
       >>> foo3_ref = dm.insert(foo3)
       >>> dm.remove(foo3)
@@ -363,9 +372,8 @@ def doctest_PJDataManager_insert_remove():
       >>> dumpTable(dm._get_table_from_object(foo)[1])
       []
 
-      >>> dm.reset()
-
     """
+
 
 def doctest_PJDataManager_insert_remove_modify():
     r"""PJDataManager: insert and remove in the same transaction
@@ -476,7 +484,7 @@ def doctest_PJDataManager_setstate():
       >>> foo = Foo(u'foo')
       >>> ref = dm.dump(foo)
 
-      >>> dm.reset()
+      >>> dm.commit(None)
       >>> dm._needs_to_join
       True
 
@@ -489,6 +497,50 @@ def doctest_PJDataManager_setstate():
       >>> dm._needs_to_join
       False
     """
+
+
+def doctest_PJDataManager_setstate_twice():
+    r"""PJDataManager: setstate()
+
+    `setstate` and in turn `set_ghost_state` must not muck with the state
+    stored in `_latest_states` otherwise the next setstate will fail badly
+    IOW `get_non_persistent_object` must not change it's parameter `state`
+    this is a more high level test for the same
+
+      >>> foo = Foo(u'foo')
+
+      >>> import zope.interface
+      >>> ifaces = (zope.interface.Interface, )
+      >>> zope.interface.directlyProvides(foo, tuple(ifaces))
+
+      >>> zope.interface.Interface.providedBy(foo)
+      True
+
+      >>> ref = dm.dump(foo)
+
+      >>> dm.commit(None)
+      >>> dm._needs_to_join
+      True
+
+      >>> foo2 = Foo()
+      >>> foo2._p_oid = ref
+      >>> dm.setstate(foo2)
+      >>> foo2.name
+      u'foo'
+
+      >>> zope.interface.Interface.providedBy(foo2)
+      True
+
+      >>> foo3 = Foo()
+      >>> foo3._p_oid = ref
+      >>> dm.setstate(foo3)
+      >>> foo3.name
+      u'foo'
+
+      >>> zope.interface.Interface.providedBy(foo3)
+      True
+    """
+
 
 def doctest_PJDataManager_oldstate():
     r"""PJDataManager: oldstate()
@@ -557,8 +609,12 @@ def doctest_PJDataManager_abort():
 
       >>> dbanme, table = dm._get_table_from_object(Foo())
       >>> dumpTable(table)
-      [{'data': {u'name': u'one'}, 'id': u'0001020304050607080a0b0c'},
-       {'data': {u'name': u'two'}, 'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'one'},
+        'id': u'0001020304050607080a0b0c0'},
+       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'two'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     Now, in a second transaction we modify the state of objects in all three
     ways:
@@ -576,18 +632,25 @@ def doctest_PJDataManager_abort():
       >>> foo3_ref = dm.insert(Foo('three'))
 
       >>> dm.flush()
-      >>> dumpTable(table, sort=True)
-      [{'data': {u'name': u'1'}, 'id': u'f40442f6870c0b84d78b7dd8'},
-       {'data': {u'name': u'three'}, 'id': u'cff24e7e99b7185fc9a98579'}]
-
+      >>> dumpTable(table)
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'1'},
+        'id': u'0001020304050607080a0b0c0'},
+       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'three'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     Let's now abort the transaction and everything should be back to what it
     was before:
 
       >>> dm.abort(transaction.get())
       >>> dumpTable(table)
-      [{'data': {u'name': u'one'}, 'id': u'0001020304050607080a0b0c'},
-       {'data': {u'name': u'two'}, 'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'one'},
+        'id': u'0001020304050607080a0b0c0'},
+       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'two'},
+        'id': u'0001020304050607080a0b0c0'}]
     """
 
 
@@ -605,12 +668,11 @@ def doctest_PJDataManager_abort_subobjects():
 
       >>> dbname, table = dm._get_table_from_object(ComplexFoo())
       >>> dumpTable(table)
-      [{'data':
-        {u'item':
-          {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
-           u'bar': 6},
-           u'name': u'complex'},
-        'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.ComplexFoo',
+                 u'item': {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
+                           u'bar': 6},
+                 u'name': u'complex'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     2. Modify the item and flush it to database
 
@@ -619,23 +681,21 @@ def doctest_PJDataManager_abort_subobjects():
       >>> dm.flush()
 
       >>> dumpTable(table)
-      [{'data':
-        {u'item':
-          {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
-           u'bar': 6},
-           u'name': u'modified'},
-       'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.ComplexFoo',
+                 u'item': {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
+                           u'bar': 6},
+                 u'name': u'modified'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     3. Abort the current transaction and expect original state is restored
 
       >>> dm.abort(transaction.get())
       >>> dumpTable(table)
-      [{'data':
-        {u'item':
-          {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
-           u'bar': 6},
-           u'name': u'complex'},
-        'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.ComplexFoo',
+                 u'item': {u'_py_type': u'pjpersist.tests.test_datamanager.FooItem',
+                           u'bar': 6},
+                 u'name': u'complex'},
+        'id': u'0001020304050607080a0b0c0'}]
     """
 
 def doctest_PJDataManager_tpc_begin():
@@ -748,7 +808,7 @@ def doctest_PJDataManager_sub_objects():
       >>> dm.tpc_finish(None)
 
       >>> foo = dm.root['one']
-      >>> foo._p_changed
+      >>> bool(foo._p_changed)
       False
 
       >>> foo.list = serialize.PersistentList()
@@ -797,10 +857,36 @@ def doctest_PJDataManager_sub_objects():
     """
 
 
+def doctest_PJDataManager_sub_objects_add_modify():
+    """PJDataManager: Make sure that subobject modifications get noticed
+    after the first object add
+
+      >>> foo = Foo('one')
+      >>> bar = Bar('bar')
+
+      >>> bar._p_pj_sub_object = True
+      >>> bar._p_pj_doc_object = foo
+      >>> foo.bar = bar
+
+      >>> dm.root['one'] = foo
+      >>> dm.tpc_finish(None)
+
+    Now change a subobject property
+
+      >>> bar.name = 'new'
+      >>> dm.tpc_finish(None)
+
+    And reload from the DB:
+
+      >>> dm.root['one'].bar.name
+      u'new'
+"""
+
+
 def doctest_PJDataManager_complex_sub_objects():
     """PJDataManager: Never store objects marked as _p_pj_sub_object
 
-    Let's construct comlpex object with several levels of containment.
+    Let's construct complex object with several levels of containment.
     _p_pj_doc_object will point to an object, that is subobject itself.
 
       >>> foo = Foo('one')
@@ -821,10 +907,9 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> cur = dm._conn.cursor()
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
-      ...        if (not e[0].startswith('pg_')
-      ...            and not e[0].startswith('sql_'))
-      ...            and not e[0].startswith('persistence_'))
-      [u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
+      ...        if not e[0].startswith('pg_') and not e[0].startswith('sql_'))
+      [u'persistence_root',
+       u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
 
     Now, save foo first, and then add subobjects
 
@@ -846,10 +931,9 @@ def doctest_PJDataManager_complex_sub_objects():
 
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
-      ...        if (not e[0].startswith('pg_')
-      ...            and not e[0].startswith('sql_'))
-      ...            and not e[0].startswith('persistence_'))
-      [u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
+      ...        if not e[0].startswith('pg_') and not e[0].startswith('sql_'))
+      [u'persistence_root',
+       u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
 
       >>> dm.root['two'].sup.bar
       <Bar second bar>
@@ -859,26 +943,19 @@ def doctest_PJDataManager_complex_sub_objects():
       ... '''SELECT * FROM pjpersist_dot_tests_dot_test_datamanager_dot_foo
       ...    WHERE data @> '{"name": "one"}' ''')
       >>> pprint([dict(e) for e in cur.fetchall()])
-      [{'data':
-          {u'name': u'one',
-           u'sup': {u'_py_persistent_type':
-                              u'pjpersist.tests.test_datamanager.Super',
-                    u'bar': {u'_py_persistent_type':
-                                     u'pjpersist.tests.test_datamanager.Bar',
-                             u'name': u'bar'},
-                    u'name': u'super'}},
-      'id': u'738744b8ae9da4ae92636fb1'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Foo',
+                 u'name': u'one',
+                 u'sup': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Super',
+                          u'bar': {u'_py_persistent_type': u'pjpersist.tests.test_datamanager.Bar',
+                                   u'name': u'bar'},
+                          u'name': u'super'}},
+        'id': u'0001020304050607080a0b0c0'}]
 
     Now, make changes to the subobjects and then commit
 
       >>> foo = dm.root['one']
       >>> foo.sup.name = 'new super'
-      >>> foo.sup._p_changed=True
-      >>> foo.sup._p_changed
-      False
       >>> foo.sup.bar.name = 'new bar'
-      >>> foo.sup.bar._p_pj_doc_object
-      <Super new super>
       >>> dm.tpc_finish(None)
 
       >>> foo = dm.root['one']
@@ -895,20 +972,13 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> foo.sup.bar._p_pj_sub_object
       True
       >>> foo.sup.bar._p_pj_doc_object
-      <Super new super>
-
-      >>> cur = dm.getCursor()
-      >>> cur.execute(
-      ... '''SELECT * FROM pjpersist_dot_tests_dot_test_datamanager_dot_foo
-      ...    WHERE data @> '{"name": "one"}' ''')
-      >>> pprint([dict(e) for e in cur.fetchall()])
+      <Foo one>
 
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
-      ...        if (not e[0].startswith('pg_')
-      ...            and not e[0].startswith('sql_'))
-      ...            and not e[0].startswith('persistence_'))
-      [u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
+      ...        if not e[0].startswith('pg_') and not e[0].startswith('sql_'))
+      [u'persistence_root',
+       u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
 
     Even if _p_pj_doc_object is pointed to subobject, subobject does not get
     saved to its own table:
@@ -920,10 +990,9 @@ def doctest_PJDataManager_complex_sub_objects():
 
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
-      ...        if (not e[0].startswith('pg_')
-      ...            and not e[0].startswith('sql_'))
-      ...            and not e[0].startswith('persistence_'))
-      [u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
+      ...        if not e[0].startswith('pg_') and not e[0].startswith('sql_'))
+      [u'persistence_root',
+       u'pjpersist_dot_tests_dot_test_datamanager_dot_foo']
     """
 
 
@@ -963,17 +1032,14 @@ def doctest_PJDataManager_table_sharing():
 
     Make sure that after a restart, the objects can still be stored.
 
-      >>> serialize.TABLES_WITH_TYPE = set()
       >>> serialize.AVAILABLE_NAME_MAPPINGS = set()
       >>> serialize.PATH_RESOLVE_CACHE = {}
-      >>> del Sub._p_pj_store_type
 
       >>> dm2 = datamanager.PJDataManager(conn)
 
       >>> dm2.root['app'].four = Sub('four')
       >>> dm2.tpc_finish(None)
 
-      >>> serialize.TABLES_WITH_TYPE = set()
       >>> serialize.AVAILABLE_NAME_MAPPINGS = set()
       >>> serialize.PATH_RESOLVE_CACHE = {}
 
@@ -1031,7 +1097,7 @@ def doctest_PJDataManager_long():
     Let's see how it is deserialzied?
 
       >>> dm.root['app'].x
-      1L
+      1
 
     Let's now create a really long integer:
 
@@ -1129,69 +1195,85 @@ def doctest_get_database_name_from_dsn():
     """
 
 
+def doctest_conflict_mod_1():
+    r"""Check conflict detection. We modify the same object in different
+    transactions, simulating separate processes.
+
+      >>> foo = Foo('foo-first')
+      >>> dm.root['foo'] = foo
+
+      >>> dm.tpc_finish(None)
+
+      >>> conn1 = testing.getConnection(testing.DBNAME)
+      >>> dm1 = datamanager.PJDataManager(conn1)
+
+      >>> dm1.root['foo']
+      <Foo foo-first>
+      >>> dm1.root['foo'].name = 'foo-second'
+
+      >>> conn2 = testing.getConnection(testing.DBNAME)
+      >>> dm2 = datamanager.PJDataManager(conn2)
+
+      >>> dm2.root['foo']
+      <Foo foo-first>
+      >>> dm2.root['foo'].name = 'foo-third'
+
+    Finish in order 2 - 1
+
+      >>> dm2.tpc_finish(None)
+      >>> dm1.tpc_finish(None)
+      Traceback (most recent call last):
+        ...
+      ConflictError: ('could not serialize access due to concurrent update\n', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
+
+      >>> transaction.abort()
+
+      >>> conn2.close()
+      >>> conn1.close()
+
+    """
+
+
+def doctest_conflict_mod_2():
+    r"""Check conflict detection. We modify the same object in different
+    transactions, simulating separate processes.
+
+      >>> foo = Foo('foo-first')
+      >>> dm.root['foo'] = foo
+
+      >>> dm.tpc_finish(None)
+
+      >>> conn1 = testing.getConnection(testing.DBNAME)
+      >>> dm1 = datamanager.PJDataManager(conn1)
+
+      >>> dm1.root['foo']
+      <Foo foo-first>
+      >>> dm1.root['foo'].name = 'foo-second'
+
+      >>> conn2 = testing.getConnection(testing.DBNAME)
+      >>> dm2 = datamanager.PJDataManager(conn2)
+
+      >>> dm2.root['foo']
+      <Foo foo-first>
+      >>> dm2.root['foo'].name = 'foo-third'
+
+    Finish in order 1 - 2
+
+      >>> dm1.tpc_finish(None)
+      >>> dm2.tpc_finish(None)
+      Traceback (most recent call last):
+      ...
+      ConflictError: ('could not serialize access due to concurrent update\n', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
+
+      >>> transaction.abort()
+
+      >>> conn2.close()
+      >>> conn1.close()
+
+    """
+
+
 class DatamanagerConflictTest(testing.PJTestCase):
-
-    def test_conflict_mod_1(self):
-        """Check conflict detection. We modify the same object in different
-        transactions, simulating separate processes."""
-
-        foo = Foo('foo-first')
-        self.dm.root['foo'] = foo
-
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-        conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
-
-        self.assertEqual(dm1.root['foo'].name, 'foo-first')
-        dm1.root['foo'].name = 'foo-second'
-
-        self.assertEqual(dm2.root['foo'].name, 'foo-first')
-        dm2.root['foo'].name = 'foo-third'
-
-        # Finish in order 2 - 1
-
-        dm2.tpc_finish(None)
-        with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
-
-        transaction.abort()
-
-        conn2.close()
-        conn1.close()
-
-    def test_conflict_mod_2(self):
-        """Check conflict detection. We modify the same object in different
-        transactions, simulating separate processes."""
-
-        foo = Foo('foo-first')
-        self.dm.root['foo'] = foo
-
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-        conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
-
-        self.assertEqual(dm1.root['foo'].name, 'foo-first')
-        dm1.root['foo'].name = 'foo-second'
-
-        self.assertEqual(dm2.root['foo'].name, 'foo-first')
-        dm2.root['foo'].name = 'foo-third'
-
-        # Finish in order 1 - 2
-
-        dm1.tpc_finish(None)
-        with self.assertRaises(interfaces.ConflictError):
-            dm2.tpc_finish(None)
-
-        transaction.abort()
-
-        conn2.close()
-        conn1.close()
 
     def test_conflict_del_1(self):
         """Check conflict detection. We modify and delete the same object in
@@ -1327,6 +1409,184 @@ class DatamanagerConflictTest(testing.PJTestCase):
         conn2.close()
         conn1.close()
 
+    def test_conflict_tracebacks(self):
+        """Verify conflict tracebacks are captured properly
+        and reset on the next transaction."""
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        foo = Foo('foo-first')
+        self.dm.root['foo'] = foo
+
+        self.dm.tpc_finish(None)
+
+        conn1 = testing.getConnection(testing.DBNAME)
+        dm1 = datamanager.PJDataManager(conn1)
+        dm1.root['foo'].name = 'foo-second'
+
+        conn2 = testing.getConnection(testing.DBNAME)
+        dm2 = datamanager.PJDataManager(conn2)
+
+        del dm2.root['foo']
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        #Finish in order 2 - 1
+
+        dm2.tpc_finish(None)
+        with self.assertRaises(interfaces.ConflictError):
+            dm1.tpc_finish(None)
+
+        # verify by length that we have the full traceback
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNotNone(ctb)
+        self.assertEquals(len(ctb), 17)
+        transaction.abort()
+
+        # start another transaction and verify the traceback
+        # is reset
+        datamanager.PJDataManager(conn2)
+
+        ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
+        self.assertIsNone(ctb)
+
+        conn2.close()
+        conn1.close()
+
+    def test_conflict_commit_1(self):
+        """Test conflict on commit
+
+        The typical detail string for such failures is:
+
+        DETAIL:  Reason code: Canceled on identification as a pivot, during commit
+        attempt.
+        """
+
+        # We will not reproduce the full scenario with pjpersist, however we will
+        # pretend the right exception is thrown by commit.
+        #
+        # First, get the error, that psycopg throws in such case
+        # The example is taken from https://wiki.postgresql.org/wiki/SSI
+        import psycopg2
+
+        conn1 = self.conn
+        conn2 = testing.getConnection(testing.DBNAME)
+
+        with conn1.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS mytab")
+            cur.execute("CREATE TABLE mytab (class int NOT NULL, value int NOT NULL )")
+            cur.execute("INSERT INTO mytab VALUES (1, 10), (1, 20), (2, 100), (2, 200)")
+        conn1.commit()
+
+        with conn1.cursor() as cur1, conn2.cursor() as cur2:
+            cur1.execute("SELECT SUM(value) FROM mytab WHERE class = 1")
+            cur1.execute("INSERT INTO mytab VALUES (2, 30)")
+
+            cur2.execute("SELECT SUM(value) FROM mytab WHERE class = 2")
+            cur2.execute("INSERT INTO mytab VALUES (1, 300)")
+
+        conn2.commit()
+        conn2.close()
+
+        # Now datamanager, holding conn1 is in doomed state. it is expected to
+        # fail on commit attempt.
+        txn = transaction.get()
+        txn.join(self.dm)
+
+        with self.assertRaises(interfaces.ConflictError):
+            transaction.commit()
+
+
+class QueryLoggingTestCase(testing.PJTestCase):
+    def setUp(self):
+        super(QueryLoggingTestCase, self).setUp()
+        self.log = testing.setUpLogging(datamanager.TABLE_LOG)
+
+        with self.conn.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS mytab")
+            cur.execute("CREATE TABLE mytab (class int NOT NULL, value varchar NOT NULL )")
+
+        pjal_patch = mock.patch("pjpersist.datamanager.PJ_ACCESS_LOGGING",
+                                True)
+        self.patches = [pjal_patch]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+        super(QueryLoggingTestCase, self).tearDown()
+        testing.tearDownLogging(datamanager.TABLE_LOG)
+
+    def test_logging(self):
+        with self.dm.getCursor() as cur:
+            cur.execute("INSERT INTO mytab VALUES (1, '10')")
+
+        lines = self.log.getvalue().split('\n')
+        self.assertEqual(lines[0], "INSERT INTO mytab VALUES (1, '10'),")
+        self.assertEqual(lines[1], " args:None,")
+
+    def test_params(self):
+        with self.dm.getCursor() as cur:
+            cur.execute("INSERT INTO mytab VALUES (%s, %s)", [1, '10'])
+
+        lines = self.log.getvalue().split('\n')
+        self.assertEqual(lines[0], "INSERT INTO mytab VALUES (%s, %s),")
+        self.assertEqual(lines[1], " args:[1, '10'],")
+
+    def test_long_params(self):
+        hugeparam = "1234567890" * 20000
+        with self.dm.getCursor() as cur:
+            cur.execute("INSERT INTO mytab VALUES (%s, %s)", [1, hugeparam])
+
+        lines = self.log.getvalue().split('\n')
+        self.assertEqual(lines[0], "INSERT INTO mytab VALUES (%s, %s),")
+        self.assertLess(len(lines[1]), 1000)
+
+
+class TransactionOptionsTestCase(testing.PJTestCase):
+    def setUp(self):
+        super(TransactionOptionsTestCase, self).setUp()
+
+        # Transaction options feature isn't really compatible with table
+        # autocreation, because transaction features has to be set before any
+        # statement is executed in transaction. So we turn it off in these
+        # tests.
+        pjact_patch = mock.patch("pjpersist.datamanager.PJ_AUTO_CREATE_TABLES",
+                                 False)
+        pjacc_patch = mock.patch("pjpersist.datamanager.PJ_AUTO_CREATE_COLUMNS",
+                                 False)
+        self.patches = [pjact_patch, pjacc_patch]
+        for p in self.patches:
+            p.start()
+
+        with self.conn.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS mytab")
+            cur.execute("CREATE TABLE mytab (class int NOT NULL, value varchar NOT NULL )")
+        transaction.commit()
+        self.dm.reset()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+        super(TransactionOptionsTestCase, self).tearDown()
+
+    def test_requestTransactionOptions(self):
+        """It is possible to request transaction options before first
+        statement is executed
+        """
+
+        self.dm.requestTransactionOptions(isolation="READ COMMITTED")
+
+        cur = self.dm.getCursor()
+        cur.execute('SHOW transaction_isolation')
+        res = cur.fetchone()
+        self.assertEqual(res[0], 'read committed')
+
 
 def test_suite():
     dtsuite = doctest.DocTestSuite(
@@ -1339,4 +1599,6 @@ def test_suite():
         dtsuite,
         # XXX: not easy to test conflicts until the object cache is thread based
         #unittest.makeSuite(DatamanagerConflictTest),
+        unittest.makeSuite(QueryLoggingTestCase),
+        unittest.makeSuite(TransactionOptionsTestCase),
         ))

@@ -18,6 +18,8 @@ import json
 import persistent
 import transaction
 import zope.component
+import warnings
+
 from rwproperty import getproperty, setproperty
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
@@ -157,7 +159,7 @@ class PJContainer(contained.Contained,
             self._v_mdmp = zope.component.getUtility(
                     interfaces.IPJDataManagerProvider)
 
-        return self._v_mdmp.get()
+        return self._v_mdmp.get(None)
 
     def _pj_get_parent_key_value(self):
         if getattr(self, '_p_jar', None) is None:
@@ -167,7 +169,7 @@ class PJContainer(contained.Contained,
         else:
             return 'zodb-'+''.join("%02x" % ord(x) for x in self._p_oid).strip()
 
-    def _pj_get_items_filter(self):
+    def _pj_get_resolve_filter(self):
         """return a filter that selects the rows of the current container"""
         queries = []
         # Make sure that we only look through objects that have the mapping
@@ -184,16 +186,17 @@ class PJContainer(contained.Contained,
             queries.append(sb.JGET(datafld, self._pj_parent_key) == pv)
         return sb.AND(*queries)
 
-    def _pj_add_items_filter(self, qry):
+    def _pj_get_list_filter(self):
+        return self._pj_get_resolve_filter()
+
+    def _combine_filters(self, *qries):
         # need to work around here an <expr> AND None situation, which
         # would become <sqlexpr> AND NULL
-        itemsqry = self._pj_get_items_filter()
-        if qry is not None:
-            if itemsqry is not None:
-                return qry & itemsqry
-            else:
-                return qry
-        return itemsqry
+
+        notnones = [q for q in qries if q is not None]
+        if not notnones:
+            return sb.const.TRUE
+        return sb.AND(*notnones)
 
     @property
     def _cache(self):
@@ -284,17 +287,26 @@ class PJContainer(contained.Contained,
             raise KeyError(key)
         return obj
 
+    def _set_mapping_and_parent(self, key, value):
+        # This call by itself causes the state to change _p_changed to True.
+        # but make sure we set attributes before eventually inserting...
+        # saves eventually one more UPDATE query
+        if self._pj_mapping_key is not None:
+            setattr(value, self._pj_mapping_key, key)
+        if self._pj_parent_key is not None:
+            setattr(value, self._pj_parent_key, self._pj_get_parent_key_value())
+
     def _real_setitem(self, key, value):
+        self._set_mapping_and_parent(key, value)
+
         # Make sure the value is in the database, since we might want
         # to use its oid.
         if value._p_oid is None:
             self._pj_jar.insert(value)
 
-        # This call by itself causes the state to change _p_changed to True.
-        if self._pj_mapping_key is not None:
-            setattr(value, self._pj_mapping_key, key)
-        if self._pj_parent_key is not None:
-            setattr(value, self._pj_parent_key, self._pj_get_parent_key_value())
+        # Also add the item to the container cache.
+        # _pj_jar.insert and _cache insert must be close!
+        self._cache[key] = value
 
     def __setitem__(self, key, value):
         # When the key is None, we need to determine it.
@@ -306,8 +318,6 @@ class PJContainer(contained.Contained,
                 key = getattr(value, self._pj_mapping_key)
         # We want to be as close as possible to using the Zope semantics.
         contained.setitem(self, self._real_setitem, key, value)
-        # Also add the item to the container cache.
-        self._cache[key] = value
 
     def add(self, value, key=None):
         # We are already supporting ``None`` valued keys, which prompts the key
@@ -342,12 +352,16 @@ class PJContainer(contained.Contained,
     def __contains__(self, key):
         if self._cache_complete:
             return key in self._cache
+
+        if key in self._cache:
+            return True
+
         datafld = sb.Field(self._pj_table, 'data')
         fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld == key)
 
-        res = self.raw_find(qry, fields=('id',), limit=1)
-        return (res.rowcount > 0)
+        res = self.count(qry)
+        return res > 0
 
     def __iter__(self):
         # If the cache contains all objects, we can just return the cache keys.
@@ -363,10 +377,10 @@ class PJContainer(contained.Contained,
         return list(self.__iter__())
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
                  for row in result]
@@ -406,6 +420,8 @@ class PJContainer(contained.Contained,
     #      and keeping return values unchanged
     #      (in the means of returning the same dict)
     def convert_mongo_query(self, spec):
+        warnings.warn("Using mongo queries is deprecated",
+                      DeprecationWarning, stacklevel=3)
         c = Converter(self._pj_table, 'data')
         qry = c.convert(spec)
         return qry
@@ -413,7 +429,7 @@ class PJContainer(contained.Contained,
     def raw_find(self, qry=None, fields=(), **kwargs):
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
-        qry = self._pj_add_items_filter(qry)
+        qry = self._combine_filters(self._pj_get_list_filter(), qry)
 
         # returning the cursor instead of fetchall at the cost of not closing it
         # iterating over the cursor is better and this way we expose rowcount
@@ -438,12 +454,14 @@ class PJContainer(contained.Contained,
                 'Missing parameter, at least qry or id must be specified.')
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
-        tbl = sb.Table(self._pj_table)
-        if qry is None:
-            qry = (tbl.id == id)
-        elif id is not None:
-            qry = qry & (tbl.id == id)
-        qry = self._pj_add_items_filter(qry)
+
+        if id is not None:
+            tbl = sb.Table(self._pj_table)
+            qry = self._combine_filters(
+                self._pj_get_resolve_filter(), qry, (tbl.id == id))
+        else:
+            qry = self._combine_filters(
+                self._pj_get_list_filter(), qry)
 
         with self._pj_jar.getCursor() as cur:
             cur.execute(sb.Select(sb.Field(self._pj_table, '*'), qry, limit=2))
@@ -459,9 +477,39 @@ class PJContainer(contained.Contained,
             return None
         return self._load_one(res['id'], res['data'])
 
+    def count(self, qry=None):
+        if isinstance(qry, dict):
+            qry = self.convert_mongo_query(qry)
+
+        where = self._combine_filters(self._pj_get_list_filter(), qry)
+        count = sb.func.COUNT(sb.Field(self._pj_table, 'id'))
+        if where is None:
+            select = sb.Select(count)
+        else:
+            select = sb.Select(count, where=where)
+
+        with self._pj_jar.getCursor() as cur:
+            cur.execute(select)
+            return cur.fetchone()[0]
+
     def clear(self):
-        for key in self.keys():
+        # why items? it seems to be better to bulk-load all objects that going
+        # to be deleted with one SQL query, because __delitem__ will anyway
+        # load state, but then with one query for each object
+        for key, value in self.items():
             del self[key]
+        # Signal the container that the cache is now complete.
+        # we just removed all objects, eh?
+        self._cache.clear()
+        self._cache_mark_complete()
+
+    def __nonzero__(self):
+        where = self._pj_get_list_filter() or True
+        select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
+                           where=where)
+        with self._pj_jar.getCursor() as cur:
+            cur.execute(select)
+            return cur.fetchone()[0] > 0
 
 
 class IdNamesPJContainer(PJContainer):
@@ -493,8 +541,8 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             raise KeyError(key)
         # We do not have a cache entry, so we look up the object.
-        filter = self._pj_get_items_filter()
-        obj = self.find_one(filter, id=key)
+        filter = self._pj_get_resolve_filter()
+        obj = self.find_one(qry=filter, id=key)
         if obj is None:
             raise KeyError(key)
         return obj
@@ -511,15 +559,15 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
-        result = self.raw_find(None)
+        result = self.raw_find(None, fields=('id',))
         return iter(unicode(row['id']) for row in result)
 
     def iteritems(self):
-        # If the cache contains all objects, we can just return the cache keys.
+        # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
             return self._cache.iteritems()
         # Load all objects from the database.
-        result = self.raw_find(self._pj_get_items_filter())
+        result = self.raw_find()
         items = [(row['id'],
                   self._load_one(row['id'], row['data']))
                  for row in result]
@@ -529,12 +577,21 @@ class IdNamesPJContainer(PJContainer):
         return iter(items)
 
     def _real_setitem(self, key, value):
+        # set these before inserting
+        self._set_mapping_and_parent(key, value)
+
         # We want JSONB document ids to be our keys, so pass it to insert(), if
         # key is provided
         if value._p_oid is None:
             self._pj_jar.insert(value, key)
 
-        super(IdNamesPJContainer, self)._real_setitem(key, value)
+        # Also add the item to the container cache.
+        # _pj_jar.insert and _cache insert must be close!
+        self._cache[key] = value
+
+        # no need for super, _set_mapping_and_parent does the job,
+        # updating mapping and parent BEFORE inserting saves one SQL query
+        # super(IdNamesPJContainer, self)._real_setitem(key, value)
 
 
 class AllItemsPJContainer(PJContainer):

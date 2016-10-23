@@ -72,7 +72,8 @@ Python path of the class:
 
   >>> transaction.commit()
   >>> dumpTable(person_cn)
-  [{'data': {u'address': None,
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': None,
              u'birthday': None,
              u'friends': {},
              u'name': u'Stephan',
@@ -138,11 +139,14 @@ But once we commit the transaction, everything is available:
 
   >>> transaction.commit()
   >>> dumpTable('address')
-  [{'data': {u'city': u'Maynard', u'zip': u'01754'},
-   'id': u'0001020304050607080a0b0c0'}]
+  [{'data': {u'_py_persistent_type': u'__main__.Address',
+             u'city': u'Maynard',
+             u'zip': u'01754'},
+    'id': u'0001020304050607080a0b0c0'}]
 
   >>> dumpTable(person_cn)
-  [{'data': {u'address': {u'_py_type': u'DBREF',
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
                           u'id': u'0001020304050607080a0b0c0',
                           u'table': u'address'},
@@ -190,7 +194,8 @@ Let's now commit the transaction and look at the JSONB document again:
   <Phone +1-978-394-5124>
 
   >>> dumpTable(person_cn)
-  [{'data': {u'address': {u'_py_type': u'DBREF',
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
                           u'id': u'0001020304050607080a0b0c0',
                           u'table': u'address'},
@@ -229,7 +234,8 @@ always maintained as lists, since JSON does not have two sequence types.
   >>> import pprint
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'address': {u'_py_type': u'DBREF',
+  {'data': {u'_py_persistent_type': u'__main__.Person',
+            u'address': {u'_py_type': u'DBREF',
                          u'database': u'pjpersist_test',
                          u'id': u'0001020304050607080a0b0c0',
                          u'table': u'address'},
@@ -255,25 +261,22 @@ Custom Serializers
 
 (A patch to demonstrate)
 
-  >>> del serialize.SERIALIZERS[1]
-
   >>> dm.root['stephan'].birthday = datetime.date(1981, 1, 25)
   >>> transaction.commit()
 
   >>> pprint.pprint(
   ...     fetchone(person_cn,
   ...         """data @> '{"name": "Stephan Richter"}'""")['data']['birthday'])
-  {u'_py_factory': u'datetime.date',
-   u'_py_factory_args': [{u'_py_type': u'BINARY', u'data': u'B70BGQ==\n'}]}
+  {u'_py_type': u'datetime.date', u'value': u'1981-01-25'}
 
-As you can see, the serialization of the birthay is all but ideal. We can,
+As you can see, the serialization of the birthay is an ISO string. We can,
 however, provide a custom serializer that uses the ordinal to store the data.
 
   >>> class DateSerializer(serialize.ObjectSerializer):
   ...
   ...     def can_read(self, state):
   ...         return isinstance(state, dict) and \
-  ...                state.get('_py_type') == 'datetime.date'
+  ...                state.get('_py_type') == 'custom_date'
   ...
   ...     def read(self, state):
   ...         return datetime.date.fromordinal(state['ordinal'])
@@ -282,7 +285,7 @@ however, provide a custom serializer that uses the ordinal to store the data.
   ...         return isinstance(obj, datetime.date)
   ...
   ...     def write(self, obj):
-  ...         return {'_py_type': 'datetime.date',
+  ...         return {'_py_type': 'custom_date',
   ...                 'ordinal': obj.toordinal()}
 
   >>> serialize.SERIALIZERS.append(DateSerializer())
@@ -296,27 +299,28 @@ Let's have a look again:
 
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'address': {u'_py_type': u'DBREF',
+  {'data': {u'_py_persistent_type': u'__main__.Person',
+            u'address': {u'_py_type': u'DBREF',
                          u'database': u'pjpersist_test',
-                         u'id': u'0001020304050607080a0b0c',
+                         u'id': u'0001020304050607080a0b0c0',
                          u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date', u'ordinal': 723205},
+            u'birthday': {u'_py_type': u'custom_date', u'ordinal': 723205},
             u'friends': {u'roy': {u'_py_type': u'DBREF',
                                   u'database': u'pjpersist_test',
-                                  u'id': u'0001020304050607080a0b0c',
+                                  u'id': u'0001020304050607080a0b0c0',
                                   u'table': u'u__main___dot_Person'}},
             u'name': u'Stephan Richter',
             u'phone': {u'_py_type': u'__main__.Phone',
                        u'area': u'978',
                        u'country': u'+1',
                        u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00'},
+            u'today': {u'_py_type': u'custom_date', u'ordinal': 735367},
             u'visited': [u'Germany', u'USA']},
-   'id': u'0001020304050607080a0b0c'}
-
+   'id': u'0001020304050607080a0b0c0'}
 
 Much better!
+
+  >>> del serialize.SERIALIZERS[:]
 
 
 Persistent Objects as Sub-Documents
@@ -351,11 +355,13 @@ of another document:
 
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'address': {u'_py_type': u'DBREF',
+  {'data': {u'_py_persistent_type': u'__main__.Person',
+            u'address': {u'_py_type': u'DBREF',
                          u'database': u'pjpersist_test',
                          u'id': u'0001020304050607080a0b0c0',
                          u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date', u'ordinal': 723205},
+            u'birthday': {u'_py_type': u'datetime.date',
+                          u'value': u'1981-01-25'},
             u'car': {u'_py_persistent_type': u'__main__.Car',
                      u'make': u'Ford',
                      u'model': u'Explorer',
@@ -369,8 +375,7 @@ of another document:
                        u'area': u'978',
                        u'country': u'+1',
                        u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00'},
+            u'today': {u'_py_type': u'datetime.date', u'value': u'2014-05-14'},
             u'visited': [u'Germany', u'USA']},
    'id': u'0001020304050607080a0b0c0'}
 
@@ -503,7 +508,8 @@ extended to store the attribute and the person is added to the table:
   >>> transaction.commit()
 
   >>> dumpTable('cperson')
-  [{'data': {u'address': None,
+  [{'data': {u'_py_persistent_type': u'__main__.ColumnPerson',
+             u'address': None,
              u'birthday': None,
              u'friends': {},
              u'name': u'Anton',
@@ -570,7 +576,7 @@ circular references are detected and reported:
   >>> dm.root['top'] = top
   Traceback (most recent call last):
   ...
-  CircularReferenceError: <__main__.Foo object at 0x7fec75731890>
+  CircularReferenceError: <...>
 
 
 Circular Persistent References

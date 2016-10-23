@@ -25,6 +25,17 @@ def run(expr):
 def doctest_sqlbuilder():
     r"""We have functions that correspond to the JSON operators:
 
+        >>> run(sb.PGArray([sb.PGArray(['a', 'b']),
+        ...         sb.PGArray(['c', 'd'])]))
+        "array[array['a', 'b'], array['c', 'd']]"
+        >>> run(sb.PGArray([sb.PGArray([1, 2]),
+        ...         sb.PGArray([3, 4])]))
+        'array[array[1, 2], array[3, 4]]'
+        >>> run(sb.PGArrayLiteral(["a'b", 'b', 2, 3.5]))
+        '\'{"a\'\'b", "b", 2, 3.5}\''
+        >>> run(sb.PGArrayLiteral([sb.PGArrayLiteral(["a'b", 'b']),
+        ...         sb.PGArrayLiteral(['c', 'd'])]))
+        '\'{{"a\'\'b", "b"}, {"c", "d"}}\''
         >>> run(sb.Select(
         ...         sb.JSON_GETITEM(sb.table.stakeholder.data, "address")))
         "SELECT ((stakeholder.data) -> ('address')) FROM stakeholder"
@@ -38,7 +49,7 @@ def doctest_sqlbuilder():
 
         >>> run(sb.JSON_PATH_TEXT(sb.table.person.data,
         ...                       ["address", "zip"]))
-        "((person.data) #>> (array['address', 'zip']))"
+        '((person.data) #>> (\'{"address", "zip"}\'))'
 
     We can cast JSON strings to the JSONB type:
 
@@ -65,6 +76,13 @@ def doctest_sqlbuilder():
           ...
         AssertionError: Postgres-specific feature, sorry.
 
+    Basic function support:
+
+        >>> run(sb.Function('do', 1, 'foo'))
+        "do(1, 'foo')"
+
+        >>> run(sb.ARRAY_TO_STRING(sb.Field('table', 'col'), ', '))
+        "array_to_string(table.col, ', ')"
     """
 
 

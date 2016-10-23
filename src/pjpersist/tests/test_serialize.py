@@ -16,7 +16,9 @@ import datetime
 import doctest
 import persistent
 import pprint
+import copy
 import copy_reg
+import pickle
 
 from pjpersist import interfaces, serialize, testing
 
@@ -46,7 +48,6 @@ class Anything(persistent.Persistent):
 
 class StoreType(persistent.Persistent):
     _p_pj_table = 'storetype'
-    _p_pj_store_type = True
 
 class StoreType2(StoreType):
     pass
@@ -65,6 +66,88 @@ class CopyReggedConstant(object):
 copy_reg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
+
+def doctest_DBRef():
+    """DBRef class
+
+    Create a simple DBRef to start with:
+
+      >>> dbref1 = serialize.DBRef('table1', '0001', 'database1')
+      >>> dbref1
+      DBRef('table1', '0001', 'database1')
+
+    We can also convert the ref quickly to a JSON structure or a simple tuple:
+
+      >>> dbref1.as_tuple()
+      ('database1', 'table1', '0001')
+
+      >>> dbref1.as_json()
+      {'id': '0001',
+       'table': 'table1',
+       '_py_type': 'DBREF',
+       'database': 'database1'}
+
+    Note that the hash of a ref is consistent over all DBRef instances:
+
+      >>> dbref11 = serialize.DBRef('table1', '0001', 'database1')
+      >>> hash(dbref1) == hash(dbref11)
+      True
+
+    Let's make sure that some other comparisons work as well:
+
+      >>> dbref1 == dbref11
+      True
+
+      >>> dbref1 in [dbref11]
+      True
+
+    Let's now compare to a truely different DB Ref instance:
+
+      >>> dbref2 = serialize.DBRef('table1', '0002', 'database1')
+
+      >>> hash(dbref1) == hash(dbref2)
+      False
+      >>> dbref1 == dbref2
+      False
+      >>> dbref1 in [dbref2]
+      False
+
+    Serialization also works well.
+
+      >>> refp = pickle.dumps(dbref1)
+      >>> print refp
+      ccopy_reg
+      _reconstructor
+      p0
+      (cpjpersist.serialize
+      DBRef
+      p1
+      c__builtin__
+      object
+      p2
+      Ntp3
+      Rp4
+      (dp5
+      S'table'
+      p6
+      S'table1'
+      p7
+      sS'id'
+      p8
+      S'0001'
+      p9
+      sS'database'
+      p10
+      S'database1'
+      p11
+      sb.
+
+      >>> dbref11 = pickle.loads(refp)
+      >>> dbref1 == dbref11
+      True
+      >>> id(dbref1) == id(dbref11)
+      False
+    """
 
 def doctest_ObjectSerializer():
     """Test the abstract ObjectSerializer class.
@@ -117,15 +200,6 @@ def doctest_ObjectWriter_get_table_name():
       >>> top = Top()
       >>> writer.get_table_name(top)
       ('pjpersist_test', 'Top')
-      >>> dm.commit(None)
-
-      >>> dumpTable(dm.name_map_table)
-      [{'database': u'pjpersist_test',
-        'doc_has_type': False,
-        'path': u'pjpersist_dot_tests_dot_test_serialize_dot_Top',
-        'tbl': u'Top'}]
-
-      >>> getattr(top, '_p_pj_store_type', None)
 
     When classes use inheritance, it often happens that all sub-objects share
     the same table. However, only one can have an entry in our mapping
@@ -135,20 +209,6 @@ def doctest_ObjectWriter_get_table_name():
       >>> top2 = Top2()
       >>> writer.get_table_name(top2)
       ('pjpersist_test', 'Top')
-      >>> dm.commit(None)
-
-      >>> dumpTable(dm.name_map_table)
-      [{'database': u'pjpersist_test',
-        'doc_has_type': False,
-        'path': u'pjpersist_dot_tests_dot_test_serialize_dot_Top',
-        'tbl': u'Top'},
-       {'database': u'pjpersist_test',
-        'doc_has_type': True,
-        'path': u'pjpersist_dot_tests_dot_test_serialize_dot_Top2',
-        'tbl': u'Top'}]
-
-      >>> getattr(top2, '_p_pj_store_type', None)
-      True
 
     Since the serializer also supports serializing any object without the
     intend of storing it in PostGreSQL, we have to be abel to look up the
@@ -175,7 +235,7 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> this = This(1)
-      >>> writer.get_non_persistent_state(this, [])
+      >>> writer.get_non_persistent_state(this)
       {'num': 1, '_py_type': '__main__.This'}
 
     A simple old-style class:
@@ -185,14 +245,14 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> that = That(1)
-      >>> writer.get_non_persistent_state(that, [])
+      >>> writer.get_non_persistent_state(that)
       {'num': 1, '_py_type': '__main__.That'}
 
     The method also handles persistent classes that do not want their own
     document:
 
       >>> top = Top()
-      >>> writer.get_non_persistent_state(top, [])
+      >>> writer.get_non_persistent_state(top)
       {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top'}
 
     And then there are the really weird cases, which is the reason we usually
@@ -201,80 +261,11 @@ def doctest_ObjectWriter_get_non_persistent_state():
       >>> orig_serializers = serialize.SERIALIZERS
       >>> serialize.SERIALIZERS = []
 
-      >>> writer.get_non_persistent_state(datetime.date(2011, 11, 1), [])
+      >>> writer.get_non_persistent_state(datetime.date(2011, 11, 1))
       {'_py_factory': 'datetime.date',
        '_py_factory_args': [{'data': 'B9sLAQ==\n', '_py_type': 'BINARY'}]}
 
       >>> serialize.SERIALIZERS = orig_serializers
-
-    Circular object references cause an error:
-
-      >>> writer.get_non_persistent_state(this, [id(this)])
-      Traceback (most recent call last):
-      ...
-      CircularReferenceError: <__main__.This object at 0x3051550>
-    """
-
-def doctest_ObjectWriter_get_non_persistent_state_circluar_references():
-    r"""ObjectWriter: get_non_persistent_state(): Circular References
-
-    This test checks that circular references are not incorrectly detected.
-
-      >>> writer = serialize.ObjectWriter(dm)
-
-    1. Make sure that only the same *instance* is recognized as circular
-       reference.
-
-       >>> class Compare(object):
-       ...   def __init__(self, x):
-       ...       self.x = x
-       ...   def __eq__(self, other):
-       ...       return self.x == other.x
-
-       >>> seen = []
-       >>> c1 = Compare(1)
-       >>> writer.get_non_persistent_state(c1, seen)
-       {'x': 1, '_py_type': '__main__.Compare'}
-       >>> seen == [id(c1)]
-       True
-
-       >>> c2 = Compare(1)
-       >>> writer.get_non_persistent_state(c2, seen)
-       {'x': 1, '_py_type': '__main__.Compare'}
-       >>> seen == [id(c1), id(c2)]
-       True
-
-    2. Objects that are declared safe of circular references are not added to
-       the list of seen objects. These are usually objects that are comprised
-       of other simple types, so that they do not contain other complex
-       objects in their serialization output.
-
-       A default example is ``datetime.date``, which is not a PostGreSQL-native
-       type, but only references simple integers and serializes into a binary
-       string.
-
-         >>> import datetime
-         >>> d = datetime.date(2013, 10, 16)
-         >>> seen = []
-         >>> writer.get_non_persistent_state(d, seen)
-         {'_py_factory': 'datetime.date',
-          '_py_factory_args': [{'data': 'B90KEA==\n', '_py_type': 'BINARY'}]}
-         >>> seen
-         []
-
-       Types can also declare themselves as reference safe:
-
-         >>> class Ref(object):
-         ...   _pj_reference_safe = True
-         ...   def __init__(self, x):
-         ...       self.x = x
-
-         >>> one = Ref(1)
-         >>> seen = []
-         >>> writer.get_non_persistent_state(one, seen)
-         {'x': 1, '_py_type': '__main__.Ref'}
-         >>> seen
-         []
     """
 
 def doctest_ObjectWriter_get_persistent_state():
@@ -288,7 +279,7 @@ def doctest_ObjectWriter_get_persistent_state():
       >>> foo = Foo()
       >>> foo._p_oid
 
-      >>> pprint.pprint(writer.get_persistent_state(foo, []))
+      >>> pprint.pprint(writer.get_persistent_state(foo))
       {'_py_type': 'DBREF',
        'database': 'pjpersist_test',
        'id': '0001020304050607080a0b0c0',
@@ -298,17 +289,19 @@ def doctest_ObjectWriter_get_persistent_state():
       >>> foo._p_oid
       DBRef('Foo', '0001020304050607080a0b0c0', 'pjpersist_test')
       >>> dumpTable('Foo')
-      [{'data': {}, 'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     The next time the object simply returns its reference:
 
-      >>> pprint.pprint(writer.get_persistent_state(foo, []))
+      >>> pprint.pprint(writer.get_persistent_state(foo))
       {'_py_type': 'DBREF',
        'database': 'pjpersist_test',
        'id': '0001020304050607080a0b0c0',
        'table': 'Foo'}
       >>> dumpTable('Foo')
-      [{'data': {}, 'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
+        'id': u'0001020304050607080a0b0c0'}]
     """
 
 
@@ -440,6 +433,55 @@ def doctest_ObjectWriter_get_state_sub_doc_object_with_no_pobj():
       True
     """
 
+def doctest_ObjectWriter_get_state_same_obj_in_dict():
+    """ObjectWriter: get_state():
+
+    If get_state gets the very same object in a structure it must not fail.
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+      >>> pdict = serialize.PersistentDict()
+      >>> one = Simple()
+      >>> one.data = 'data'
+      >>> pdict['one'] = one
+      >>> pdict['two'] = one
+
+      >> from cPickle import dumps
+      
+      >> print dumps(pdict)
+      
+      >> import pickletools
+      >> pickletools.dis(dumps(pdict))
+
+      >>> pprint.pprint(writer.get_state(pdict))
+      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'},
+       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'}}
+
+    """
+
+def doctest_ObjectWriter_get_state_same_obj_in_list():
+    """ObjectWriter: get_state():
+
+    If get_state gets the very same object in a structure it must not fail.
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+      >>> plist = serialize.PersistentList()
+      >>> one = Simple()
+      >>> one.data = 'data'
+      >>> plist.append(one)
+      >>> plist.append(one)
+
+      >> from cPickle import dumps
+
+      >> print dumps(plist, protocol=0)
+
+      >>> pprint.pprint(writer.get_state(plist))
+      [{'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'},
+       {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'}]
+
+    """
+
 def doctest_ObjectWriter_get_full_state():
     """ObjectWriter: get_full_state()
 
@@ -449,12 +491,14 @@ def doctest_ObjectWriter_get_full_state():
 
       >>> any = Anything()
       >>> any.name = 'anything'
-      >>> writer.get_full_state(any)
-      {'name': 'anything'}
+      >>> pprint.pprint(writer.get_full_state(any))
+      {'_py_persistent_type': 'pjpersist.tests.test_serialize.Anything',
+       'name': 'anything'}
 
       >>> any_ref = dm.insert(any)
-      >>> writer.get_full_state(any)
-      {'name': 'anything'}
+      >>> pprint.pprint(writer.get_full_state(any))
+      {'_py_persistent_type': 'pjpersist.tests.test_serialize.Anything',
+       'name': 'anything'}
 
     Now an object that stores its type:
 
@@ -482,7 +526,8 @@ def doctest_ObjectWriter_store():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {}, 'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     Now that we have an object, storing an object simply means updating the
     existing document:
@@ -492,23 +537,9 @@ def doctest_ObjectWriter_store():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'name': u'top'},
-        'id': u'0001020304050607080a0b0c'}]
-    """
-
-def doctest_ObjectWriter_store_with_pj_store_type():
-    """ObjectWriter: store(): _p_pj_store_type = True
-
-      >>> writer = serialize.ObjectWriter(dm)
-
-      >>> top = Top()
-      >>> top._p_pj_store_type = True
-      >>> writer.store(top)
-      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
-      >>> dm.commit(None)
-      >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top'},
-        'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'name': u'top'},
+        'id': u'0001020304050607080a0b0c0'}]
     """
 
 def doctest_ObjectWriter_store_with_new_object_references():
@@ -527,11 +558,93 @@ def doctest_ObjectWriter_store_with_new_object_references():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'foo': {u'_py_type': u'DBREF',
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'foo': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c',
+                          u'id': u'0001020304050607080a0b0c0',
                           u'table': u'Foo'}},
-        'id': u'0001020304050607080a0b0c'}]
+        'id': u'0001020304050607080a0b0c0'}]
+    """
+
+def doctest_ObjectWriter_store_sub_persistent():
+    """ObjectWriter: store()
+    Make sure that subobject modifications get noticed after the
+    first object add
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+    Simply store an object:
+
+      >>> top = Top()
+      >>> top.top = Tier2()
+      >>> writer.store(top)
+      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2'}},
+        'id': u'0001020304050607080a0b0c0'}]
+
+    Now that we have an object, update the subobject property:
+
+      >>> top.top.name = 'top'
+
+    JUST commit here to see whether the subobject changes are noticed by the
+    persistence system
+
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2',
+                          u'name': u'top'}},
+        'id': u'0001020304050607080a0b0c0'}]
+    """
+
+def doctest_ObjectWriter_store_notsub_persistent():
+    """ObjectWriter: store()
+
+      >>> writer = serialize.ObjectWriter(dm)
+
+    Simply store an object:
+
+      >>> top = Top()
+      >>> top.top = Foo()
+      >>> writer.store(top)
+      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_type': u'DBREF',
+                          u'database': u'pjpersist_test',
+                          u'id': u'0001020304050607080a0b0c0',
+                          u'table': u'Foo'}},
+        'id': u'0001020304050607080a0b0c0'}]
+      >>> dumpTable('Foo')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
+        'id': u'5790ba2db25d2b42d000ccd3'}]
+
+    Now that we have an object, update the subobject property:
+
+      >>> top.top.name = 'top'
+
+    JUST commit here to see whether the subobject changes are noticed by the
+    persistence system
+
+      >>> dm.commit(None)
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'top': {u'_py_type': u'DBREF',
+                          u'database': u'pjpersist_test',
+                          u'id': u'0001020304050607080a0b0c0',
+                          u'table': u'Foo'}},
+        'id': u'0001020304050607080a0b0c0'}]
+
+    Here we have the name set:
+
+      >>> dumpTable('Foo')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo',
+                 u'name': u'top'},
+        'id': u'5790ba49b25d2b494600d22d'}]
     """
 
 def doctest_ObjectReader_simple_resolve():
@@ -571,17 +684,72 @@ def doctest_ObjectReader_simple_resolve():
       ImportError: path.to.bad
     """
 
-def doctest_ObjectReader_resolve_simple():
+def doctest_ObjectReader_resolve_simple_dblookup():
     """ObjectReader: resolve(): simple
 
     This methods resolves a table name to its class. The table name
     can be either any arbitrary string or a Python path.
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> ref = serialize.DBRef('pjpersist.tests.test_serialize.Top',
-      ...                   '4eb1b3d337a08e2de7000100')
+      >>> ref = serialize.DBRef('Top', '4eb1b3d337a08e2de7000100')
+
+    Now we need the doc to exist in the DB to be able to tell it's class.
+
       >>> reader.resolve(ref)
-      <class 'pjpersist.tests.test_serialize.Top'>
+      Traceback (most recent call last):
+      ...
+      ImportError: DBRef('Top', '4eb1b3d337a08e2de7000100', None)
+    """
+
+def doctest_ObjectReader_resolve_simple_decorator():
+    """ObjectReader: resolve(): decorator declared table
+
+    This methods resolves a table name to its class. The table name
+    can be either any arbitrary string or a Python path.
+
+      >>> @serialize.table('foobar_table')
+      ... class Foo(object):
+      ...     pass
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> ref = serialize.DBRef('foobar_table', '4eb1b3d337a08e2de7000100')
+
+    Once we declared on the class which table it uses, it's easy to resolve
+    even without DB access.
+
+      >>> result = reader.resolve(ref)
+      >>> result
+      <class '__main__.Foo'>
+
+      >>> result is Foo
+      True
+    """
+
+def doctest_ObjectReader_resolve_simple_decorator_more():
+    """ObjectReader: resolve():
+    decorator declared table, more classes in one table
+
+    This methods resolves a table name to its class. The table name
+    can be either any arbitrary string or a Python path.
+
+      >>> @serialize.table('foobar_table')
+      ... class FooBase(object):
+      ...     pass
+
+      >>> @serialize.table('foobar_table')
+      ... class FooFoo(FooBase):
+      ...     pass
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> ref = serialize.DBRef('foobar_table', '4eb1b3d337a08e2de7000100')
+
+    As we have now more classes declared for the same table, we have to
+    lookup the JSONB from the DB
+
+      >>> result = reader.resolve(ref)
+      Traceback (most recent call last):
+      ...
+      ImportError: DBRef('foobar_table', '4eb1b3d337a08e2de7000100', None)
     """
 
 def doctest_ObjectReader_resolve_quick_when_type_in_doc():
@@ -594,7 +762,7 @@ def doctest_ObjectReader_resolve_quick_when_type_in_doc():
       >>> st_ref = dm.insert(st)
       >>> st2 = StoreType2()
       >>> st2_ref = dm.insert(st2)
-      >>> dm.reset()
+      >>> dm.commit(None)
 
     Let's now resolve the references:
 
@@ -603,12 +771,8 @@ def doctest_ObjectReader_resolve_quick_when_type_in_doc():
       <class 'pjpersist.tests.test_serialize.StoreType'>
       >>> reader.resolve(st2_ref)
       <class 'pjpersist.tests.test_serialize.StoreType2'>
-      >>> dm.reset()
 
-    The table is now stored as one where objects save their type:
-
-      >>> serialize.TABLES_WITH_TYPE
-      set([('pjpersist_test', 'storetype')])
+      >>> dm.commit(None)
 
     So here comes the trick. When fast-loading objects, the documents are made
     immediately available in the ``_latest_states`` mapping. This allows our
@@ -627,32 +791,6 @@ def doctest_ObjectReader_resolve_quick_when_type_in_doc():
       <class 'pjpersist.tests.test_serialize.StoreType2'>
 
   """
-
-def doctest_ObjectReader_resolve_lookup():
-    """ObjectReader: resolve(): lookup
-
-    If Python path resolution fails, we try to lookup the path from the
-    table mapping table names to Python paths.
-
-      >>> reader = serialize.ObjectReader(dm)
-      >>> ref = serialize.DBRef(
-      ...     'Top', '0001020304050607080a0b0c', 'pjpersist_test')
-      >>> reader.resolve(ref)
-      Traceback (most recent call last):
-      ...
-      ImportError: DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
-
-    The lookup failed, because there is no map entry yet for the 'Top'
-    table. The easiest way to create one is with the object writer:
-
-      >>> top = Top()
-      >>> writer = serialize.ObjectWriter(dm)
-      >>> writer.get_table_name(top)
-      ('pjpersist_test', 'Top')
-
-      >>> reader.resolve(ref)
-      <class 'pjpersist.tests.test_serialize.Top'>
-    """
 
 def doctest_ObjectReader_resolve_lookup_with_multiple_maps():
     """ObjectReader: resolve(): lookup with multiple maps entries
@@ -677,11 +815,10 @@ def doctest_ObjectReader_resolve_lookup_with_multiple_maps():
       <class 'pjpersist.tests.test_serialize.Top2'>
 
       >>> dumpTable('Top')
-      [{'data': {},
-        'id': u'0001020304050607080a0b0c'},
-       {'data':
-            {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top2'},
-        'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top'},
+        'id': u'0001020304050607080a0b0c0'},
+       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top2'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     If the DBRef does not have an object id, then an import error is raised:
 
@@ -689,51 +826,6 @@ def doctest_ObjectReader_resolve_lookup_with_multiple_maps():
       Traceback (most recent call last):
       ...
       ImportError: DBRef('Top', None, 'pjpersist_test')
-    """
-
-def doctest_ObjectReader_resolve_lookup_with_multiple_maps_dont_read_full():
-    """ObjectReader: resolve(): lookup with multiple maps entries
-
-    Multiple maps lookup with the ALWAYS_READ_FULL_DOC option set to False.
-
-      >>> serialize.ALWAYS_READ_FULL_DOC = False
-
-      >>> writer = serialize.ObjectWriter(dm)
-      >>> top = Top()
-      >>> writer.store(top)
-      DBRef('Top', '0001020304050607080a0b0c0', 'pjpersist_test')
-      >>> top2 = Top2()
-      >>> writer.store(top2)
-      DBRef('Top', '000000000000000000000001', 'pjpersist_test')
-
-      >>> reader = serialize.ObjectReader(dm)
-      >>> reader.resolve(top._p_oid)
-      <class 'pjpersist.tests.test_serialize.Top'>
-      >>> reader.resolve(top2._p_oid)
-      <class 'pjpersist.tests.test_serialize.Top2'>
-
-    Let's clear dome caches and try again:
-
-      >>> dm.reset()
-      >>> serialize.TABLES_WITH_TYPE.__init__()
-
-      >>> reader = serialize.ObjectReader(dm)
-      >>> reader.resolve(top._p_oid)
-      <class 'pjpersist.tests.test_serialize.Top'>
-      >>> reader.resolve(top2._p_oid)
-      <class 'pjpersist.tests.test_serialize.Top2'>
-
-    If the DBRef does not have an object id, then an import error is raised:
-
-      >>> reader.resolve(serialize.DBRef('Top', None, 'pjpersist_test'))
-      Traceback (most recent call last):
-      ...
-      ImportError: DBRef('Top', None, 'pjpersist_test')
-
-    Cleanup:
-
-      >>> serialize.ALWAYS_READ_FULL_DOC = True
-
     """
 
 def doctest_ObjectReader_get_non_persistent_object_py_type():
@@ -742,18 +834,31 @@ def doctest_ObjectReader_get_non_persistent_object_py_type():
     The simplest case is a document with a _py_type:
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> reader.get_non_persistent_object(
-      ...    {'_py_type': 'pjpersist.tests.test_serialize.Simple'}, None)
+      >>> state = {'_py_type': 'pjpersist.tests.test_serialize.Simple'}
+      >>> save_state = copy.deepcopy(state)
+      >>> reader.get_non_persistent_object(state, None)
       <pjpersist.tests.test_serialize.Simple object at 0x306f410>
+
+    Make sure that state is unchanged:
+
+      >>> state == save_state
+      True
 
     It is a little bit more interesting when there is some additional state:
 
-      >>> simple = reader.get_non_persistent_object(
-      ...    {u'_py_type': 'pjpersist.tests.test_serialize.Simple',
-      ...     u'name': u'Here'},
-      ...    None)
+      >>> state = {u'_py_type': 'pjpersist.tests.test_serialize.Simple',
+      ...          u'name': u'Here'}
+      >>> save_state = copy.deepcopy(state)
+
+      >>> simple = reader.get_non_persistent_object(state, None)
       >>> simple.name
       u'Here'
+
+    Make sure that state is unchanged:
+
+      >>> state == save_state
+      True
+
     """
 
 def doctest_ObjectReader_get_non_persistent_object_py_persistent_type():
@@ -765,10 +870,11 @@ def doctest_ObjectReader_get_non_persistent_object_py_persistent_type():
       >>> top = Top()
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> tier2 = reader.get_non_persistent_object(
-      ...    {'_py_persistent_type': 'pjpersist.tests.test_serialize.Tier2',
-      ...     'name': 'Number 2'},
-      ...    top)
+      >>> state = {'_py_persistent_type': 'pjpersist.tests.test_serialize.Tier2',
+      ...          'name': 'Number 2'}
+      >>> save_state = copy.deepcopy(state)
+
+      >>> tier2 = reader.get_non_persistent_object(state, top)
       >>> tier2
       <pjpersist.tests.test_serialize.Tier2 object at 0x306f410>
 
@@ -779,6 +885,12 @@ def doctest_ObjectReader_get_non_persistent_object_py_persistent_type():
       <pjpersist.tests.test_serialize.Top object at 0x7fa30b534050>
       >>> tier2._p_jar
       <pjpersist.datamanager.PJDataManager object at 0x7fc3cab375d0>
+
+    Make sure that state is unchanged:
+
+      >>> state == save_state
+      True
+
     """
 
 def doctest_ObjectReader_get_non_persistent_object_py_factory():
@@ -787,14 +899,22 @@ def doctest_ObjectReader_get_non_persistent_object_py_factory():
     This is the case of last resort. Specify a factory and its arguments:
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> top = reader.get_non_persistent_object(
-      ...    {'_py_factory': 'pjpersist.tests.test_serialize.create_top',
-      ...     '_py_factory_args': ('TOP',)},
-      ...    None)
+
+      >>> state = {'_py_factory': 'pjpersist.tests.test_serialize.create_top',
+      ...          '_py_factory_args': ('TOP',)}
+      >>> save_state = copy.deepcopy(state)
+
+      >>> top = reader.get_non_persistent_object(state, None)
       >>> top
       <pjpersist.tests.test_serialize.Top object at 0x306f410>
       >>> top.name
       'TOP'
+
+    Make sure that state is unchanged:
+
+      >>> state == save_state
+      True
+
     """
 
 def doctest_ObjectReader_get_object_binary():
@@ -963,16 +1083,18 @@ def doctest_deserialize_persistent_references():
     Let's check that the objects were properly serialized.
 
       >>> dumpTable('Top')
-      [{'data': {u'foo': {u'_py_type': u'DBREF',
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'foo': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c',
+                          u'id': u'0001020304050607080a0b0c0',
                           u'table': u'Foo'},
                  u'name': u'top'},
-        'id': u'0001020304050607080a0b0c'}]
+        'id': u'0001020304050607080a0b0c0'}]
 
       >>> dumpTable('Foo')
-      [{'data': {u'name': u'foo'},
-        'id': u'0001020304050607080a0b0c'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo',
+                 u'name': u'foo'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     Now we access the objects objects again to see whether they got properly
     deserialized.
@@ -992,6 +1114,47 @@ def doctest_deserialize_persistent_references():
       <pjpersist.tests.test_serialize.Foo object at 0x7fb1a0c0b668>
       >>> top2.foo.name
       u'foo'
+    """
+
+
+def doctest_deserialize_persistent_foreign_references():
+    """
+    Make sure we can reference objects from other databases.
+
+    For this, we have to provide IPJDataManagerProvider
+
+    First, store some object in one database
+      >>> writer_other = serialize.ObjectWriter(dm_other)
+      >>> top_other = Top()
+      >>> top_other.name = 'top_other'
+      >>> top_other.state = {'complex_data': 'value'}
+      >>> writer_other.store(top_other)
+      DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test_other')
+
+    Store other object in datbase and refrence first one
+      >>> writer_other = serialize.ObjectWriter(dm)
+      >>> top = Top()
+      >>> top.name = 'main'
+      >>> top.other = top_other
+      >>> dm.root['top'] = top
+      >>> commit()
+
+      >>> dumpTable('Top')
+      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
+                 u'name': u'main',
+                 u'other': {u'_py_type': u'DBREF',
+                            u'database': u'pjpersist_test_other',
+                            u'id': u'0001020304050607080a0b0c0',
+                            u'table': u'Top'}},
+        'id': u'0001020304050607080a0b0c0'}]
+
+      >>> top = dm.root['top']
+      >>> print top.name
+      main
+      >>> print top.other.name
+      top_other
+      >>> top.other.state
+      {'complex_data': 'value'}
     """
 
 
@@ -1018,6 +1181,55 @@ def doctest_PersistentDict_equality():
 
       >>> obj3 == obj4
       False
+    """
+
+
+def doctest_table_decorator():
+    """Test serialize.table
+
+    This is our test class
+
+      >>> @serialize.table('foobar_table')
+      ... class Foo(object):
+      ...     pass
+
+    Check that TABLE_ATTR_NAME gets set
+
+      >>> getattr(Foo, interfaces.TABLE_ATTR_NAME)
+      'foobar_table'
+
+    Check that TABLE_KLASS_MAP gets updated
+
+      >>> serialize.TABLE_KLASS_MAP
+      {'foobar_table': set([<class '__main__.Foo'>])}
+
+    Add a few more classes
+
+      >>> @serialize.table('barbar_table')
+      ... class Bar(object):
+      ...     pass
+
+    Another typical case, base and subclass stored in the same table
+
+      >>> @serialize.table('foobar_table')
+      ... class FooFoo(Foo):
+      ...     pass
+
+    Dump TABLE_KLASS_MAP
+
+      >>> pprint.pprint(
+      ...     [(k, sorted(v, key=lambda cls:cls.__name__))
+      ...      for k, v in sorted(serialize.TABLE_KLASS_MAP.items())])
+      [('barbar_table', [<class '__main__.Bar'>]),
+       ('foobar_table', [<class '__main__.Foo'>, <class '__main__.FooFoo'>])]
+
+    Edge case, using the decorator on a non class fails:
+
+      >>> serialize.table('foobar_table')(object())
+      Traceback (most recent call last):
+      ...
+      TypeError: ("Can't declare _p_pj_table", <object object at ...>)
+
     """
 
 

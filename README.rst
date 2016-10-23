@@ -51,7 +51,8 @@ we have to escpae the path a little bit. Let's see what got stored in
 PostGreSQL:
 
   >>> dumpTable('u__main___dot_Person')
-  [{'data': {u'address': None,
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': None,
              u'birthday': None,
              u'friends': {},
              u'name': u'Stephan',
@@ -80,14 +81,17 @@ We need to commit the transaction, to push the data to PostGreSQL:
   >>> transaction.commit()
 
   >>> dumpTable('address')
-  [{'data': {u'city': u'Maynard', u'zip': u'01754'},
+  [{'data': {u'_py_persistent_type': u'__main__.Address',
+             u'city': u'Maynard',
+             u'zip': u'01754'},
     'id': u'0001020304050607080a0b0c0'}]
 
 As you can see, even the reference to the Address object looks nice and uses
 the standard PostGreSQL reference construct.
 
   >>> dumpTable('u__main___dot_Person')
-  [{'data': {u'address': {u'_py_type': u'DBREF',
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
                           u'id': u'0001020304050607080a0b0c0',
                           u'table': u'address'},
@@ -118,7 +122,8 @@ Well, let's create a phone number object for that:
   >>> transaction.commit()
 
   >>> dumpTable('u__main___dot_Person')
-  [{'data': {u'address': {u'_py_type': u'DBREF',
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
                           u'id': u'0001020304050607080a0b0c0',
                           u'table': u'address'},
@@ -145,7 +150,8 @@ Push the data to PostGreSQL, and dump the results:
 
   >>> transaction.commit()
   >>> dumpTable('u__main___dot_Person')
-  [{'data': {u'address': {u'_py_type': u'DBREF',
+  [{'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': {u'_py_type': u'DBREF',
                           u'database': u'pjpersist_test',
                           u'id': u'0001020304050607080a0b0c0',
                           u'table': u'address'},
@@ -164,7 +170,8 @@ Push the data to PostGreSQL, and dump the results:
                         u'value': u'2014-12-04T12:30:00'},
              u'visited': [u'Germany', u'USA']},
     'id': u'0001020304050607080a0b0c0'},
-   {'data': {u'address': None,
+   {'data': {u'_py_persistent_type': u'__main__.Person',
+             u'address': None,
              u'birthday': None,
              u'friends': {},
              u'name': u'Roy Mathew',

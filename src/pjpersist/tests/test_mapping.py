@@ -95,7 +95,8 @@ def doctest_PJTableMapping_filter():
 
     And accessing the items works as expected:
 
-      >>> dm.reset()
+      >>> dm.commit(None)
+
       >>> container1.keys()
       [u'1-1', u'1-2', u'1-3']
       >>> container1['1-1'].name

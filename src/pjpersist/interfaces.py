@@ -29,7 +29,6 @@ REFERENCE_SAFE_TYPES = (
 
 DATABASE_ATTR_NAME = '_p_pj_database'
 TABLE_ATTR_NAME = '_p_pj_table'
-STORE_TYPE_ATTR_NAME = '_p_pj_store_type'
 SUB_OBJECT_ATTR_NAME = '_p_pj_sub_object'
 DOC_OBJECT_ATTR_NAME = '_p_pj_doc_object'
 STATE_ATTR_NAME = '_p_pj_state'
@@ -40,7 +39,7 @@ class CircularReferenceError(Exception):
     pass
 
 
-class ConflictError(Exception):
+class ConflictError(transaction.interfaces.TransientError):
     pass
 
 

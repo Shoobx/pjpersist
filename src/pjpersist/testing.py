@@ -26,9 +26,11 @@ import transaction
 import unittest
 from pprint import pprint
 from StringIO import StringIO
+
+import zope.component
 from zope.testing import module, renormalizing
 
-from pjpersist import datamanager, serialize, serializers
+from pjpersist import datamanager, serialize, serializers, interfaces
 
 checker = renormalizing.RENormalizing([
     # Date/Time objects
@@ -50,6 +52,17 @@ OPTIONFLAGS = (
     )
 
 DBNAME = 'pjpersist_test'
+DBNAME_OTHER = 'pjpersist_test_other'
+
+
+@zope.interface.implementer(interfaces.IPJDataManagerProvider)
+class SimpleDataManagerProvider(object):
+    def __init__(self, dms, default=None):
+        self.idx = {dm.database: dm for dm in dms}
+        self.idx[None] = default
+
+    def get(self, database):
+        return self.idx[database]
 
 
 def getConnection(database=None):
@@ -66,16 +79,19 @@ def createDB():
     conn = getConnection()
     with conn.cursor() as cur:
         cur.execute('END')
-        cur.execute('CREATE DATABASE %s' %DBNAME)
+        cur.execute('CREATE DATABASE %s' % DBNAME)
+        cur.execute('CREATE DATABASE %s' % DBNAME_OTHER)
     conn.commit()
     conn.close()
+
 
 def dropDB():
     conn = getConnection()
     with conn.cursor() as cur:
         cur.execute('END')
         try:
-            cur.execute('DROP DATABASE %s' %DBNAME)
+            cur.execute('DROP DATABASE %s' % DBNAME_OTHER)
+            cur.execute('DROP DATABASE %s' % DBNAME)
         except psycopg2.ProgrammingError:
             pass
     conn.commit()
@@ -95,9 +111,7 @@ def cleanDB(conn=None):
 
 
 def setUpSerializers(test):
-    serialize.SERIALIZERS = [serializers.DateTimeSerializer(),
-                             serializers.DateSerializer(),
-                             serializers.TimeSerializer()]
+    serialize.SERIALIZERS = []
 
 
 def tearDownSerializers(test):
@@ -108,16 +122,20 @@ def setUp(test):
     module.setUp(test)
     setUpSerializers(test)
     #createDB()
-    test.globs['conn'] = getConnection(DBNAME)
-    cleanDB(test.globs['conn'])
-    test.globs['commit'] = transaction.commit
-    test.globs['dm'] = datamanager.PJDataManager(test.globs['conn'])
+    g = test.globs
+    g['conn'] = getConnection(DBNAME)
+    g['conn_other'] = getConnection(DBNAME_OTHER)
+    cleanDB(g['conn'])
+    cleanDB(g['conn_other'])
+    g['commit'] = transaction.commit
+    g['dm'] = datamanager.PJDataManager(g['conn'])
+    g['dm_other'] = datamanager.PJDataManager(g['conn_other'])
 
     def dumpTable(table, flush=True, isolate=False, sort=False):
         if isolate:
             conn = getConnection(database=DBNAME)
         else:
-            conn = test.globs['dm']._conn
+            conn = g['dm']._conn
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             try:
                 cur.execute('SELECT * FROM ' + table)
@@ -130,7 +148,10 @@ def setUp(test):
                 pprint(res)
         if isolate:
             conn.close()
-    test.globs['dumpTable'] = dumpTable
+    g['dumpTable'] = dumpTable
+
+    dmp = SimpleDataManagerProvider([g['dm'], g['dm_other']], g['dm'])
+    zope.component.provideUtility(dmp)
 
 
 def tearDown(test):
@@ -138,7 +159,9 @@ def tearDown(test):
     tearDownSerializers(test)
     transaction.abort()
     cleanDB(test.globs['conn'])
+    cleanDB(test.globs['conn_other'])
     test.globs['conn'].close()
+    test.globs['conn_other'].close()
     #dropDB()
     resetCaches()
 
@@ -163,8 +186,6 @@ class DatabaseLayer(object):
 
         self.save_PJ_ACCESS_LOGGING = datamanager.PJ_ACCESS_LOGGING
         datamanager.PJ_ACCESS_LOGGING = True
-        self.save_ADD_TB = datamanager.PJPersistCursor.ADD_TB
-        datamanager.PJPersistCursor.ADD_TB = True
 
         setUpLogging(datamanager.TABLE_LOG, copy_to_stdout=True)
         setUpLogging(datamanager.LOG, copy_to_stdout=True)
@@ -177,7 +198,6 @@ class DatabaseLayer(object):
         tearDownLogging(datamanager.TABLE_LOG)
 
         datamanager.PJ_ACCESS_LOGGING = self.save_PJ_ACCESS_LOGGING
-        datamanager.PJPersistCursor.ADD_TB = self.save_ADD_TB
 
 
 db_layer = DatabaseLayer("db_layer")
@@ -194,6 +214,7 @@ class PJTestCase(unittest.TestCase):
         self.dm = datamanager.PJDataManager(self.conn)
 
     def tearDown(self):
+        datamanager.CONFLICT_TRACEBACK_INFO.traceback = None
         #module.tearDown(self)
         tearDownSerializers(self)
         transaction.abort()
@@ -203,18 +224,17 @@ class PJTestCase(unittest.TestCase):
 
 
 def resetCaches():
-    serialize.OID_CLASS_LRU.__init__(20000)
-    serialize.TABLES_WITH_TYPE.__init__()
     serialize.AVAILABLE_NAME_MAPPINGS.__init__()
     serialize.PATH_RESOLVE_CACHE = {}
+    serialize.TABLE_KLASS_MAP = {}
 
 
 def log_sql_to_file(fname, add_tb=True, tb_limit=15):
     import logging
 
+    datamanager.PJ_ENABLE_QUERY_STATS = True
     datamanager.PJ_ACCESS_LOGGING = True
-    datamanager.LOG.setLevel(logging.DEBUG)
-    datamanager.PJPersistCursor.ADD_TB = add_tb
+    datamanager.TABLE_LOG.setLevel(logging.DEBUG)
     datamanager.PJPersistCursor.TB_LIMIT = tb_limit
 
     fh = logging.FileHandler(fname)
@@ -222,7 +242,7 @@ def log_sql_to_file(fname, add_tb=True, tb_limit=15):
     formatter = logging.Formatter(
         '%(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
-    datamanager.LOG.addHandler(fh)
+    datamanager.TABLE_LOG.addHandler(fh)
 
 
 class StdoutHandler(logging.StreamHandler):
@@ -284,6 +304,3 @@ def run_in_thread(func):
     t.setDaemon(True)
     t.start()
     #TO_JOIN.append(t)
-
-
-atexit.register(dropDB)

@@ -17,6 +17,7 @@ import atexit
 import doctest
 import unittest
 
+import mock
 import ZODB
 import ZODB.DemoStorage
 import persistent
@@ -271,11 +272,12 @@ def doctest_SimplePJContainer_basic():
 
     Let's add a container to the root:
 
-      >>> dm.reset()
       >>> dm.root['c'] = container.SimplePJContainer()
 
       >>> dumpTable(cn)
-      [{'data': {u'data': {}}, 'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.container.SimplePJContainer',
+                 u'data': {}},
+        'id': u'0001020304050607080a0b0c0'}]
 
     As you can see, the serialization is very clean. Next we add a person.
 
@@ -304,14 +306,13 @@ def doctest_SimplePJContainer_basic():
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data':
-          {u'__name__': u'stephan',
-           u'__parent__':
-               {u'_py_type': u'DBREF',
-                u'database': u'pjpersist_test',
-                u'id': u'0001020304050607080a0b0c0',
-                u'table': u'pjpersist_dot_zope_dot_container_dot_SimplePJContainer'},
-           u'name': u'Stephan'},
+      [{'data': {u'__name__': u'stephan',
+                 u'__parent__': {u'_py_type': u'DBREF',
+                                 u'database': u'pjpersist_test',
+                                 u'id': u'0001020304050607080a0b0c0',
+                                 u'table': u'pjpersist_dot_zope_dot_container_dot_SimplePJContainer'},
+                 u'_py_persistent_type': u'pjpersist.zope.tests.test_container.SimplePerson',
+                 u'name': u'Stephan'},
         'id': u'0001020304050607080a0b0c0'}]
 
       >>> dm.root['c'].keys()
@@ -322,11 +323,11 @@ def doctest_SimplePJContainer_basic():
       u'stephan'
 
       >>> dumpTable(cn)
-      [{'data': {u'data':
-          {u'stephan': {u'_py_type': u'DBREF',
-                        u'database': u'pjpersist_test',
-                        u'id': u'0001020304050607080a0b0c0',
-                        u'table': u'person'}}},
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.container.SimplePJContainer',
+                 u'data': {u'stephan': {u'_py_type': u'DBREF',
+                                        u'database': u'pjpersist_test',
+                                        u'id': u'0001020304050607080a0b0c0',
+                                        u'table': u'person'}}},
         'id': u'0001020304050607080a0b0c0'}]
 
       >>> dm.root['c'].items()
@@ -388,7 +389,9 @@ def doctest_PJContainer_basic():
       >>> dm.root['c'] = container.PJContainer('person')
 
       >>> dumpTable('pjpersist_dot_zope_dot_container_dot_PJContainer')
-      [{'data': {u'_pj_table': u'person'}, 'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {u'_pj_table': u'person',
+                 u'_py_persistent_type': u'pjpersist.zope.container.PJContainer'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class.
@@ -412,7 +415,8 @@ def doctest_PJContainer_basic():
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data': {u'key': u'stephan',
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+                 u'key': u'stephan',
                  u'name': u'Stephan',
                  u'parent': {u'_py_type': u'DBREF',
                              u'database': u'pjpersist_test',
@@ -635,6 +639,32 @@ def doctest_PJContainer_add_IdNamesPJContainer():
       True
 """
 
+
+def doctest_PJContainer_bool():
+  """PJContainers can be evaluated to boolean, however this
+  results in an extra query
+
+      >>> dm.root['people'] = container.PJContainer('person')
+      >>> bool(dm.root['people'])
+      False
+
+      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
+      >>> dm.root['people'][u'roy'] = Person(u'Roy')
+
+  Enable query statistics and make sure we issue COUNT(*) query instead of
+  fetching all the data from the table.
+
+      >>> dm.flush()
+      >>> dm._query_report.qlog = []
+      >>> with mock.patch.object(datamanager, "PJ_ENABLE_QUERY_STATS", True):
+      ...   bool(dm.root['people'])
+      True
+
+      >>> dm._query_report.qlog[-1].query
+      'SELECT COUNT(person.id) FROM person...'
+  """
+
+
 def doctest_PJContainer_find():
     r"""PJContainer: find
 
@@ -671,14 +701,16 @@ def doctest_PJContainer_find():
       >>> res = dm.root['people'].raw_find(qry)
       >>> pprint(sorted(res, key=lambda row:row['data']['name']))
       [[u'0001020304050607080a0b0c0',
-        {u'key': u'roger',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'roger',
          u'name': u'Roger',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'roy',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'roy',
          u'name': u'Roy',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
@@ -708,42 +740,48 @@ def doctest_PJContainer_find():
       >>> res = dm.root['people'].raw_find(orderBy=["(data->'name')"])
       >>> pprint(list(res))
       [[u'0001020304050607080a0b0c0',
-        {u'key': u'adam',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'adam',
          u'name': u'Adam',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'albertas',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'albertas',
          u'name': u'Albertas',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'roger',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'roger',
          u'name': u'Roger',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'roy',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'roy',
          u'name': u'Roy',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'russ',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'russ',
          u'name': u'Russ',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
                      u'id': u'0001020304050607080a0b0c0',
                      u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
        [u'0001020304050607080a0b0c0',
-        {u'key': u'stephan',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'stephan',
          u'name': u'Stephan',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
@@ -753,7 +791,8 @@ def doctest_PJContainer_find():
       >>> res = dm.root['people'].raw_find(orderBy=["(data->'name') DESC"], limit=1)
       >>> pprint(list(res))
       [[u'0001020304050607080a0b0c0',
-        {u'key': u'stephan',
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+         u'key': u'stephan',
          u'name': u'Stephan',
          u'parent': {u'_py_type': u'DBREF',
                      u'database': u'pjpersist_test',
@@ -781,7 +820,8 @@ def doctest_PJContainer_find():
       >>> res = dm.root['people'].raw_find_one(qry2)
       >>> pprint(res)
       [u'0001020304050607080a0b0c0',
-       {u'key': u'stephan',
+       {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+        u'key': u'stephan',
         u'name': u'Stephan',
         u'parent': {u'_py_type': u'DBREF',
                     u'database': u'pjpersist_test',
@@ -809,6 +849,35 @@ def doctest_PJContainer_find():
       >>> dm.root['people'].find_one(id=stephan._p_oid.id)
       <Person Stephan>
     """
+
+def doctest_PJ_Container_count():
+  """
+  count() provides a quick way to count items without fetching them from database
+
+      >>> import pjpersist.sqlbuilder as sb
+
+      >>> transaction.commit()
+      >>> dm.root['people'] = container.PJContainer('person')
+      >>> dm.root['people'].count()
+      0L
+
+      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
+      >>> dm.root['people'][u'roy'] = Person(u'Roy')
+      >>> dm.root['people'][u'roger'] = Person(u'Roger')
+      >>> dm.root['people'][u'adam'] = Person(u'Adam')
+      >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
+      >>> dm.root['people'][u'russ'] = Person(u'Russ')
+      >>> dm.root['people'].count()
+      6L
+
+      >>> table = Person._p_pj_table
+      >>> datafld = sb.Field('person', 'data')
+      >>> fld = sb.JSON_GETITEM_TEXT(datafld, 'name')
+      >>> qry = fld.startswith('Ro')
+      >>> dm.root['people'].count(qry)
+      2L
+  """
+
 
 def doctest_PJContainer_cache_complete():
     """PJContainer: _cache_complete
@@ -890,6 +959,137 @@ def doctest_PJContainer_cache_complete():
 
     """
 
+
+def doctest_PJContainer_cache_events():
+    """PJContainer: _cache insert/delete with events
+    (regression: events missed freshly inserted objects)
+
+      >>> transaction.commit()
+      >>> ppl = dm.root['people'] = container.PJContainer('person')
+
+    Set cache complete
+
+      >>> ppl.clear()
+
+      >>> ppl._cache_complete
+      True
+
+    INSERT
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
+      ...     )
+      ... def handleObjectAddedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectAddedEvent)
+
+    We want to see that the container in the event handler HAS the just added
+    object.
+
+      >>> len(ppl)
+      0
+
+    Add a single object
+
+      >>> ppl[u'stephan'] = Person(u'Stephan')
+      container length: 1
+
+    DELETE
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
+      ...     )
+      ... def handleObjectRemovedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectRemovedEvent)
+
+      >>> len(ppl)
+      1
+
+    Remove the very first object
+
+      >>> del ppl[ppl.keys()[0]]
+      container length: 0
+
+    """
+
+
+def doctest_IdNamesPJContainer_cache_events():
+    """IdNamesPJContainer: _cache insert/delete with events
+    (regression: events missed freshly inserted objects)
+
+      >>> transaction.commit()
+      >>> ppl = dm.root['people'] = container.IdNamesPJContainer('person')
+
+    Set cache complete
+
+      >>> ppl.clear()
+
+      >>> ppl._cache_complete
+      True
+
+    INSERT
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
+      ...     )
+      ... def handleObjectAddedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectAddedEvent)
+
+    We want to see that the container in the event handler HAS the just added
+    object.
+
+      >>> len(ppl)
+      0
+
+      >>> ppl.add(Person(u'Stephan'))
+      container length: 1
+
+    DELETE
+    ------
+
+    Patch event handler:
+
+      >>> @zope.component.adapter(
+      ...     zope.interface.Interface,
+      ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
+      ...     )
+      ... def handleObjectRemovedEvent(object, event):
+      ...     print "container length:", len(ppl)
+      ...
+
+      >>> zope.component.provideHandler(handleObjectRemovedEvent)
+
+      >>> len(ppl)
+      1
+
+    Remove the very first object
+
+      >>> del ppl[ppl.keys()[0]]
+      container length: 0
+
+    """
+
+
 def doctest_IdNamesPJContainer_basic():
     """IdNamesPJContainer: basic
 
@@ -927,7 +1127,8 @@ def doctest_IdNamesPJContainer_basic():
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data': {u'name': u'Stephan',
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+                 u'name': u'Stephan',
                  u'parent': {u'_py_type': u'DBREF',
                              u'database': u'pjpersist_test',
                              u'id': u'0001020304050607080a0b0c0',
@@ -985,9 +1186,6 @@ def doctest_AllItemsPJContainer_basic():
     Let's start by creating two person containers that service different
     purposes:
 
-      >>> transaction.abort()
-      >>> dm.reset()
-
       >>> dm.root['friends'] = container.PJContainer('person')
       >>> dm.root['friends'][u'roy'] = Person(u'Roy')
       >>> dm.root['friends'][u'roger'] = Person(u'Roger')
@@ -1021,7 +1219,6 @@ def doctest_SubDocumentPJContainer_basic():
     a commonly trivial tables holding meta-data for the table
     object. But they require a root document:
 
-      >>> dm.reset()
       >>> dm.root['app_root'] = ApplicationRoot()
 
     Let's add a container to the app root:
@@ -1033,12 +1230,11 @@ def doctest_SubDocumentPJContainer_basic():
       >>> transaction.commit()
       >>> dumpTable('root')
       [{'data':
-          {u'data':
-              {u'people':
-                  {u'_pj_table': u'person',
-                   u'_py_persistent_type':
-                       u'pjpersist.zope.container.SubDocumentPJContainer'}}},
-      'id': u'0001020304050607080a0b0c0'}]
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ApplicationRoot',
+         u'data':
+           {u'people': {u'_pj_table': u'person',
+                        u'_py_persistent_type': u'pjpersist.zope.container.SubDocumentPJContainer'}}},
+        'id': u'0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class. Let's make sure the container can be loaded
@@ -1104,10 +1300,11 @@ def doctest_PJContainer_with_ZODB():
       <pjpersist.zope.container.PJContainer object at 0x7f6b6273b7d0>
 
       >>> dumpTable('person')
-      [{'data': {u'key': u'stephan',
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
+                 u'key': u'stephan',
                  u'name': u'Stephan',
-                 u'parent': u'zodb-04bc8095215afee7'},
-        'id': u'46a049949c9ba6eb139bfbde'}]
+                 u'parent': u'zodb-01af3b00c5
+        'id': u'0001020304050607080a0b0c0'}]
 
     Note that we produced a nice hex-presentation of the ZODB's OID.
     """
@@ -1171,7 +1368,9 @@ def doctest_Realworldish():
 
       >>> dumpTable(
       ...     'pjpersist_dot_zope_dot_tests_dot_test_container_dot_Campaigns')
-      [{'data': {u'name': u'foobar'}, 'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Campaigns',
+                 u'name': u'foobar'},
+        'id': u'0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class.
@@ -1195,7 +1394,8 @@ def doctest_Realworldish():
       >>> transaction.commit()
 
       >>> dumpTable(Campaigns._pj_table)
-      [{'data': {u'key': u'one',
+      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Campaign',
+                 u'key': u'one',
                  u'name': u'one',
                  u'parent': {u'_py_type': u'DBREF',
                              u'database': u'pjpersist_test',
@@ -1290,7 +1490,6 @@ class Address(persistent.Persistent):
 
 class PeoplePerson(persistent.Persistent, container.PJContained):
     _p_pj_table = 'person'
-    _p_pj_store_type = True
 
     def __init__(self, name, age):
         self.name = name
@@ -1502,7 +1701,8 @@ def doctest_PJContainer_SimpleColumnSerialization():
       >>> pprint(list(people.raw_find(qry)))
       [[u'54894d3fb25d2b232e0046d6',
         u'Mr Number 00010',
-        {u'address': None,
+        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ColumnPerson',
+         u'address': None,
          u'birthday': None,
          u'friends': {},
          u'name': u'Mr Number 00010',
@@ -1515,7 +1715,8 @@ def doctest_PJContainer_SimpleColumnSerialization():
       >>> pprint(people.raw_find_one(qry))
       [u'54894d80b25d2b240f00bbf6',
        u'Mr Number 00010',
-       {u'address': None,
+       {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ColumnPerson',
+        u'address': None,
         u'birthday': None,
         u'friends': {},
         u'name': u'Mr Number 00010',
@@ -1757,6 +1958,7 @@ class ContainerConflictTest(testing.PJTestCase):
 
 
 class CountingCommandsTest(testing.PJTestCase):
+#class CountingCommandsTest(object):
 
     """We want to see here that various operations emit the least SQL commands
     """
@@ -1766,8 +1968,6 @@ class CountingCommandsTest(testing.PJTestCase):
 
         self.save_PJ_ACCESS_LOGGING = datamanager.PJ_ACCESS_LOGGING
         datamanager.PJ_ACCESS_LOGGING = True
-        self.save_ADD_TB = datamanager.PJPersistCursor.ADD_TB
-        datamanager.PJPersistCursor.ADD_TB = True
 
         self.table_log = testing.setUpLogging(datamanager.TABLE_LOG)
         self.log = testing.setUpLogging(datamanager.LOG)
@@ -1779,7 +1979,6 @@ class CountingCommandsTest(testing.PJTestCase):
         testing.tearDownLogging(datamanager.TABLE_LOG)
 
         datamanager.PJ_ACCESS_LOGGING = self.save_PJ_ACCESS_LOGGING
-        datamanager.PJPersistCursor.ADD_TB = self.save_ADD_TB
 
         super(CountingCommandsTest, self).tearDown()
 
@@ -2073,8 +2272,10 @@ def setUp(test):
     # a IPJDataManagerProvider
     class Provider(object):
         zope.interface.implements(interfaces.IPJDataManagerProvider)
-        def get(self):
+
+        def get(self, database):
             return test.globs['dm']
+
     zope.component.provideUtility(Provider())
 
     # silence this, otherwise half-baked objects raise exceptions
@@ -2090,14 +2291,6 @@ def noCacheSetUp(test):
 def tearDown(test):
     testing.tearDown(test)
     placelesssetup.tearDown(test)
-    try:
-        del Person._p_pj_store_type
-    except AttributeError:
-        pass
-    try:
-        del SimplePerson._p_pj_store_type
-    except AttributeError:
-        pass
     exceptionformatter.DEBUG_EXCEPTION_FORMATTER = \
         test.orig_DEBUG_EXCEPTION_FORMATTER
 

@@ -31,16 +31,31 @@ import struct
 import sys
 import threading
 import time
+import traceback
 import transaction
 import zope.interface
-from zope.exceptions import exceptionformatter
+
 
 from pjpersist import interfaces, serialize
+from pjpersist.querystats import QueryReport
+
 
 PJ_ACCESS_LOGGING = False
 # set to True to automatically create tables if they don't exist
 # it is relatively expensive, so create your tables with a schema.sql
 # and turn this off for production
+
+# Enable query statistics reporting after transaction ends
+PJ_ENABLE_QUERY_STATS = False
+
+# you can register listeners to GLOBAL_QUERY_STATS_LISTENERS with
+# `register_query_stats_listener`.
+GLOBAL_QUERY_STATS_LISTENERS = set()
+
+# Maximum query length to output qith query log
+MAX_QUERY_ARGUMENT_LENGTH = 500
+
+
 PJ_AUTO_CREATE_TABLES = True
 
 # set to True to automatically create IColumnSerialization columns
@@ -48,10 +63,21 @@ PJ_AUTO_CREATE_TABLES = True
 # so this is super expensive
 PJ_AUTO_CREATE_COLUMNS = True
 
+
 TABLE_LOG = logging.getLogger('pjpersist.table')
 
 THREAD_NAMES = []
 THREAD_COUNTERS = {}
+
+# When a conflict error is thrown we want to ensure it gets
+# handled properly at a higher level (i.e. the transaction is
+# retried). In cases where is it not handled correctly we
+# will have the traceback of where the conflict occurred
+# for debugging later.
+# Make sure you set CONFLICT_TRACEBACK_INFO.traceback to None
+# after the error is processed.
+CONFLICT_TRACEBACK_INFO = threading.local()
+CONFLICT_TRACEBACK_INFO.traceback = None
 
 mhash = hashlib.md5()
 mhash.update(socket.gethostname())
@@ -62,6 +88,26 @@ LOG = logging.getLogger(__name__)
 
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
+
+
+def createId():
+    # 4 bytes current time
+    id = struct.pack(">i", int(time.time()))
+    # 3 bytes machine
+    id += HOSTNAME_HASH
+    # 2 bytes pid
+    id += PID_HASH
+    # 1 byte thread id
+    tname = threading.currentThread().name
+    if tname not in THREAD_NAMES:
+        THREAD_NAMES.append(tname)
+    tidx = THREAD_NAMES.index(tname)
+    id += struct.pack(">i", tidx)[-1]
+    # 2 bytes counter
+    THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
+    THREAD_COUNTERS[tidx] += 1 % 0xFFFF
+    id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
+    return binascii.hexlify(id)
 
 
 class Json(psycopg2.extras.Json):
@@ -78,35 +124,19 @@ class Json(psycopg2.extras.Json):
 
 
 class PJPersistCursor(psycopg2.extras.DictCursor):
-
-    ADD_TB = True
-    TB_LIMIT = 15  # 15 should be sufficient to figure
-
     def __init__(self, datamanager, flush, *args, **kwargs):
         super(PJPersistCursor, self).__init__(*args, **kwargs)
         self.datamanager = datamanager
         self.flush = flush
 
-    def log_query(self, sql, args, start_time):
-        duration = time.time() - start_time
-
-        if self.ADD_TB:
-            try:
-                raise ValueError('boom')
-            except:
-                # we need here exceptionformatter, otherwise __traceback_info__
-                # is not added
-                tb = ''.join(exceptionformatter.extract_stack(
-                    sys.exc_info()[2].tb_frame.f_back, limit=self.TB_LIMIT))
-        else:
-            tb = '  <omitted>'
+    def log_query(self, sql, args, duration):
 
         txn = transaction.get()
         txn = '%i - %s' % (id(txn), txn.description),
 
         TABLE_LOG.debug(
-            "%s,\n args:%r,\n TXN:%s,\n tb:\n%s\n time:%s",
-            sql, args, txn, tb, duration)
+            "%s,\n args:%r,\n TXN:%s,\n time:%sms",
+            sql, args, txn, duration*1000)
 
     def execute(self, sql, args=None):
         # Convert SQLBuilder object to string
@@ -125,9 +155,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             super(PJPersistCursor, self).execute("SAVEPOINT before_execute;")
 
             try:
-                __traceback_info__ = (self.datamanager.database, sql, args)
-                start_time = time.time()
-                return super(PJPersistCursor, self).execute(sql, args)
+                return self._execute_and_log(sql, args)
             except psycopg2.Error, e:
                 # XXX: ugly: we're creating here missing tables on the fly
                 msg = e.message
@@ -146,59 +174,88 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                     self.datamanager._create_doc_table(
                         self.datamanager.database, tableName)
 
-                    start_time = time.time()
                     try:
-                        return super(PJPersistCursor, self).execute(sql, args)
+                        return self._execute_and_log(sql, args)
                     except psycopg2.Error, e:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
-                    finally:
-                        # Very useful logging of every SQL command with traceback to code.
-                        if PJ_ACCESS_LOGGING:
-                            self.log_query(sql, args, start_time)
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
-                self.check_for_conflict(e)
+                check_for_conflict(e, sql)
                 # otherwise let it fly away
                 raise
-            finally:
-                # Very useful logging of every SQL command with traceback to code.
-                if PJ_ACCESS_LOGGING:
-                    self.log_query(sql, args, start_time)
         else:
             try:
                 start_time = time.time()
                 # otherwise just execute the given sql
-                __traceback_info__ = (self.datamanager.database, sql, args)
-                return super(PJPersistCursor, self).execute(sql, args)
+                return self._execute_and_log(sql, args)
             except psycopg2.Error, e:
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
-                self.check_for_conflict(e)
+                check_for_conflict(e, sql)
                 raise
             finally:
                 # Very useful logging of every SQL command with traceback to code.
                 if PJ_ACCESS_LOGGING:
                     self.log_query(sql, args, start_time)
 
+    def _sanitize_arg(self, arg):
+        r = repr(arg)
+        if len(r) > MAX_QUERY_ARGUMENT_LENGTH:
+            r = r[:MAX_QUERY_ARGUMENT_LENGTH] + "..."
+            return r
+        return arg
 
-    def check_for_conflict(self, e):
-        """Check whether exception indicates serialization failure and raise
-        ConflictError in this case.
+    def _execute_and_log(self, sql, args):
+        # Very useful logging of every SQL command with traceback to code.
+        __traceback_info__ = (self.datamanager.database, sql, args)
+        t0 = time.time()
+        try:
+            res = super(PJPersistCursor, self).execute(sql, args)
+        finally:
+            t1 = time.time()
+            db = self.datamanager.database
 
-        Serialization failures are denoted by postgres codes:
-            40001 - serialization_failure
-            40P01 - deadlock_detected
-        """
-        serialization_errors = (
-            psycopg2.errorcodes.SERIALIZATION_FAILURE,
-            psycopg2.errorcodes.DEADLOCK_DETECTED
-        )
-        if e.pgcode in serialization_errors:
-            raise interfaces.ConflictError(str(e))
+            debug = (PJ_ACCESS_LOGGING or PJ_ENABLE_QUERY_STATS)
+
+            if debug:
+                saneargs = [self._sanitize_arg(a) for a in args] \
+                    if args else args
+            else:
+                # We don't want to do expensive sanitization in prod mode
+                saneargs = args
+
+            if PJ_ACCESS_LOGGING:
+                self.log_query(sql, saneargs, t1-t0)
+
+            if PJ_ENABLE_QUERY_STATS:
+                self.datamanager._query_report.record(sql, saneargs, t1-t0, db)
+
+            for rep in GLOBAL_QUERY_STATS_LISTENERS:
+                dt = t1 - t0
+                rep.record(sql, saneargs, dt, db)
+        return res
+
+
+def check_for_conflict(e, sql):
+    """Check whether exception indicates serialization failure and raise
+    ConflictError in this case.
+
+    Serialization failures are denoted by postgres codes:
+        40001 - serialization_failure
+        40P01 - deadlock_detected
+    """
+    serialization_errors = (
+        psycopg2.errorcodes.SERIALIZATION_FAILURE,
+        psycopg2.errorcodes.DEADLOCK_DETECTED
+    )
+    if e.pgcode in serialization_errors:
+        CONFLICT_TRACEBACK_INFO.traceback = traceback.format_stack()
+        LOG.warning("Conflict detected with code %s sql: %s", e.pgcode, sql)
+        raise interfaces.ConflictError(str(e), sql)
 
 
 class Root(UserDict.DictMixin):
@@ -264,11 +321,9 @@ class Root(UserDict.DictMixin):
 class PJDataManager(object):
     zope.interface.implements(interfaces.IPJDataManager)
 
-    name_map_table = 'persistence_name_map'
-    _has_name_map_table = False
     root = None
 
-    def __init__(self, conn, root_table=None, name_map_table=None):
+    def __init__(self, conn, root_table=None):
         self._conn = conn
         self.database = get_database_name_from_dsn(conn.dsn)
         self._reader = serialize.ObjectReader(self)
@@ -280,90 +335,68 @@ class PJDataManager(object):
         self._registered_objects = {}
         self._loaded_objects = {}
         self._inserted_objects = {}
-        self._modified_objects = {}
         self._removed_objects = {}
         # The latest states written to the database.
         self._latest_states = {}
         self._needs_to_join = True
         self.annotations = {}
-        if name_map_table is not None:
-            self.name_map_table = name_map_table
+
+        self._txn_active = False
+        self.requestTransactionOptions()  # No special options
+
         self.transaction_manager = transaction.manager
-        if not self._has_name_map_table and PJ_AUTO_CREATE_TABLES:
-            self._init_name_map_table()
         if self.root is None:
             self.root = Root(self, root_table)
 
         from pjpersist import objectcache
         self._new_obj_cache = objectcache.get_cache(self)
 
+        self._query_report = QueryReport()
+
+    def requestTransactionOptions(self, readonly=None, deferrable=None,
+                                  isolation=None):
+        if self._txn_active:
+            LOG.warning("Cannot set transaction options while transaction "
+                        "is already active.")
+        self._txn_readonly = readonly
+        self._txn_deferrable = deferrable
+        self._txn_isolation = isolation
+
+    def _setTransactionOptions(self, cur):
+        modes = []
+        if self._txn_readonly:
+            dfr = "DEFERRABLE" if self._txn_deferrable else ""
+            modes.append("READ ONLY %s" % dfr)
+
+        if self._txn_isolation:
+            assert self._txn_isolation in ["SERIALIZABLE",
+                                           "REPEATABLE READ",
+                                           "READ COMMITTED",
+                                           "READ UNCOMMITTED"]
+            modes.append("ISOLATION LEVEL %s" % self._txn_isolation)
+        if not modes:
+            return
+
+        stmt = "SET TRANSACTION %s" % (", ".join(modes))
+        cur.execute("BEGIN")
+        cur.execute(stmt)
+
     def getCursor(self, flush=True):
         def factory(*args, **kwargs):
             return PJPersistCursor(self, flush, *args, **kwargs)
-        return self._conn.cursor(cursor_factory=factory)
+        cur = self._conn.cursor(cursor_factory=factory)
+
+        if not self._txn_active:
+            # clear any traceback before starting next txn
+            CONFLICT_TRACEBACK_INFO.traceback = None
+            self._setTransactionOptions(cur)
+            self._txn_active = True
+        return cur
 
     def createId(self):
-        # 4 bytes current time
-        id = struct.pack(">i", int(time.time()))
-        # 3 bytes machine
-        id += HOSTNAME_HASH
-        # 2 bytes pid
-        id += PID_HASH
-        # 1 byte thread id
-        tname = threading.currentThread().name
-        if tname not in THREAD_NAMES:
-            THREAD_NAMES.append(tname)
-        tidx = THREAD_NAMES.index(tname)
-        id += struct.pack(">i", tidx)[-1]
-        # 2 bytes counter
-        THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
-        THREAD_COUNTERS[tidx] += 1 % 0xFFFF
-        id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
-        return binascii.hexlify(id)
-
-    def _init_name_map_table(self):
-        with self.getCursor(False) as cur:
-            cur.execute(
-                "SELECT * FROM information_schema.tables where table_name=%s",
-                (self.name_map_table,))
-            if cur.rowcount:
-                self._has_name_map_table = True
-                return
-            LOG.info("Creating name map table %s" % self.name_map_table)
-            cur.execute('''
-                CREATE TABLE %s (
-                    database varchar,
-                    tbl varchar,
-                    path varchar,
-                    doc_has_type bool)
-                ''' % self.name_map_table)
-            self._has_name_map_table = True
-
-    def _get_name_map_entry(self, database, table, path=None):
-        name_map = sb.Table(self.name_map_table)
-        clause = (name_map.database == database) & (name_map.tbl == table)
-        if path is not None:
-            clause &= (name_map.path == path)
-        with self.getCursor(False) as cur:
-            cur.execute(sb.Select(sb.Field(self.name_map_table, '*'), clause))
-            if path is None:
-                return cur.fetchall()
-            return cur.fetchone() if cur.rowcount else None
-
-    def _insert_name_map_entry(self, database, table, path, doc_has_type):
-        with self.getCursor(False) as cur:
-            cur.execute(
-                sb.Insert(
-                    self.name_map_table, values={
-                        'database': database,
-                        'tbl': table,
-                        'path': path,
-                        'doc_has_type': doc_has_type})
-                )
+        return createId()
 
     def create_tables(self, tables):
-        self._init_name_map_table()
-
         if isinstance(tables, basestring):
             tables = [tables]
 
@@ -473,11 +506,12 @@ class PJDataManager(object):
     def _get_doc_py_type(self, database, table, id):
         tbl = sb.Table(table)
         with self.getCursor() as cur:
+            datafld = sb.Field(table, 'data')
             cur.execute(
-                sb.Select(sb.Field(table, interfaces.PY_TYPE_ATTR_NAME),
+                sb.Select(sb.JGET(datafld, interfaces.PY_TYPE_ATTR_NAME),
                           tbl.id == id))
             res = cur.fetchone()
-            return res[interfaces.PY_TYPE_ATTR_NAME] if res is not None else None
+            return res[0] if res is not None else None
 
     def _get_table_from_object(self, obj):
         return self._writer.get_table_name(obj)
@@ -525,6 +559,15 @@ class PJDataManager(object):
         return res
 
     def load(self, dbref, klass=None):
+        dm = self
+        if dbref.database != self.database:
+            # This is a reference of object from different database! We need to
+            # locate the suitable data manager for this.
+            dmp = zope.component.getUtility(interfaces.IPJDataManagerProvider)
+            dm = dmp.get(dbref.database)
+            assert dm.database == dbref.database, (dm.database, dbref.database)
+            return dm.load(dbref, klass)
+
         return self._reader.get_ghost(dbref, klass)
 
     def reset(self):
@@ -611,13 +654,15 @@ class PJDataManager(object):
             return
 
         if obj is not None:
-            if id(obj) not in self._registered_objects:
-                self._registered_objects[id(obj)] = obj
-            if id(obj) not in self._modified_objects:
-                obj = self._get_doc_object(obj)
-                self._modified_objects[id(obj)] = obj
+            obj_id = id(obj)
+            if obj_id not in self._registered_objects:
+                self._registered_objects[obj_id] = obj
+                obj_registered = getattr(obj, '_pj_object_registered', None)
+                if obj_registered is not None:
+                    obj_registered(self)
 
     def abort(self, transaction):
+        self._report_stats()
         try:
             self._conn.rollback()
         except psycopg2.InterfaceError:
@@ -631,8 +676,13 @@ class PJDataManager(object):
     def commit(self, transaction):
         self._flush_objects()
         self._new_obj_cache.commit()
-        self._conn.commit()
         #self.reset()
+        self._report_stats()
+        try:
+            self._conn.commit()
+        except psycopg2.Error, e:
+            check_for_conflict(e, "DataManager.commit")
+            raise
         self.__init__(self._conn)
 
     def tpc_begin(self, transaction):
@@ -650,6 +700,13 @@ class PJDataManager(object):
     def sortKey(self):
         return ('PJDataManager', 0)
 
+    def _report_stats(self):
+        if not PJ_ENABLE_QUERY_STATS:
+            return
+
+        stats = self._query_report.calc_and_report()
+        TABLE_LOG.info(stats)
+
 
 def get_database_name_from_dsn(dsn):
     import re
@@ -659,3 +716,22 @@ def get_database_name_from_dsn(dsn):
         return None
 
     return m.groups()[0]
+
+
+def register_query_stats_listener(listener):
+    """Register new query stats listener
+
+    All executed sql statements will be reported via the `listner.report()`.
+    Note, that queries from all threads will be reported to the same registered
+    object.
+
+    `listener` object has to implement `record(sql, args, time, db)` method.
+    QueryReport object may be used for this for detailed query analysis.
+    """
+    GLOBAL_QUERY_STATS_LISTENERS.add(listener)
+
+
+def unregister_query_stats_listener(listener):
+    """Unregister listener, registered by `register_query_stats_listener`
+    """
+    GLOBAL_QUERY_STATS_LISTENERS.remove(listener)

@@ -11,11 +11,11 @@ def read(*rnames):
 
 setup(
     name='pjpersist',
-    version='0.1.0dev0',
+    version='0.8.13',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',
-    description="PostGresqL/JSONB Persistence Backend",
+    description="PostgreSQL/JSONB Persistence Backend",
     long_description=(
         read('src', 'pjpersist', 'README.txt')
         + '\n\n' +
@@ -40,6 +40,7 @@ setup(
             'zope.app.testing',
             'zope.testing',
             'ZODB3',
+            'mock'
         ),
         zope=(
             'rwproperty',
@@ -47,9 +48,11 @@ setup(
         ),
     ),
     install_requires=[
+        'persistent',
         'transaction >=1.1.0',
         'repoze.lru',
         'psycopg2',
+        'simplejson',
         'setuptools',
         'sqlobject',
         'zope.dottedname',
@@ -61,6 +64,7 @@ setup(
     zip_safe=False,
     entry_points='''
     [console_scripts]
-    profile = pjpersist.performance:main
+    profile = pjpersist.tests.performance:main
+    json_speed_test = pjpersist.tests.json_speed_test:main
     ''',
 )

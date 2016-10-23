@@ -12,7 +12,7 @@
 #
 ##############################################################################
 """SQLBuilder extensions"""
-import json
+import json, re
 
 from sqlobject.sqlbuilder import *
 
@@ -37,9 +37,35 @@ class PGArray(SQLExpression):
 
     def __sqlrepr__(self, db):
         assert db == 'postgres', "Postgres-specific feature, sorry."
-
         items = (sqlrepr(item, db) for item in self.iterable)
         return 'array[%s]' % ", ".join(items)
+
+
+class PGArrayLiteral(SQLExpression):
+    """PostgreSQL array literal expression.
+
+    This works with all types except floats because paths are
+    separated by periods also.  This is mostly used for dict/array keys so
+    it shouldn't be much of a problem
+    Literal arrays don't need quotes around the values like '{a, b, 1, 2}',
+    but optional double quoting of string values is valid and helpful certain
+    cases, like words with apostrophes I.E '{"Bob''s"}'
+    """
+
+    def __init__(self, iterable):
+        self.iterable = iterable
+
+    def __sqlrepr__(self, db):
+        assert db == 'postgres', "Postgres-specific feature, sorry."
+        # strip quotes off of nested array literals
+        items = (sqlrepr(item, db) if not
+                 isinstance(item, self.__class__) else sqlrepr(item, db)[1:-1]
+                 for item in self.iterable)
+        literal = '{%s}' % ", ".join(items)
+        # switches single quotes to double quotes if there aren't
+        # 2 single quotes in a row, which indicates an escaped apostrophe
+        regex = re.compile("(?<!')'(?!')")
+        return "'{}'".format(regex.sub('"', literal))
 
 
 class TYPECAST(SQLExpression):
@@ -83,7 +109,7 @@ def JSON_PATH(json, keys):
 
 def JSON_PATH_TEXT(json, keys):
     """keys is an SQL array"""
-    return SQLOp("#>>", json, PGArray(keys))
+    return SQLOp("#>>", json, PGArrayLiteral(keys))
 
 def JSONB_SUPERSET(superset, subset):
     return SQLOp("@>", superset, subset)
@@ -95,12 +121,18 @@ def JSONB_CONTAINS(jsonb, key):
     return SQLOp("?", jsonb, key)
 
 def JSONB_CONTAINS_ANY(jsonb, keys):
-    """keys is an SQL array"""
+    """keys is an AdditionSQL array"""
     return SQLOp("?|", jsonb, PGArray(keys))
 
 def JSONB_CONTAINS_ALL(jsonb, keys):
     """keys is an SQL array"""
     return SQLOp("?&", jsonb, PGArray(keys))
+
+def ARRAY_CONTAINS(arr, values):
+    return SQLOp("@>", arr, PGArray(values))
+
+def ARRAY_OVERLAPS(arr, values):
+    return SQLOp("&&", arr, PGArray(values))
 
 
 class JGET(object):
@@ -190,3 +222,20 @@ class NoTables(SQLExpression):
 
     def tablesUsed(self, db):
         return {}
+
+
+class Function(SQLExpression):
+
+    def __init__(self, fname, *args):
+        self.fname = fname
+        self.args = args
+
+    def __sqlrepr__(self, db):
+        args = [sqlrepr(arg, db) for arg in self.args]
+        return "%s(%s)" % (self.fname, ', '.join(args))
+
+
+class ARRAY_TO_STRING(Function):
+
+    def __init__(self, array, sep):
+        Function.__init__(self, 'array_to_string', array, sep)
