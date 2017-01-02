@@ -43,7 +43,6 @@ setup(
             'mock'
         ),
         zope=(
-            'rwproperty',
             'zope.container',
         ),
     ),

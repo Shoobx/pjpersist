@@ -20,7 +20,6 @@ import transaction
 import zope.component
 import warnings
 
-from rwproperty import getproperty, setproperty
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
 
@@ -44,7 +43,7 @@ class PJContained(contained.Contained):
     _pj_parent_setter = None
     _v_parent = None
 
-    @getproperty
+    @property
     def __name__(self):
         if self._v_name is None:
             if self._pj_name_attr is not None:
@@ -52,13 +51,14 @@ class PJContained(contained.Contained):
             elif self._pj_name_getter is not None:
                 self._v_name = self._pj_name_getter()
         return self._v_name
-    @setproperty
+
+    @__name__.setter
     def __name__(self, value):
         if self._pj_name_setter is not None:
             self._pj_name_setter(value)
         self._v_name = value
 
-    @getproperty
+    @property
     def __parent__(self):
         if self._v_parent is None:
             if self._pj_parent_attr is not None:
@@ -66,7 +66,8 @@ class PJContained(contained.Contained):
             elif self._pj_parent_getter is not None:
                 self._v_parent = self._pj_parent_getter()
         return self._v_parent
-    @setproperty
+
+    @__parent__.setter
     def __parent__(self, value):
         if self._pj_parent_setter is not None:
             self._pj_parent_setter(value)
