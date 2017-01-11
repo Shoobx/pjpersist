@@ -46,6 +46,14 @@ class IPJContainer(zope.interface.Interface):
             u'they are removed from the container.'),
         default=True)
 
+    _pj_column_fields = zope.schema.Tuple(
+        title=u'Column Fields',
+        description=(u'A list of fields that represent columns '
+                     u'in the storage table. the default values are `id` '
+                     u'and `data`, but more can be added.'),
+        default=('id', 'data'),
+        required=True)
+
     def _pj_get_parent_key_value():
         """Returns the value that is used to specify a particular container as
         the parent of the item.

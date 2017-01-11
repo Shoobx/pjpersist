@@ -135,6 +135,7 @@ class PJContainer(contained.Contained,
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'
     _pj_remove_documents = True
+    _pj_column_fields = ('id', 'data')
 
     def __init__(self, table=None,
                  mapping_key=None, parent_key=None):
@@ -378,22 +379,19 @@ class PJContainer(contained.Contained,
         else:
             datafld = sb.Field(self._pj_table, 'data')
             res = []
-            first_class_fields = {'id', 'data'}
             # prefer sql columns over json fields
-            # XXX: this does not work, because we need here the contained object
-            #if interfaces.IColumnSerialization.providedBy(self):
-            #    for field in self._pj_column_fields:
-            #        first_class_fields.add(field.__name__)
             for name in fields:
-                if name in first_class_fields:
-                    res.append(sb.Field(self._pj_table, name))
+                if name in self._pj_column_fields:
+                    # SQL names are case-insensitive, so when we return the
+                    # result, we want proper capitalization.
+                    res.append(sb.ColumnAS(
+                        sb.Field(self._pj_table, name.lower()), name))
                 else:
                     if '.' not in name:
                         accessor = sb.JSON_GETITEM(datafld, name)
                     else:
                         accessor = sb.JSON_PATH(datafld, name.split("."))
                     res.append(sb.ColumnAS(accessor, name.replace('.', '_')))
-                # XXX: handle functions later here
         return res
 
     # BBB: providing support for mongo style queries
@@ -416,10 +414,11 @@ class PJContainer(contained.Contained,
         # iterating over the cursor is better and this way we expose rowcount
         # and friends
         cur = self._pj_jar.getCursor()
+        fields = self._get_sb_fields(fields)
         if qry is None:
-            cur.execute(sb.Select(self._get_sb_fields(fields), **kwargs))
+            cur.execute(sb.Select(fields, **kwargs))
         else:
-            cur.execute(sb.Select(self._get_sb_fields(fields), qry, **kwargs))
+            cur.execute(sb.Select(fields, qry, **kwargs))
         return cur
 
     def find(self, qry=None, **kwargs):
