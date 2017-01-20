@@ -269,3 +269,19 @@ class With(SQLExpression):
         subqs = ', '.join([sqlrepr(sq, db) for sq in self.subqueries])
         rec = " RECURSIVE" if self.recursive else ""
         return "WITH%s %s %s" % (rec, subqs, sqlrepr(self.select, db))
+
+
+class _BetterUnion(Union):
+    # We need to enclose queries we union into parenthesis, so queries can have
+    # ORDER BY clause.
+    def __sqlrepr__(self, db):
+        return " UNION ".join(["( %s )" % str(sqlrepr(t, db))
+                              for t in self.tables])
+
+class UnionAll(Union):
+    def __sqlrepr__(self, db):
+        return " UNION ALL ".join(["( %s )" % str(sqlrepr(t, db))
+                                  for t in self.tables])
+
+# We can replace Union with _BetterUnion now, so all existing code uses it
+Union = _BetterUnion

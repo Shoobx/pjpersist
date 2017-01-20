@@ -117,6 +117,28 @@ def doctest_sqlbuilder_with_queries():
 
     """
 
+def doctest_sqlbuilder_unions():
+    """
+        >>> union = sb.Union(
+        ...     sb.Select(['r'], staticTables=['regional_sales']),
+        ...     sb.Select(['r'], staticTables=['global_sales'])
+        ... )
+        >>> print run(union)
+        ( SELECT r FROM regional_sales )
+        UNION
+        ( SELECT r FROM global_sales )
+
+        >>> union = sb.UnionAll(
+        ...     sb.Select(['r'], staticTables=['regional_sales']),
+        ...     sb.Select(['r'], staticTables=['global_sales'])
+        ... )
+        >>> print run(union)
+        ( SELECT r FROM regional_sales )
+        UNION ALL
+        ( SELECT r FROM global_sales )
+    """
+
+
 def test_suite():
     return unittest.TestSuite([
         doctest.DocTestSuite(
