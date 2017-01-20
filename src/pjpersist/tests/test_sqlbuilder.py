@@ -86,6 +86,25 @@ def doctest_sqlbuilder():
     """
 
 
+def doctest_sqlbuilder_with_queries():
+    """
+        >>> subsel = sb.WithSubquery(
+        ...     'regional_sales',
+        ...     sb.Select(['region', 'amount'], staticTables=['orders']),
+        ...     ['r', 'a'])
+        >>> run(subsel)
+        'regional_sales (r, a) AS ( SELECT region, amount FROM orders )'
+
+        >>> withstmt = sb.With(
+        ...     [subsel],
+        ...     sb.Select(['r'], staticTables=['regional_sales'])
+        ... )
+
+        >>> print run(withstmt)
+        WITH regional_sales (r, a) AS ( SELECT region, amount FROM orders )
+        SELECT r FROM regional_sales
+    """
+
 def test_suite():
     return unittest.TestSuite([
         doctest.DocTestSuite(

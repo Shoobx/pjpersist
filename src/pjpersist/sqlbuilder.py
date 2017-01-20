@@ -239,3 +239,31 @@ class ARRAY_TO_STRING(Function):
 
     def __init__(self, array, sep):
         Function.__init__(self, 'array_to_string', array, sep)
+
+
+class WithSubquery(SQLExpression):
+    """Represents single subquery in WITH statement
+    """
+    def __init__(self, name, select, parameters=None):
+        self.name = name
+        self.select = select
+        self.parameters = parameters
+
+    def __sqlrepr__(self, db):
+        params = ""
+        if self.parameters:
+            params = ', '.join(self.parameters)
+            params = " (%s)" % params
+
+        return "%s%s AS ( %s )" % (self.name, params,
+                                  sqlrepr(self.select, db))
+
+
+class With(SQLExpression):
+    def __init__(self, subqueries, select):
+        self.subqueries = subqueries
+        self.select = select
+
+    def __sqlrepr__(self, db):
+        subqs = ', '.join([sqlrepr(sq) for sq in self.subqueries])
+        return "WITH %s %s" % (subqs, sqlrepr(self.select))
