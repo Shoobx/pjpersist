@@ -260,10 +260,12 @@ class WithSubquery(SQLExpression):
 
 
 class With(SQLExpression):
-    def __init__(self, subqueries, select):
+    def __init__(self, subqueries, select, recursive=False):
         self.subqueries = subqueries
         self.select = select
+        self.recursive = recursive
 
     def __sqlrepr__(self, db):
         subqs = ', '.join([sqlrepr(sq) for sq in self.subqueries])
-        return "WITH %s %s" % (subqs, sqlrepr(self.select))
+        rec = " RECURSIVE" if self.recursive else ""
+        return "WITH%s %s %s" % (rec, subqs, sqlrepr(self.select))

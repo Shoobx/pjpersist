@@ -103,6 +103,18 @@ def doctest_sqlbuilder_with_queries():
         >>> print run(withstmt)
         WITH regional_sales (r, a) AS ( SELECT region, amount FROM orders )
         SELECT r FROM regional_sales
+
+        >>> withstmt = sb.With(
+        ...     [subsel],
+        ...     sb.Select(['r'], staticTables=['regional_sales']),
+        ...     recursive=True
+        ... )
+
+        >>> print run(withstmt)
+        WITH RECURSIVE regional_sales (r, a) AS (
+            SELECT region, amount FROM orders )
+        SELECT r FROM regional_sales
+
     """
 
 def test_suite():
