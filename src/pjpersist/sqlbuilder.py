@@ -266,6 +266,6 @@ class With(SQLExpression):
         self.recursive = recursive
 
     def __sqlrepr__(self, db):
-        subqs = ', '.join([sqlrepr(sq) for sq in self.subqueries])
+        subqs = ', '.join([sqlrepr(sq, db) for sq in self.subqueries])
         rec = " RECURSIVE" if self.recursive else ""
-        return "WITH%s %s %s" % (rec, subqs, sqlrepr(self.select))
+        return "WITH%s %s %s" % (rec, subqs, sqlrepr(self.select, db))
