@@ -143,7 +143,8 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         if not isinstance(sql, basestring):
             sql = sql.__sqlrepr__('postgres')
         # Flush the data manager before any select.
-        if self.flush and sql.strip().split()[0].lower() == 'select':
+        firstword = sql.strip().split()[0].lower()
+        if self.flush and firstword in ('select', 'with'):
             self.datamanager.flush()
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
