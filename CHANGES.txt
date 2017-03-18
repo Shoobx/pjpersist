@@ -3,10 +3,10 @@ CHANGES
 =======
 
 
-0.1.0 (unreleased)
+1.0.0 (unreleased)
 ------------------
 
-- Initial Release
+- Initial Public Release
 
 - Project forked from mongopersist to work with PostGreSQL and JSONB data
   type. The main motiviation is the ability to utilize PostGreSQL's great
