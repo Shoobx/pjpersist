@@ -33,6 +33,7 @@ import threading
 import time
 import traceback
 import transaction
+import uuid
 import zope.interface
 
 
@@ -138,7 +139,14 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             "%s,\n args:%r,\n TXN:%s,\n time:%sms",
             sql, args, txn, duration*1000)
 
-    def execute(self, sql, args=None):
+    def execute(self, sql, args=None, beacon=None):
+        """execute a SQL statement
+        sql - SQL string or SQLBuilder expression
+        args - optional list of args for the SQL string
+        beacon - optional unique identifier for the statement to help
+                 debugging errors. Going to be added to all possible
+                 exceptions and log entries
+        """
         # Convert SQLBuilder object to string
         if not isinstance(sql, basestring):
             sql = sql.__sqlrepr__('postgres')
@@ -184,7 +192,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
-                check_for_conflict(e, sql)
+                check_for_conflict(e, sql, beacon=beacon)
                 # otherwise let it fly away
                 raise
         else:
@@ -195,7 +203,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
-                check_for_conflict(e, sql)
+                check_for_conflict(e, sql, beacon=beacon)
                 raise
 
     def _sanitize_arg(self, arg):
@@ -236,22 +244,33 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         return res
 
 
-def check_for_conflict(e, sql):
+def check_for_conflict(e, sql, beacon=None):
     """Check whether exception indicates serialization failure and raise
     ConflictError in this case.
 
     Serialization failures are denoted by postgres codes:
         40001 - serialization_failure
         40P01 - deadlock_detected
+
+    e - exception caught
+    sql - SQL string that was executed when the exception occurred
+    beacon - optional unique identifier for the statement to help
+             debugging errors. Going to be added to all possible
+             exceptions and log entries
     """
     serialization_errors = (
         psycopg2.errorcodes.SERIALIZATION_FAILURE,
         psycopg2.errorcodes.DEADLOCK_DETECTED
     )
     if e.pgcode in serialization_errors:
-        CONFLICT_TRACEBACK_INFO.traceback = traceback.format_stack()
-        LOG.warning("Conflict detected with code %s sql: %s", e.pgcode, sql)
-        raise interfaces.ConflictError(str(e), sql)
+        if beacon is None:
+            beacon = uuid.uuid4()
+        beacon = 'Beacon: %s' % beacon
+        CONFLICT_TRACEBACK_INFO.traceback = (
+            traceback.format_stack() + [beacon])
+        LOG.warning("Conflict detected with code %s sql: %s, %s",
+                    e.pgcode, sql, beacon)
+        raise interfaces.ConflictError(str(e).strip(), beacon, sql)
 
 
 class Root(UserDict.DictMixin):
@@ -464,7 +483,7 @@ class PJDataManager(object):
             sql = "INSERT INTO %s (%s) VALUES (%s)" % (
                 table, columns, placeholders)
 
-            cur.execute(sql, tuple(values))
+            cur.execute(sql, tuple(values), beacon=id)
         return id
 
     def _update_doc(self, database, table, doc, id, column_data=None):
@@ -484,13 +503,14 @@ class PJDataManager(object):
             columns = ', '.join(columns)
             sql = "UPDATE %s SET %s WHERE id = %%s" % (table, columns)
 
-            cur.execute(sql, tuple(values) + (id,))
+            cur.execute(sql, tuple(values) + (id,), beacon=id)
         return id
 
     def _get_doc(self, database, table, id):
         tbl = sb.Table(table)
         with self.getCursor() as cur:
-            cur.execute(sb.Select(sb.Field(table, '*'), tbl.id == id))
+            cur.execute(sb.Select(sb.Field(table, '*'), tbl.id == id),
+                        beacon=id)
             res = cur.fetchone()
             return res['data'] if res is not None else None
 
@@ -503,7 +523,7 @@ class PJDataManager(object):
             datafld = sb.Field(table, 'data')
             cur.execute(
                 sb.Select(sb.JGET(datafld, interfaces.PY_TYPE_ATTR_NAME),
-                          tbl.id == id))
+                          tbl.id == id), beacon=id)
             res = cur.fetchone()
             return res[0] if res is not None else None
 
@@ -596,7 +616,8 @@ class PJDataManager(object):
         # Now we remove the object from PostGreSQL.
         dbname, table = self._get_table_from_object(obj)
         with self.getCursor() as cur:
-            cur.execute('DELETE FROM %s WHERE id = %%s' % table, (obj._p_oid.id,))
+            cur.execute('DELETE FROM %s WHERE id = %%s' % table,
+                        (obj._p_oid.id,), beacon=obj._p_oid.id)
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
