@@ -1222,7 +1222,7 @@ def doctest_conflict_mod_1():
       >>> dm1.tpc_finish(None)
       Traceback (most recent call last):
         ...
-      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: ...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
+      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: pjpersist_test:pjpersist_dot_tests_dot_test_datamanager_dot_Foo:...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
 
       >>> transaction.abort()
 
@@ -1261,7 +1261,7 @@ def doctest_conflict_mod_2():
       >>> dm2.tpc_finish(None)
       Traceback (most recent call last):
       ...
-      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: ...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
+      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: pjpersist_test:pjpersist_dot_tests_dot_test_datamanager_dot_Foo:...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
 
       >>> transaction.abort()
 

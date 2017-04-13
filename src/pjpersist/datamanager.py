@@ -483,7 +483,8 @@ class PJDataManager(object):
             sql = "INSERT INTO %s (%s) VALUES (%s)" % (
                 table, columns, placeholders)
 
-            cur.execute(sql, tuple(values), beacon=id)
+            cur.execute(sql, tuple(values),
+                        beacon="%s:%s:%s" % (database, table, id))
         return id
 
     def _update_doc(self, database, table, doc, id, column_data=None):
@@ -503,14 +504,15 @@ class PJDataManager(object):
             columns = ', '.join(columns)
             sql = "UPDATE %s SET %s WHERE id = %%s" % (table, columns)
 
-            cur.execute(sql, tuple(values) + (id,), beacon=id)
+            cur.execute(sql, tuple(values) + (id,),
+                        beacon="%s:%s:%s" % (database, table, id))
         return id
 
     def _get_doc(self, database, table, id):
         tbl = sb.Table(table)
         with self.getCursor() as cur:
             cur.execute(sb.Select(sb.Field(table, '*'), tbl.id == id),
-                        beacon=id)
+                        beacon="%s:%s:%s" % (database, table, id))
             res = cur.fetchone()
             return res['data'] if res is not None else None
 
@@ -523,7 +525,8 @@ class PJDataManager(object):
             datafld = sb.Field(table, 'data')
             cur.execute(
                 sb.Select(sb.JGET(datafld, interfaces.PY_TYPE_ATTR_NAME),
-                          tbl.id == id), beacon=id)
+                          tbl.id == id),
+                beacon="%s:%s:%s" % (database, table, id))
             res = cur.fetchone()
             return res[0] if res is not None else None
 
@@ -617,7 +620,8 @@ class PJDataManager(object):
         dbname, table = self._get_table_from_object(obj)
         with self.getCursor() as cur:
             cur.execute('DELETE FROM %s WHERE id = %%s' % table,
-                        (obj._p_oid.id,), beacon=obj._p_oid.id)
+                        (obj._p_oid.id,),
+                        beacon="%s:%s:%s" % (dbname, table, obj._p_oid.id))
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
