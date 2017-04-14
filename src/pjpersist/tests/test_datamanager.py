@@ -716,18 +716,18 @@ def doctest_PJDataManager_tpc_vote():
 def doctest_PJDataManager_tpc_finish():
     r"""PJDataManager: tpc_finish()
 
-    This method finishes the two-phase commit. In our simple implementation,
-    ``tpc_finish()`` is the same as ``commit()``. So let's store a simple object:
+    This method finishes the two-phase commit. Let's store a simple object:
 
       >>> foo = Foo()
-      >>> dm._registered_objects = {id(foo): foo}
-      >>> dm.tpc_finish(transaction.get())
+      >>> dm.register(foo)
+      >>> transaction.commit()
 
     Note that objects cannot be stored twice in the same transaction:
 
       >>> dm.reset()
-      >>> dm._registered_objects = {id(foo): foo, id(foo): foo}
-      >>> dm.tpc_finish(transaction.get())
+      >>> dm.register(foo)
+      >>> dm.register(foo)
+      >>> transaction.commit()
 
     Also, when a persistent sub-object is stored that does not want its own
     document, then its parent is stored instead, still avoiding dual storage.
@@ -804,7 +804,7 @@ def doctest_PJDataManager_sub_objects():
 
       >>> foo = Foo('one')
       >>> dm.root['one'] = foo
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> foo = dm.root['one']
       >>> foo._p_changed
@@ -844,7 +844,7 @@ def doctest_PJDataManager_sub_objects():
       >>> foo.list.append(1)
       >>> foo.list._p_changed
       True
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> foo = dm.root['one']
       >>> foo.list
@@ -867,12 +867,12 @@ def doctest_PJDataManager_sub_objects_add_modify():
       >>> foo.bar = bar
 
       >>> dm.root['one'] = foo
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
     Now change a subobject property
 
       >>> bar.name = 'new'
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
     And reload from the DB:
 
@@ -900,7 +900,7 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> foo.sup = sup
 
       >>> dm.root['one'] = foo
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> cur = dm._conn.cursor()
       >>> cur.execute('SELECT tablename from pg_tables;')
@@ -913,7 +913,7 @@ def doctest_PJDataManager_complex_sub_objects():
 
       >>> foo = Foo('two')
       >>> dm.root['two'] = foo
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> sup = Super('second super')
       >>> bar = Bar('second bar')
@@ -925,7 +925,7 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> sup._p_pj_sub_object = True
       >>> sup._p_pj_doc_object = foo
       >>> foo.sup = sup
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
@@ -954,7 +954,7 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> foo = dm.root['one']
       >>> foo.sup.name = 'new super'
       >>> foo.sup.bar.name = 'new bar'
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> foo = dm.root['one']
       >>> foo.sup
@@ -984,7 +984,7 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> foo.sup.bar._p_pj_doc_object = foo.sup
       >>> foo.sup.bar.name = 'newer bar'
       >>> foo.sup.name = 'newer sup'
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
@@ -1090,7 +1090,7 @@ def doctest_PJDataManager_long():
 
       >>> dm.root['app'] = Root()
       >>> dm.root['app'].x = 1L
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
     Let's see how it is deserialzied?
 
@@ -1100,7 +1100,7 @@ def doctest_PJDataManager_long():
     Let's now create a really long integer:
 
       >>> dm.root['app'].x = 2**62
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
       >>> dm.root['app'].x
       4611686018427387904
@@ -1159,7 +1159,7 @@ def doctest_PJDataManager_sub_doc_multi_flush():
       >>> dm.root['foo'] = foo
       >>> foo.bar = Bar('bar')
 
-      >>> dm.tpc_finish(None)
+      >>> commit()
 
     Let's now modify bar a few times with intermittend flushes.
 
@@ -1168,7 +1168,7 @@ def doctest_PJDataManager_sub_doc_multi_flush():
       >>> dm.flush()
       >>> foo.bar.name = 'bar-newer'
 
-      >>> dm.tpc_finish(None)
+      >>> commit()
       >>> dm.root['foo'].bar.name
       u'bar-newer'
     """
@@ -1193,113 +1193,33 @@ def doctest_get_database_name_from_dsn():
     """
 
 
-def doctest_conflict_mod_1():
-    r"""Check conflict detection. We modify the same object in different
-    transactions, simulating separate processes.
-
-      >>> foo = Foo('foo-first')
-      >>> dm.root['foo'] = foo
-
-      >>> dm.tpc_finish(None)
-
-      >>> conn1 = testing.getConnection(testing.DBNAME)
-      >>> dm1 = datamanager.PJDataManager(conn1)
-
-      >>> dm1.root['foo']
-      <Foo foo-first>
-      >>> dm1.root['foo'].name = 'foo-second'
-
-      >>> conn2 = testing.getConnection(testing.DBNAME)
-      >>> dm2 = datamanager.PJDataManager(conn2)
-
-      >>> dm2.root['foo']
-      <Foo foo-first>
-      >>> dm2.root['foo'].name = 'foo-third'
-
-    Finish in order 2 - 1
-
-      >>> dm2.tpc_finish(None)
-      >>> dm1.tpc_finish(None)
-      Traceback (most recent call last):
-        ...
-      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: pjpersist_test:pjpersist_dot_tests_dot_test_datamanager_dot_Foo:...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
-
-      >>> transaction.abort()
-
-      >>> conn2.close()
-      >>> conn1.close()
-
-    """
-
-
-def doctest_conflict_mod_2():
-    r"""Check conflict detection. We modify the same object in different
-    transactions, simulating separate processes.
-
-      >>> foo = Foo('foo-first')
-      >>> dm.root['foo'] = foo
-
-      >>> dm.tpc_finish(None)
-
-      >>> conn1 = testing.getConnection(testing.DBNAME)
-      >>> dm1 = datamanager.PJDataManager(conn1)
-
-      >>> dm1.root['foo']
-      <Foo foo-first>
-      >>> dm1.root['foo'].name = 'foo-second'
-
-      >>> conn2 = testing.getConnection(testing.DBNAME)
-      >>> dm2 = datamanager.PJDataManager(conn2)
-
-      >>> dm2.root['foo']
-      <Foo foo-first>
-      >>> dm2.root['foo'].name = 'foo-third'
-
-    Finish in order 1 - 2
-
-      >>> dm1.tpc_finish(None)
-      >>> dm2.tpc_finish(None)
-      Traceback (most recent call last):
-      ...
-      ConflictError: ('could not serialize access due to concurrent update', u'Beacon: pjpersist_test:pjpersist_dot_tests_dot_test_datamanager_dot_Foo:...', 'UPDATE pjpersist_dot_tests_dot_test_datamanager_dot_Foo SET data=%s WHERE id = %s')
-
-      >>> transaction.abort()
-
-      >>> conn2.close()
-      >>> conn1.close()
-
-    """
-
-
 class DatamanagerConflictTest(testing.PJTestCase):
 
     def test_conflict_del_1(self):
         """Check conflict detection. We modify and delete the same object in
         different transactions, simulating separate processes."""
 
+        txn = transaction.manager.get()
         foo = Foo('foo-first')
         self.dm.root['foo'] = foo
 
-        self.dm.tpc_finish(None)
+        transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-
-        self.assertEqual(dm1.root['foo'].name, 'foo-first')
-
-        dm1.root['foo'].name = 'foo-second'
-
         conn2 = testing.getConnection(testing.DBNAME)
+        dm1 = datamanager.PJDataManager(conn1)
         dm2 = datamanager.PJDataManager(conn2)
 
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
 
+        self.assertEqual(dm1.root['foo'].name, 'foo-first')
+        dm1.root['foo'].name = 'foo-second'
+
         #Finish in order 2 - 1
 
-        dm2.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
+            transaction.commit()
 
         transaction.abort()
 
@@ -1313,7 +1233,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
         foo = Foo('foo-first')
         self.dm.root['foo'] = foo
 
-        self.dm.tpc_finish(None)
+        transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
@@ -1334,73 +1254,8 @@ class DatamanagerConflictTest(testing.PJTestCase):
         @testing.run_in_thread
         def background_commit():
             with self.assertRaises(interfaces.ConflictError):
-                dm1.tpc_finish(None)
-        dm2.tpc_finish(None)
-
-        transaction.abort()
-
-        conn2.close()
-        conn1.close()
-
-    def test_conflict_del_3(self):
-        """Check conflict detection. We modify and delete the same object in
-        different transactions, simulating separate processes."""
-
-        foo = Foo('foo-first')
-        self.dm.root['foo'] = foo
-
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-        conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
-
-        self.assertEqual(dm2.root['foo'].name, 'foo-first')
-        del dm2.root['foo']
-
-        self.assertEqual(dm1.root['foo'].name, 'foo-first')
-        dm1.root['foo'].name = 'foo-second'
-
-        #Finish in order 2 - 1
-
-        dm2.tpc_finish(None)
-        with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
-
-        transaction.abort()
-
-        conn2.close()
-        conn1.close()
-
-    def test_conflict_del_4(self):
-        """Check conflict detection. We modify and delete the same object in
-        different transactions, simulating separate processes."""
-
-        foo = Foo('foo-first')
-        self.dm.root['foo'] = foo
-
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-        conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
-
-        self.assertEqual(dm2.root['foo'].name, 'foo-first')
-        del dm2.root['foo']
-
-        self.assertEqual(dm1.root['foo'].name, 'foo-first')
-        dm1.root['foo'].name = 'foo-second'
-
-        #Finish in order 1 - 2
-        # well, try to... dm1.tpc_finish will block until dm2 is done
-
-        @testing.run_in_thread
-        def background_commit():
-            with self.assertRaises(interfaces.ConflictError):
-                dm1.tpc_finish(None)
-        dm2.tpc_finish(None)
+                dm1.commit(None)
+        dm2.commit(None)
 
         transaction.abort()
 
@@ -1417,30 +1272,27 @@ class DatamanagerConflictTest(testing.PJTestCase):
         foo = Foo('foo-first')
         self.dm.root['foo'] = foo
 
-        self.dm.tpc_finish(None)
+        transaction.commit()
+
+        conn2 = testing.getConnection(testing.DBNAME)
+        dm2 = datamanager.PJDataManager(conn2)
+        del dm2.root['foo']
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
         dm1.root['foo'].name = 'foo-second'
 
-        conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
-
-        del dm2.root['foo']
-
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNone(ctb)
 
         #Finish in order 2 - 1
-
-        dm2.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
+            transaction.commit()
 
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 18)
+        self.assertEquals(len(ctb), 20)
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 

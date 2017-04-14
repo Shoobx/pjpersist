@@ -40,6 +40,9 @@ import zope.interface
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
 
+# Flag enabling full two-phase-commit support. Note, that this requires
+# postgres database to set max_prepared_transactions setting to positive valie.
+PJ_TWO_PHASE_COMMIT_ENABLED = False
 
 PJ_ACCESS_LOGGING = False
 # set to True to automatically create tables if they don't exist
@@ -90,6 +93,7 @@ LOG = logging.getLogger(__name__)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
+PREPARED_TRANSACTION_ID = object()
 
 def createId():
     # 4 bytes current time
@@ -299,6 +303,7 @@ class Root(UserDict.DictMixin):
                     name TEXT,
                     dbref TEXT[])
                 ''' % self.table)
+            self._jar._conn.commit()
 
     def __getitem__(self, key):
         with self._jar.getCursor(False) as cur:
@@ -365,6 +370,7 @@ class PJDataManager(object):
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
+        self._two_phase = False
 
     def requestTransactionOptions(self, readonly=None, deferrable=None,
                                   isolation=None):
@@ -563,8 +569,10 @@ class PJDataManager(object):
 
     def _join_txn(self):
         if self._needs_to_join:
+            transaction = self.transaction_manager.get()
             self.transaction_manager.get().join(self)
             self._needs_to_join = False
+            self._begin(transaction)
 
     def dump(self, obj):
         res = self._writer.store(obj)
@@ -679,31 +687,66 @@ class PJDataManager(object):
     def abort(self, transaction):
         self._report_stats()
         try:
-            self._conn.rollback()
+            if self._two_phase:
+                self._conn.tpc_rollback()
+            else:
+                self._conn.rollback()
         except psycopg2.InterfaceError:
             # this happens usually when PG is restarted and the connection dies
             # our only chance to exit the spiral is to abort the transaction
             pass
         self.__init__(self._conn)
 
-    def commit(self, transaction):
-        self._flush_objects()
-        self._report_stats()
+    def _may_conflict(self, op):
         try:
-            self._conn.commit()
+            op()
         except psycopg2.Error, e:
             check_for_conflict(e, "DataManager.commit")
             raise
-        self.__init__(self._conn)
+
+    def _begin(self, transaction):
+        # This function is called when PJDataManager joins transaction. When
+        # two phase commit is requested, we will assign transaction id to
+        # underlying connection.
+        if not PJ_TWO_PHASE_COMMIT_ENABLED:
+            # We don't need to do anything special when two phase commit is
+            # disabled. Transaction starts automatically.
+            return
+
+        # Create a global id for the transaction. If it wasn't yet created,
+        # create now.
+        try:
+            txnid = transaction.data(PREPARED_TRANSACTION_ID)
+        except KeyError:
+            txnid = str(uuid.uuid4())
+            transaction.set_data(PREPARED_TRANSACTION_ID, txnid)
+
+        # We just joined transaction, so we need a fresh state for the
+        # connection to do tpc_begin.
+        self._conn.reset()
+        xid = self._conn.xid(0, txnid, self.database)
+        self._conn.tpc_begin(xid)
+        self._two_phase = True
+
+    def commit(self, transaction):
+        self._flush_objects()
+        self._report_stats()
+
+        if not self._two_phase:
+            self._may_conflict(self._conn.commit)
+            self.__init__(self._conn)
 
     def tpc_begin(self, transaction):
         pass
 
     def tpc_vote(self, transaction):
-        pass
+        if self._two_phase:
+            self._may_conflict(self._conn.tpc_prepare)
 
     def tpc_finish(self, transaction):
-        self.commit(transaction)
+        if self._two_phase:
+            self._may_conflict(self._conn.tpc_commit)
+            self.__init__(self._conn)
 
     def tpc_abort(self, transaction):
         self.abort(transaction)
