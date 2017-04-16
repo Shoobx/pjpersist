@@ -343,6 +343,11 @@ class PJDataManager(object):
 
     root = None
 
+    # Data manager is completely new. NOTE: It is important to leave this
+    # property on class level and not add it to constructor, because
+    # constructor is called to "reset" the data manager
+    _pristine = True
+
     def __init__(self, conn, root_table=None):
         self._conn = conn
         self.database = get_database_name_from_dsn(conn.dsn)
@@ -712,6 +717,13 @@ class PJDataManager(object):
             # We don't need to do anything special when two phase commit is
             # disabled. Transaction starts automatically.
             return
+
+        assert self._pristine, ("Error attempting to add data manager "
+                                "from old transaction. Create a new "
+                                "PJDataManager for new transaction, do not "
+                                "modify objects from previously committed "
+                                "transactions")
+        self._pristine = False
 
         # Create a global id for the transaction. If it wasn't yet created,
         # create now.
