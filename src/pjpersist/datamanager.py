@@ -721,9 +721,6 @@ class PJDataManager(object):
             txnid = str(uuid.uuid4())
             transaction.set_data(PREPARED_TRANSACTION_ID, txnid)
 
-        # We just joined transaction, so we need a fresh state for the
-        # connection to do tpc_begin.
-        self._conn.reset()
         xid = self._conn.xid(0, txnid, self.database)
         self._conn.tpc_begin(xid)
         self._two_phase = True
