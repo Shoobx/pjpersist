@@ -406,6 +406,7 @@ class PJDataManager(object):
         cur.execute(stmt)
 
     def getCursor(self, flush=True):
+        self._join_txn()
         def factory(*args, **kwargs):
             return PJPersistCursor(self, flush, *args, **kwargs)
         cur = self._conn.cursor(cursor_factory=factory)
