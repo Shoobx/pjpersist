@@ -1207,12 +1207,12 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         conn1 = testing.getConnection(testing.DBNAME)
         conn2 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-        dm2 = datamanager.PJDataManager(conn2)
 
+        dm2 = datamanager.PJDataManager(conn2)
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
 
+        dm1 = datamanager.PJDataManager(conn1)
         self.assertEqual(dm1.root['foo'].name, 'foo-first')
         dm1.root['foo'].name = 'foo-second'
 
@@ -1427,17 +1427,40 @@ class TransactionOptionsTestCase(testing.PJTestCase):
 
         super(TransactionOptionsTestCase, self).tearDown()
 
-    def test_requestTransactionOptions(self):
+    def test_begin(self):
         """It is possible to request transaction options before first
         statement is executed
         """
 
-        self.dm.requestTransactionOptions(isolation="READ COMMITTED")
+        self.dm.begin(isolation_level="READ COMMITTED")
 
         cur = self.dm.getCursor()
         cur.execute('SHOW transaction_isolation')
         res = cur.fetchone()
         self.assertEqual(res[0], 'read committed')
+
+    def test_option_reset_after_commit(self):
+        # First, check the default isolation level
+        cur = self.dm.getCursor()
+        cur.execute('SHOW transaction_isolation')
+        res = cur.fetchone()
+        default_level = res[0]
+        self.assertNotEqual(default_level, 'repeatable read')
+        transaction.commit()
+
+        # Now change it
+        self.dm.begin(isolation_level="REPEATABLE READ")
+        cur = self.dm.getCursor()
+        cur.execute('SHOW transaction_isolation')
+        res = cur.fetchone()
+        self.assertEqual(res[0], 'repeatable read')
+        transaction.commit()
+
+        # On the subsequent transaction, we should go back to default level
+        cur = self.dm.getCursor()
+        cur.execute('SHOW transaction_isolation')
+        res = cur.fetchone()
+        self.assertEqual(res[0], default_level)
 
 
 def test_suite():
