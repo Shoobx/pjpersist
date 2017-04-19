@@ -41,7 +41,7 @@ from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
 
 # Flag enabling full two-phase-commit support. Note, that this requires
-# postgres database to set max_prepared_transactions setting to positive valie.
+# postgres database to set max_prepared_transactions setting to positive value.
 PJ_TWO_PHASE_COMMIT_ENABLED = False
 
 PJ_ACCESS_LOGGING = False
@@ -374,7 +374,7 @@ class PJDataManager(object):
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
-        self._two_phase = False
+        self._tpc_activated = False
 
     def getCursor(self, flush=True):
         self._join_txn()
@@ -546,7 +546,7 @@ class PJDataManager(object):
     def _join_txn(self):
         if self._needs_to_join:
             transaction = self.transaction_manager.get()
-            self.transaction_manager.get().join(self)
+            transaction.join(self)
             self._needs_to_join = False
             self._begin(transaction)
 
@@ -675,7 +675,7 @@ class PJDataManager(object):
     def abort(self, transaction):
         self._report_stats()
         try:
-            if self._two_phase:
+            if self._tpc_activated:
                 self._conn.tpc_rollback()
             else:
                 self._conn.rollback()
@@ -733,13 +733,13 @@ class PJDataManager(object):
 
         xid = self._conn.xid(0, txnid, self.database)
         self._conn.tpc_begin(xid)
-        self._two_phase = True
+        self._tpc_activated = True
 
     def commit(self, transaction):
         self._flush_objects()
         self._report_stats()
 
-        if not self._two_phase:
+        if not self._tpc_activated:
             self._may_conflict(self._conn.commit)
             self._release(self._conn)
 
@@ -747,12 +747,13 @@ class PJDataManager(object):
         pass
 
     def tpc_vote(self, transaction):
-        if self._two_phase:
+        if self._tpc_activated:
             assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
             self._may_conflict(self._conn.tpc_prepare)
+            pass
 
     def tpc_finish(self, transaction):
-        if self._two_phase:
+        if self._tpc_activated:
             self._may_conflict(self._conn.tpc_commit)
             self._release(self._conn)
 
