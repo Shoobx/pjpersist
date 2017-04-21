@@ -1798,23 +1798,22 @@ class ContainerConflictTest(testing.PJTestCase):
         different transactions, simulating separate processes."""
 
         self.dm.root['c'] = container.SimplePJContainer()
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-
-        dm1.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+        transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
         dm2.root['c'][u'stephan'] = SimplePerson(u'Stephan')
 
+        conn1 = testing.getConnection(testing.DBNAME)
+        dm1 = datamanager.PJDataManager(conn1)
+
+        dm1.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+
         #Finish in order 2 - 1
 
-        dm2.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
+            transaction.commit()
 
         transaction.abort()
 
@@ -1826,7 +1825,7 @@ class ContainerConflictTest(testing.PJTestCase):
         different transactions, simulating separate processes."""
 
         self.dm.root['c'] = container.SimplePJContainer()
-        self.dm.tpc_finish(None)
+        transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
@@ -1839,10 +1838,8 @@ class ContainerConflictTest(testing.PJTestCase):
         dm2.root['c'][u'stephan'] = SimplePerson(u'Stephan')
 
         #Finish in order 1 - 2
-
-        dm1.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
-            dm2.tpc_finish(None)
+            transaction.commit()
 
         transaction.abort()
 
@@ -1856,23 +1853,21 @@ class ContainerConflictTest(testing.PJTestCase):
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
         self.dm.root['c'][u'roy'] = Person(u'Roy')
-        self.dm.tpc_finish(None)
-
-        conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
-
-        dm1.root['c'][u'stephan'] = Person(u'Stephan')
+        transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
         dm2.root['c'][u'stephan'] = Person(u'Stephan')
 
-        #Finish in order 2 - 1
+        conn1 = testing.getConnection(testing.DBNAME)
+        dm1 = datamanager.PJDataManager(conn1)
 
-        dm2.tpc_finish(None)
+        dm1.root['c'][u'stephan'] = Person(u'Stephan')
+
+        #Finish in order 2 - 1
         with self.assertRaises(interfaces.ConflictError):
-            dm1.tpc_finish(None)
+            transaction.commit()
 
         transaction.abort()
 
@@ -1886,7 +1881,7 @@ class ContainerConflictTest(testing.PJTestCase):
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
         self.dm.root['c'][u'roy'] = Person(u'Roy')
-        self.dm.tpc_finish(None)
+        transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
@@ -1899,10 +1894,8 @@ class ContainerConflictTest(testing.PJTestCase):
         dm2.root['c'][u'stephan'] = Person(u'Stephan')
 
         #Finish in order 1 - 2
-
-        dm1.tpc_finish(None)
         with self.assertRaises(interfaces.ConflictError):
-            dm2.tpc_finish(None)
+            transaction.commit()
 
         transaction.abort()
 
@@ -1916,7 +1909,7 @@ class ContainerConflictTest(testing.PJTestCase):
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
         self.dm.root['c'][u'roy'] = Person(u'Roy')
-        self.dm.tpc_finish(None)
+        transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
@@ -1929,12 +1922,11 @@ class ContainerConflictTest(testing.PJTestCase):
 
         # pain: isolation would block inserting stephan2
         #       we have to commit dm1 first
-        dm1.tpc_finish(None)
+        dm1.commit(None)
 
         with self.assertRaises(psycopg2.IntegrityError):
             # XXX: this might need to be translated to ConflictError
             dm2.root['c'][u'stephan2'] = Person(u'Stephan2')
-        dm2.tpc_finish(None)
 
         transaction.abort()
 

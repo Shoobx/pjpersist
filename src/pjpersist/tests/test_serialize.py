@@ -1151,7 +1151,7 @@ def doctest_deserialize_persistent_foreign_references():
       >>> print top.other.name
       top_other
       >>> top.other.state
-      {'complex_data': 'value'}
+      {u'complex_data': u'value'}
     """
 
 

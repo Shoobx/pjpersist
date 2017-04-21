@@ -40,6 +40,9 @@ import zope.interface
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
 
+# Flag enabling full two-phase-commit support. Note, that this requires
+# postgres database to set max_prepared_transactions setting to positive value.
+PJ_TWO_PHASE_COMMIT_ENABLED = False
 
 PJ_ACCESS_LOGGING = False
 # set to True to automatically create tables if they don't exist
@@ -90,6 +93,7 @@ LOG = logging.getLogger(__name__)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
+PREPARED_TRANSACTION_ID = object()
 
 def createId():
     # 4 bytes current time
@@ -299,6 +303,7 @@ class Root(UserDict.DictMixin):
                     name TEXT,
                     dbref TEXT[])
                 ''' % self.table)
+            self._jar._conn.commit()
 
     def __getitem__(self, key):
         with self._jar.getCursor(False) as cur:
@@ -338,6 +343,11 @@ class PJDataManager(object):
 
     root = None
 
+    # Data manager is completely new. NOTE: It is important to leave this
+    # property on class level and not add it to constructor, because
+    # constructor is called to "reset" the data manager
+    _pristine = True
+
     def __init__(self, conn, root_table=None):
         self._conn = conn
         self.database = get_database_name_from_dsn(conn.dsn)
@@ -358,43 +368,16 @@ class PJDataManager(object):
         self.annotations = {}
 
         self._txn_active = False
-        self.requestTransactionOptions()  # No special options
 
         self.transaction_manager = transaction.manager
         if self.root is None:
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
-
-    def requestTransactionOptions(self, readonly=None, deferrable=None,
-                                  isolation=None):
-        if self._txn_active:
-            LOG.warning("Cannot set transaction options while transaction "
-                        "is already active.")
-        self._txn_readonly = readonly
-        self._txn_deferrable = deferrable
-        self._txn_isolation = isolation
-
-    def _setTransactionOptions(self, cur):
-        modes = []
-        if self._txn_readonly:
-            dfr = "DEFERRABLE" if self._txn_deferrable else ""
-            modes.append("READ ONLY %s" % dfr)
-
-        if self._txn_isolation:
-            assert self._txn_isolation in ["SERIALIZABLE",
-                                           "REPEATABLE READ",
-                                           "READ COMMITTED",
-                                           "READ UNCOMMITTED"]
-            modes.append("ISOLATION LEVEL %s" % self._txn_isolation)
-        if not modes:
-            return
-
-        stmt = "SET TRANSACTION %s" % (", ".join(modes))
-        cur.execute("BEGIN")
-        cur.execute(stmt)
+        self._tpc_activated = False
 
     def getCursor(self, flush=True):
+        self._join_txn()
         def factory(*args, **kwargs):
             return PJPersistCursor(self, flush, *args, **kwargs)
         cur = self._conn.cursor(cursor_factory=factory)
@@ -402,7 +385,6 @@ class PJDataManager(object):
         if not self._txn_active:
             # clear any traceback before starting next txn
             CONFLICT_TRACEBACK_INFO.traceback = None
-            self._setTransactionOptions(cur)
             self._txn_active = True
         return cur
 
@@ -563,8 +545,10 @@ class PJDataManager(object):
 
     def _join_txn(self):
         if self._needs_to_join:
-            self.transaction_manager.get().join(self)
+            transaction = self.transaction_manager.get()
+            transaction.join(self)
             self._needs_to_join = False
+            self._begin(transaction)
 
     def dump(self, obj):
         res = self._writer.store(obj)
@@ -589,6 +573,18 @@ class PJDataManager(object):
         # we need to issue rollback on self._conn too, to get the latest
         # DB updates, not just reset PJDataManager state
         self.abort(None)
+
+    def _release(self, conn):
+        """Release the connection after transaction is complete
+        """
+        if not conn.closed:
+            # Set transaction options back to their default values so that next
+            # transaction is not affected
+            conn.set_session(
+                isolation_level="DEFAULT",
+                readonly="DEFAULT",
+                deferrable="DEFAULT")
+        self.__init__(conn)
 
     def flush(self):
         # Now write every registered object, but make sure we write each
@@ -679,31 +675,87 @@ class PJDataManager(object):
     def abort(self, transaction):
         self._report_stats()
         try:
-            self._conn.rollback()
+            if self._tpc_activated:
+                self._conn.tpc_rollback()
+            else:
+                self._conn.rollback()
         except psycopg2.InterfaceError:
             # this happens usually when PG is restarted and the connection dies
             # our only chance to exit the spiral is to abort the transaction
             pass
-        self.__init__(self._conn)
+        self._release(self._conn)
+
+    def _may_conflict(self, op):
+        try:
+            op()
+        except psycopg2.Error, e:
+            check_for_conflict(e, "DataManager.commit")
+            raise
+
+    def begin(self, readonly=None, deferrable=None, isolation_level=None):
+        """Join transaction and begin it with given options
+
+        This only works for new database transactions and fail if a
+        transaction was already started on current connection.
+        """
+
+        assert self._conn.status == psycopg2.extensions.STATUS_READY
+
+        self._conn.set_session(isolation_level=isolation_level,
+                               deferrable=deferrable,
+                               readonly=readonly)
+        self._join_txn()
+
+
+    def _begin(self, transaction):
+        # This function is called when PJDataManager joins transaction. When
+        # two phase commit is requested, we will assign transaction id to
+        # underlying connection.
+        if not PJ_TWO_PHASE_COMMIT_ENABLED:
+            # We don't need to do anything special when two phase commit is
+            # disabled. Transaction starts automatically.
+            return
+
+        assert self._pristine, ("Error attempting to add data manager "
+                                "from old transaction. Create a new "
+                                "PJDataManager for new transaction, do not "
+                                "modify objects from previously committed "
+                                "transactions")
+        self._pristine = False
+
+        # Create a global id for the transaction. If it wasn't yet created,
+        # create now.
+        try:
+            txnid = transaction.data(PREPARED_TRANSACTION_ID)
+        except KeyError:
+            txnid = str(uuid.uuid4())
+            transaction.set_data(PREPARED_TRANSACTION_ID, txnid)
+
+        xid = self._conn.xid(0, txnid, self.database)
+        self._conn.tpc_begin(xid)
+        self._tpc_activated = True
 
     def commit(self, transaction):
         self._flush_objects()
         self._report_stats()
-        try:
-            self._conn.commit()
-        except psycopg2.Error, e:
-            check_for_conflict(e, "DataManager.commit")
-            raise
-        self.__init__(self._conn)
+
+        if not self._tpc_activated:
+            self._may_conflict(self._conn.commit)
+            self._release(self._conn)
 
     def tpc_begin(self, transaction):
         pass
 
     def tpc_vote(self, transaction):
-        pass
+        if self._tpc_activated:
+            assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
+            self._may_conflict(self._conn.tpc_prepare)
+            pass
 
     def tpc_finish(self, transaction):
-        self.commit(transaction)
+        if self._tpc_activated:
+            self._may_conflict(self._conn.tpc_commit)
+            self._release(self._conn)
 
     def tpc_abort(self, transaction):
         self.abort(transaction)
