@@ -778,7 +778,7 @@ class PJDataManager(object):
         stats = self._query_report.calc_and_report()
         TABLE_LOG.info(stats)
 
-    def getDirty(self):
+    def isDirty(self):
         # this DM is dirty when we had writes or have objects to flush
         # flush on SQL select/with makes this necessary
         #

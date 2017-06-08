@@ -1468,40 +1468,40 @@ class DirtyTestCase(testing.PJTestCase):
         """Test PJDataManager.dirty setting
         """
         # by default a pristine DM is not dirty
-        self.assertEqual(self.dm.getDirty(), False)
+        self.assertEqual(self.dm.isDirty(), False)
 
         # add an object
         self.dm.root['foo'] = Foo('foo-first')
-        self.assertEqual(self.dm.getDirty(), True)
+        self.assertEqual(self.dm.isDirty(), True)
 
         # a commit/abort clears the dirty flag
         transaction.commit()
-        self.assertEqual(self.dm.getDirty(), False)
+        self.assertEqual(self.dm.isDirty(), False)
 
         # modify an object property
         self.dm.root['foo'].name = 'blabla'
-        self.assertEqual(self.dm.getDirty(), True)
+        self.assertEqual(self.dm.isDirty(), True)
 
         # a commit/abort clears the dirty flag
         transaction.abort()
-        self.assertEqual(self.dm.getDirty(), False)
+        self.assertEqual(self.dm.isDirty(), False)
 
         # delete an object in a separate transaction
         self.dm.root['foo2'] = Foo('foo-second')
         transaction.commit()
         del self.dm.root['foo2']
-        self.assertEqual(self.dm.getDirty(), True)
+        self.assertEqual(self.dm.isDirty(), True)
         transaction.commit()
 
         # add and remove an object in the same transaction
         self.dm.root['foo3'] = Foo('foo-third')
         del self.dm.root['foo3']
-        self.assertEqual(self.dm.getDirty(), True)
+        self.assertEqual(self.dm.isDirty(), True)
         transaction.commit()
 
         # check the special dump method
         self.dm.dump(self.dm.root['foo'])
-        self.assertEqual(self.dm.getDirty(), True)
+        self.assertEqual(self.dm.isDirty(), True)
         transaction.commit()
 
 

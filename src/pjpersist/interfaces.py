@@ -154,7 +154,7 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
         The correct collection is determined by object type.
         """
 
-    def getDirty():
+    def isDirty():
         """Return a bool whether there was any database write since the
         transaction started (insert/update/delete)
         """
