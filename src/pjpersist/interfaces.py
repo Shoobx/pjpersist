@@ -154,6 +154,11 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
         The correct collection is determined by object type.
         """
 
+    def getDirty():
+        """Return a bool whether there was any database write since the
+        transaction started (insert/update/delete)
+        """
+
 
 class IPJDataManagerProvider(zope.interface.Interface):
     """Utility to get a PJ data manager.
