@@ -348,6 +348,8 @@ class PJDataManager(object):
     # constructor is called to "reset" the data manager
     _pristine = True
 
+    _dirty = False
+
     def __init__(self, conn, root_table=None):
         self._conn = conn
         self.database = get_database_name_from_dsn(conn.dsn)
@@ -529,8 +531,18 @@ class PJDataManager(object):
             __traceback_info__ = obj
             obj = self._get_doc_object(obj)
             self._writer.store(obj)
+            self._dirty = True
             written.add(obj_id)
             todo = set(self._registered_objects.keys()) - written
+
+    def flush(self):
+        # Now write every registered object, but make sure we write each
+        # object just once.
+        self._flush_objects()
+        # Let's now reset all objects as if they were not modified:
+        for obj in self._registered_objects.values():
+            obj._p_changed = False
+        self._registered_objects = {}
 
     def _get_doc_object(self, obj):
         seen = []
@@ -552,6 +564,7 @@ class PJDataManager(object):
 
     def dump(self, obj):
         res = self._writer.store(obj)
+        self._dirty = True
         if id(obj) in self._registered_objects:
             obj._p_changed = False
             del self._registered_objects[id(obj)]
@@ -586,20 +599,12 @@ class PJDataManager(object):
                 deferrable="DEFAULT")
         self.__init__(conn)
 
-    def flush(self):
-        # Now write every registered object, but make sure we write each
-        # object just once.
-        self._flush_objects()
-        # Let's now reset all objects as if they were not modified:
-        for obj in self._registered_objects.values():
-            obj._p_changed = False
-        self._registered_objects = {}
-
     def insert(self, obj, oid=None):
         self._join_txn()
         if obj._p_oid is not None:
             raise ValueError('Object._p_oid is already set.', obj)
         res = self._writer.store(obj, id=oid)
+        self._dirty = True
         obj._p_changed = False
         self._object_cache[hash(obj._p_oid)] = obj
         self._inserted_objects[id(obj)] = obj
@@ -618,6 +623,7 @@ class PJDataManager(object):
             cur.execute('DELETE FROM %s WHERE id = %%s' % table,
                         (obj._p_oid.id,),
                         beacon="%s:%s:%s" % (dbname, table, obj._p_oid.id))
+            self._dirty = True
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
@@ -684,6 +690,7 @@ class PJDataManager(object):
             # our only chance to exit the spiral is to abort the transaction
             pass
         self._release(self._conn)
+        self._dirty = False
 
     def _may_conflict(self, op):
         try:
@@ -705,7 +712,6 @@ class PJDataManager(object):
                                deferrable=deferrable,
                                readonly=readonly)
         self._join_txn()
-
 
     def _begin(self, transaction):
         # This function is called when PJDataManager joins transaction. When
@@ -742,6 +748,7 @@ class PJDataManager(object):
         if not self._tpc_activated:
             self._may_conflict(self._conn.commit)
             self._release(self._conn)
+            self._dirty = False
 
     def tpc_begin(self, transaction):
         pass
@@ -756,6 +763,7 @@ class PJDataManager(object):
         if self._tpc_activated:
             self._may_conflict(self._conn.tpc_commit)
             self._release(self._conn)
+            self._dirty = False
 
     def tpc_abort(self, transaction):
         self.abort(transaction)
@@ -769,6 +777,14 @@ class PJDataManager(object):
 
         stats = self._query_report.calc_and_report()
         TABLE_LOG.info(stats)
+
+    def isDirty(self):
+        # this DM is dirty when we had writes or have objects to flush
+        # flush on SQL select/with makes this necessary
+        #
+        # what was written can be checked by looking at TABLE_LOG
+        # and self._registered_objects
+        return self._dirty or bool(self._registered_objects)
 
 
 def get_database_name_from_dsn(dsn):

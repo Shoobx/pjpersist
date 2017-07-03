@@ -1306,7 +1306,6 @@ class DatamanagerConflictTest(testing.PJTestCase):
         conn2.close()
         conn1.close()
 
-
     def test_conflict_commit_1(self):
         """Test conflict on commit
 
@@ -1463,6 +1462,49 @@ class TransactionOptionsTestCase(testing.PJTestCase):
         self.assertEqual(res[0], default_level)
 
 
+class DirtyTestCase(testing.PJTestCase):
+
+    def test_dirty(self):
+        """Test PJDataManager.dirty setting
+        """
+        # by default a pristine DM is not dirty
+        self.assertEqual(self.dm.isDirty(), False)
+
+        # add an object
+        self.dm.root['foo'] = Foo('foo-first')
+        self.assertEqual(self.dm.isDirty(), True)
+
+        # a commit/abort clears the dirty flag
+        transaction.commit()
+        self.assertEqual(self.dm.isDirty(), False)
+
+        # modify an object property
+        self.dm.root['foo'].name = 'blabla'
+        self.assertEqual(self.dm.isDirty(), True)
+
+        # a commit/abort clears the dirty flag
+        transaction.abort()
+        self.assertEqual(self.dm.isDirty(), False)
+
+        # delete an object in a separate transaction
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+        del self.dm.root['foo2']
+        self.assertEqual(self.dm.isDirty(), True)
+        transaction.commit()
+
+        # add and remove an object in the same transaction
+        self.dm.root['foo3'] = Foo('foo-third')
+        del self.dm.root['foo3']
+        self.assertEqual(self.dm.isDirty(), True)
+        transaction.commit()
+
+        # check the special dump method
+        self.dm.dump(self.dm.root['foo'])
+        self.assertEqual(self.dm.isDirty(), True)
+        transaction.commit()
+
+
 def test_suite():
     dtsuite = doctest.DocTestSuite(
         setUp=testing.setUp, tearDown=testing.tearDown,
@@ -1475,4 +1517,5 @@ def test_suite():
         unittest.makeSuite(DatamanagerConflictTest),
         unittest.makeSuite(QueryLoggingTestCase),
         unittest.makeSuite(TransactionOptionsTestCase),
+        unittest.makeSuite(DirtyTestCase),
         ))
