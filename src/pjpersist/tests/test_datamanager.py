@@ -1292,7 +1292,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 20)
+        self.assertEquals(len(ctb), 21)
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 

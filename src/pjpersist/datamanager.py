@@ -742,7 +742,7 @@ class PJDataManager(object):
         self._tpc_activated = True
 
     def commit(self, transaction):
-        self._flush_objects()
+        self.flush()
         self._report_stats()
 
         if not self._tpc_activated:
