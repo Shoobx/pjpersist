@@ -416,9 +416,11 @@ class PJContainer(contained.Contained,
         cur = self._pj_jar.getCursor()
         fields = self._get_sb_fields(fields)
         if qry is None:
-            cur.execute(sb.Select(fields, **kwargs))
+            cur.execute(sb.Select(fields, **kwargs),
+                        flush_hint=[self._pj_table])
         else:
-            cur.execute(sb.Select(fields, qry, **kwargs))
+            cur.execute(sb.Select(fields, qry, **kwargs),
+                        flush_hint=[self._pj_table])
         return cur
 
     def find(self, qry=None, **kwargs):
@@ -444,7 +446,8 @@ class PJContainer(contained.Contained,
                 self._pj_get_list_filter(), qry)
 
         with self._pj_jar.getCursor() as cur:
-            cur.execute(sb.Select(sb.Field(self._pj_table, '*'), qry, limit=2))
+            cur.execute(sb.Select(sb.Field(self._pj_table, '*'), qry, limit=2),
+                        flush_hint=[self._pj_table])
             if cur.rowcount == 0:
                 return None
             if cur.rowcount > 1:
@@ -469,7 +472,7 @@ class PJContainer(contained.Contained,
             select = sb.Select(count, where=where)
 
         with self._pj_jar.getCursor() as cur:
-            cur.execute(select)
+            cur.execute(select, flush_hint=[self._pj_table])
             return cur.fetchone()[0]
 
     def clear(self):
@@ -488,7 +491,7 @@ class PJContainer(contained.Contained,
         select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
                            where=where)
         with self._pj_jar.getCursor() as cur:
-            cur.execute(select)
+            cur.execute(select, flush_hint=[self._pj_table])
             return cur.fetchone()[0] > 0
 
 

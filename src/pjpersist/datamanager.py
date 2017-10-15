@@ -143,13 +143,14 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             "%s,\n args:%r,\n TXN:%s,\n time:%sms",
             sql, args, txn, duration*1000)
 
-    def execute(self, sql, args=None, beacon=None):
+    def execute(self, sql, args=None, beacon=None, flush_hint=None):
         """execute a SQL statement
         sql - SQL string or SQLBuilder expression
         args - optional list of args for the SQL string
         beacon - optional unique identifier for the statement to help
                  debugging errors. Going to be added to all possible
                  exceptions and log entries
+        flush_hint - list of tables to flush before querying database
         """
         # Convert SQLBuilder object to string
         if not isinstance(sql, basestring):
@@ -157,7 +158,8 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         # Flush the data manager before any select.
         firstword = sql.strip().split()[0].lower()
         if self.flush and firstword in ('select', 'with'):
-            self.datamanager.flush()
+            # print "FLUSHING %s FOR %s" % (flush_hint, sql)
+            self.datamanager.flush(flush_hint=flush_hint)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
         # cache of the data manager. (SR)
@@ -517,10 +519,14 @@ class PJDataManager(object):
     def _get_table_from_object(self, obj):
         return self._writer.get_table_name(obj)
 
-    def _flush_objects(self):
+    def flush(self, flush_hint=None):
+        # flush_hint contains tables that we want to flush, leaving all other
+        # objects registered.
         # Now write every registered object, but make sure we write each
         # object just once.
-        written = set()
+        processed = set()
+        flushed = set()
+        docobject_flushed = set()
         # Make sure that we do not compute the list of flushable objects all
         # at once. While writing objects, new sub-objects might be registered
         # that also need saving.
@@ -529,20 +535,34 @@ class PJDataManager(object):
             obj_id = todo.pop()
             obj = self._registered_objects[obj_id]
             __traceback_info__ = obj
-            obj = self._get_doc_object(obj)
-            self._writer.store(obj)
-            self._dirty = True
-            written.add(obj_id)
-            todo = set(self._registered_objects.keys()) - written
 
-    def flush(self):
-        # Now write every registered object, but make sure we write each
-        # object just once.
-        self._flush_objects()
+            docobj = self._get_doc_object(obj)
+            docobj_id = id(docobj)
+            processed.add(obj_id)
+
+            dbname, table = self._writer.get_table_name(docobj)
+            if flush_hint and table not in flush_hint:
+                continue
+
+            flushed.add(obj_id)
+
+            if docobj_id not in docobject_flushed:
+                self._writer.store(docobj)
+                docobject_flushed.add(docobj_id)
+
+            self._dirty = True
+            todo = set(self._registered_objects.keys()) - processed
+
         # Let's now reset all objects as if they were not modified:
-        for obj in self._registered_objects.values():
+        for obj_id in flushed:
+            obj = self._registered_objects[obj_id]
             obj._p_changed = False
-        self._registered_objects = {}
+
+        self._registered_objects = {
+            obj_id: obj
+            for obj_id, obj in self._registered_objects.items()
+            if obj_id not in flushed
+        }
 
     def _get_doc_object(self, obj):
         seen = []
