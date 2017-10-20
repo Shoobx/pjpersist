@@ -429,7 +429,7 @@ def doctest_PJDataManager_remove_modify_flush():
     Now, because of other lookups, the changes are flushed, which should not
     restore the object.
 
-      >>> dm._flush_objects()
+      >>> dm.flush()
       >>> dumpTable(dm._get_table_from_object(foo)[1])
       []
       >>> dm.reset()
@@ -455,7 +455,7 @@ def doctest_PJDataManager_remove_flush_modify():
     Now, because of other lookups, the changes are flushed, which should not
     restore the object.
 
-      >>> dm._flush_objects()
+      >>> dm.flush()
       >>> dumpTable(dm._get_table_from_object(foo)[1])
       []
 
@@ -1285,14 +1285,14 @@ class DatamanagerConflictTest(testing.PJTestCase):
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNone(ctb)
 
-        #Finish in order 2 - 1
+        # Finish in order 2 - 1
         with self.assertRaises(interfaces.ConflictError):
             transaction.commit()
 
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 21)
+        self.assertEquals(len(ctb), 20)
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 
