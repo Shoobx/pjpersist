@@ -67,6 +67,13 @@ def get_dotted_name(obj, escape=False):
     return name
 
 
+def link_to_parent(obj, pobj):
+    if obj._p_jar is None:
+        if pobj is not None and  getattr(pobj, '_p_jar', None) is not None:
+            obj._p_jar = pobj._p_jar
+        setattr(obj, interfaces.DOC_OBJECT_ATTR_NAME, pobj)
+
+
 class PersistentDict(persistent.dict.PersistentDict):
     # SUB_OBJECT_ATTR_NAME:
     _p_pj_sub_object = True

@@ -67,6 +67,60 @@ copy_reg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
 
+def doctest_link_to_parent():
+    """Link to Parent
+
+    When an object is written, all persistent subobjects will receive a jar
+    and a link to the parent object. However, if one develops their own
+    `__getstate__` and `__setstate__` functions, this assignment must be done
+    manually. This method provides a quick API for doing so.
+
+    >>> foo = Foo()
+    >>> commit()
+
+    >>> foo.bar = Bar('bar')
+    >>> foo.bar._p_jar is None
+    True
+
+    >>> serialize.link_to_parent(foo.bar, foo)
+    >>> foo.bar._p_jar is foo._p_jar
+    True
+    >>> foo.bar._p_pj_doc_object is foo
+    True
+    """
+
+
+def doctest_link_to_parent_full_example():
+    """Link to Parent - Full Example
+
+    >>> class Blah(persistent.Persistent):
+    ...     def __init__(self):
+    ...         self.dict = serialize.PersistentDict()
+    ...     def __getstate__(self):
+    ...         serialize.link_to_parent(self.dict, self)
+    ...         return {'dict': dict(self.dict)}
+    ...     def __setstate__(self, state):
+    ...         self.dict = serialize.PersistentDict(state['dict'])
+
+    >>> blah = Blah()
+    >>> blah.dict._p_jar is None
+    True
+
+    >>> dm.root['blah'] = blah
+
+    >>> blah.dict._p_jar is dm
+    True
+
+    >>> blah.dict[1] = u'data'
+    >>> blah.dict._p_changed
+    True
+
+    >>> commit()
+    >>> dm.root['blah'].dict
+    {1: u'data'}
+    """
+
+
 def doctest_DBRef():
     """DBRef class
 
@@ -447,9 +501,9 @@ def doctest_ObjectWriter_get_state_same_obj_in_dict():
       >>> pdict['two'] = one
 
       >> from cPickle import dumps
-      
+
       >> print dumps(pdict)
-      
+
       >> import pickletools
       >> pickletools.dis(dumps(pdict))
 
