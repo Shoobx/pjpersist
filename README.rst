@@ -1,6 +1,20 @@
 pjpersist
 =========
 
+.. image:: https://travis-ci.org/Shoobx/pjpersist.png?branch=master
+   :target: https://travis-ci.org/Shoobx/pjpersist
+
+.. image:: https://coveralls.io/repos/github/Shoobx/pjpersist/badge.svg?branch=master
+   :target: https://coveralls.io/github/Shoobx/pjpersist?branch=master
+
+.. image:: https://img.shields.io/pypi/v/pjpersist.svg
+   :target: https://pypi.python.org/pypi/pjpersist
+
+.. image:: https://img.shields.io/pypi/pyversions/pjpersist.svg
+   :target: https://pypi.python.org/pypi/pjpersist/
+
+
+
 A Python PostGreSQL/JSONB Persistence Backend.
 
 Providing transparent persistence of Python objects.
@@ -208,8 +222,3 @@ Of course all properties can be retrieved as python objects:
 
 See src/pjpersist/README.txt and the other txt files in the package
 for more details.
-
-Travis: |buildstatus|_
-
-.. |buildstatus| image:: https://api.travis-ci.org/Shoobx/pjpersist.png?branch=master
-.. _buildstatus: https://travis-ci.org/Shoobx/pjpersist
