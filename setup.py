@@ -39,7 +39,7 @@ setup(
         test=(
             'zope.app.testing',
             'zope.testing',
-            'ZODB3',
+            'ZODB',
             'mock'
         ),
         zope=(
@@ -48,7 +48,7 @@ setup(
     ),
     install_requires=[
         'persistent',
-        'transaction >=1.1.0',
+        'transaction',
         'repoze.lru',
         'psycopg2',
         'simplejson',
