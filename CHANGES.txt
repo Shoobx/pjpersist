@@ -3,10 +3,26 @@ CHANGES
 =======
 
 
-1.1.3 (unreleased)
+1.2.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Added a new helper function to link subobject to main doc object. This is
+  needed when a custom `__getstate__()` and `__setatate__()` is implemented. A
+  detailed example is provided.
+
+- Implemented `flush_hint` argument for `IDataManager.execute()` to allow
+  flushing only some objects during query. `flush_hints` is a list table names
+  that need to be flushed for the query to return a correct result.
+
+- The Zope-specific containers use the `flush_hint` to only flush objects they
+  manage when a query is run on the container.
+
+- While flushing objects, every main document object is now only flushed
+  once. Before that fix, any subobject would cause its doc object to be dumped
+  again.
+
+Note: These optimizations provide a 15% performance improvements in real-world
+applications.
 
 
 1.1.2 (2017-09-14)
