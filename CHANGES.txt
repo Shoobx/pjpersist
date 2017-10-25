@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.2.0 (unreleased)
+1.2.0 (2017-10-24)
 ------------------
 
 - Added a new helper function to link subobject to main doc object. This is
