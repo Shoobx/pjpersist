@@ -6,7 +6,8 @@ CHANGES
 1.2.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- `psycopg2.OperationalError` and `psycopg2.InterfaceError` will be caught
+  on SQL command execution and reraised as `DatabaseDisconnected`
 
 
 1.2.0 (2017-10-24)
