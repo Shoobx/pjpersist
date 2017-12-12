@@ -28,7 +28,6 @@ import random
 import re
 import socket
 import struct
-import sys
 import threading
 import time
 import traceback
@@ -306,7 +305,7 @@ def check_for_disconnect(e, sql, beacon=None):
         if beacon is None:
             beacon = uuid.uuid4()
         beacon = 'Beacon: %s' % beacon
-        LOG.warn("Caught exception %s, reraising as DatabaseDisconnected %s",
+        LOG.warn("Caught exception %r, reraising as DatabaseDisconnected %s",
                  e, beacon)
         raise interfaces.DatabaseDisconnected(str(e).strip(), beacon, sql)
 
@@ -737,14 +736,15 @@ class PJDataManager(object):
                 self._conn.tpc_rollback()
             else:
                 self._conn.rollback()
-        except psycopg2.InterfaceError:
+        except DISCONNECTED_EXCEPTIONS:
             # this happens usually when PG is restarted and the connection dies
             # our only chance to exit the spiral is to abort the transaction
             pass
         self._release(self._conn)
         self._dirty = False
 
-    def _may_conflict(self, op):
+    def _might_execute_with_error(self, op):
+        # run the given method, check for conflicts and DB disconnect
         try:
             op()
         except psycopg2.Error, e:
@@ -761,9 +761,14 @@ class PJDataManager(object):
 
         assert self._conn.status == psycopg2.extensions.STATUS_READY
 
-        self._conn.set_session(isolation_level=isolation_level,
-                               deferrable=deferrable,
-                               readonly=readonly)
+        try:
+            self._conn.set_session(isolation_level=isolation_level,
+                                   deferrable=deferrable,
+                                   readonly=readonly)
+        except psycopg2.Error, e:
+            check_for_disconnect(e, 'PJDataManager.begin')
+            raise
+
         self._join_txn()
 
     def _begin(self, transaction):
@@ -790,8 +795,12 @@ class PJDataManager(object):
             txnid = str(uuid.uuid4())
             transaction.set_data(PREPARED_TRANSACTION_ID, txnid)
 
-        xid = self._conn.xid(0, txnid, self.database)
-        self._conn.tpc_begin(xid)
+        try:
+            xid = self._conn.xid(0, txnid, self.database)
+            self._conn.tpc_begin(xid)
+        except psycopg2.Error, e:
+            check_for_disconnect(e, 'PJDataManager._begin')
+            raise
         self._tpc_activated = True
 
     def commit(self, transaction):
@@ -799,7 +808,7 @@ class PJDataManager(object):
         self._report_stats()
 
         if not self._tpc_activated:
-            self._may_conflict(self._conn.commit)
+            self._might_execute_with_error(self._conn.commit)
             self._release(self._conn)
             self._dirty = False
 
@@ -809,12 +818,11 @@ class PJDataManager(object):
     def tpc_vote(self, transaction):
         if self._tpc_activated:
             assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
-            self._may_conflict(self._conn.tpc_prepare)
-            pass
+            self._might_execute_with_error(self._conn.tpc_prepare)
 
     def tpc_finish(self, transaction):
         if self._tpc_activated:
-            self._may_conflict(self._conn.tpc_commit)
+            self._might_execute_with_error(self._conn.tpc_commit)
             self._release(self._conn)
             self._dirty = False
 
