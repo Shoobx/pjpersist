@@ -235,11 +235,11 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
     def _execute_and_log(self, sql, args):
         # Very useful logging of every SQL command with traceback to code.
         __traceback_info__ = (self.datamanager.database, sql, args)
-        t0 = time.time()
+        started = time.time()
         try:
             res = super(PJPersistCursor, self).execute(sql, args)
         finally:
-            t1 = time.time()
+            duration = time.time() - started
             db = self.datamanager.database
 
             debug = (PJ_ACCESS_LOGGING or PJ_ENABLE_QUERY_STATS)
@@ -252,14 +252,14 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 saneargs = args
 
             if PJ_ACCESS_LOGGING:
-                self.log_query(sql, saneargs, t1-t0)
+                self.log_query(sql, saneargs, duration)
 
             if PJ_ENABLE_QUERY_STATS:
-                self.datamanager._query_report.record(sql, saneargs, t1-t0, db)
+                self.datamanager._query_report.record(
+                    sql, saneargs, duration, db)
 
             for rep in GLOBAL_QUERY_STATS_LISTENERS:
-                dt = t1 - t0
-                rep.record(sql, saneargs, dt, db)
+                rep.record(sql, saneargs, duration, db)
         return res
 
 
