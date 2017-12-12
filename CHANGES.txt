@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.2.1 (unreleased)
+1.2.1 (2017-12-12)
 ------------------
 
 - `psycopg2.OperationalError` and `psycopg2.InterfaceError` will be caught
