@@ -6,7 +6,7 @@ CHANGES
 1.2.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Need to protect all DB calls against `DatabaseDisconnected`
 
 
 1.2.1 (2017-12-12)
