@@ -95,6 +95,17 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 PREPARED_TRANSACTION_ID = object()
 
+SERIALIZATION_ERRORS = (
+    psycopg2.errorcodes.SERIALIZATION_FAILURE,
+    psycopg2.errorcodes.DEADLOCK_DETECTED
+)
+
+DISCONNECTED_EXCEPTIONS = (
+    psycopg2.OperationalError,
+    psycopg2.InterfaceError,
+)
+
+
 def createId():
     # 4 bytes current time
     id = struct.pack(">i", int(time.time()))
@@ -199,6 +210,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 # aborting the transaction.
                 self.datamanager._join_txn()
                 check_for_conflict(e, sql, beacon=beacon)
+                check_for_disconnect(e, sql, beacon=beacon)
                 # otherwise let it fly away
                 raise
         else:
@@ -210,6 +222,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 # aborting the transaction.
                 self.datamanager._join_txn()
                 check_for_conflict(e, sql, beacon=beacon)
+                check_for_disconnect(e, sql, beacon=beacon)
                 raise
 
     def _sanitize_arg(self, arg):
@@ -264,11 +277,7 @@ def check_for_conflict(e, sql, beacon=None):
              debugging errors. Going to be added to all possible
              exceptions and log entries
     """
-    serialization_errors = (
-        psycopg2.errorcodes.SERIALIZATION_FAILURE,
-        psycopg2.errorcodes.DEADLOCK_DETECTED
-    )
-    if e.pgcode in serialization_errors:
+    if e.pgcode in SERIALIZATION_ERRORS:
         if beacon is None:
             beacon = uuid.uuid4()
         beacon = 'Beacon: %s' % beacon
@@ -277,6 +286,29 @@ def check_for_conflict(e, sql, beacon=None):
         LOG.warning("Conflict detected with code %s sql: %s, %s",
                     e.pgcode, sql, beacon)
         raise interfaces.ConflictError(str(e).strip(), beacon, sql)
+
+
+def check_for_disconnect(e, sql, beacon=None):
+    """Check whether exception indicates a database disconnected error
+    and raise DatabaseDisconnected in this case
+    Note, DB disconnect detection is NOT easy
+
+    e - exception caught
+    sql - SQL string that was executed when the exception occurred
+    beacon - optional unique identifier for the statement to help
+             debugging errors. Going to be added to all possible
+             exceptions and log entries
+    """
+    if isinstance(e, DISCONNECTED_EXCEPTIONS):
+        # XXX: having an exception of the above type might NOT be
+        #      an exact sign of a DB disconnect, but as it looks we
+        #      don't have a better chance to figure
+        if beacon is None:
+            beacon = uuid.uuid4()
+        beacon = 'Beacon: %s' % beacon
+        LOG.warn("Caught exception %s, reraising as DatabaseDisconnected %s",
+                 e, beacon)
+        raise interfaces.DatabaseDisconnected(str(e).strip(), beacon, sql)
 
 
 class Root(UserDict.DictMixin):
@@ -717,6 +749,7 @@ class PJDataManager(object):
             op()
         except psycopg2.Error, e:
             check_for_conflict(e, "DataManager.commit")
+            check_for_disconnect(e, "DataManager.commit")
             raise
 
     def begin(self, readonly=None, deferrable=None, isolation_level=None):

@@ -43,6 +43,10 @@ class ConflictError(transaction.interfaces.TransientError):
     pass
 
 
+class DatabaseDisconnected(transaction.interfaces.TransientError):
+    pass
+
+
 class IObjectSerializer(zope.interface.Interface):
     """An object serializer allows for custom serialization output for
     objects."""
