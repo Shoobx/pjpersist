@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.2.2 (unreleased)
+1.2.2 (2017-12-12)
 ------------------
 
 - Need to protect all DB calls against `DatabaseDisconnected`
