@@ -16,6 +16,7 @@ import doctest
 import persistent
 import unittest
 import logging
+import psycopg2
 from pprint import pprint
 
 import transaction
@@ -1049,7 +1050,7 @@ def doctest_PJDataManager_table_sharing():
 def doctest_PJDataManager_no_compare():
     r"""PJDataManager: No object methods are called during register/dump.
 
-    Using object comparison within the data manager canhave undesired side
+    Using object comparison within the data manager can have undesired side
     effects. For example, `__cmp__()` could make use of other model objects
     that cause flushes and queries in the data manager. This can have very
     convoluted side effects, including loss of data.
@@ -1311,24 +1312,24 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         The typical detail string for such failures is:
 
-        DETAIL:  Reason code: Canceled on identification as a pivot, during commit
-        attempt.
+        DETAIL:  Reason code: Canceled on identification as a pivot, during
+        commit attempt.
         """
 
-        # We will not reproduce the full scenario with pjpersist, however we will
-        # pretend the right exception is thrown by commit.
+        # We will not reproduce the full scenario with pjpersist, however we
+        # will pretend the right exception is thrown by commit.
         #
         # First, get the error, that psycopg throws in such case
         # The example is taken from https://wiki.postgresql.org/wiki/SSI
-        import psycopg2
-
         conn1 = self.conn
         conn2 = testing.getConnection(testing.DBNAME)
 
         with conn1.cursor() as cur:
             cur.execute("DROP TABLE IF EXISTS mytab")
-            cur.execute("CREATE TABLE mytab (class int NOT NULL, value int NOT NULL )")
-            cur.execute("INSERT INTO mytab VALUES (1, 10), (1, 20), (2, 100), (2, 200)")
+            cur.execute(
+                "CREATE TABLE mytab (class int NOT NULL, value int NOT NULL )")
+            cur.execute(
+                "INSERT INTO mytab VALUES (1, 10), (1, 20), (2, 100), (2, 200)")
         conn1.commit()
 
         with conn1.cursor() as cur1, conn2.cursor() as cur2:
@@ -1348,6 +1349,30 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         with self.assertRaises(interfaces.ConflictError):
             transaction.commit()
+
+    def test_db_disconnect(self):
+        """check_for_disconnect converts some psycopg2 exceptions to
+        DatabaseDisconnected exceptions, check that
+        """
+        def fail(*args, **kw):
+            raise psycopg2.OperationalError('boom')
+
+        with mock.patch(
+                'pjpersist.datamanager.PJPersistCursor._execute_and_log',
+                side_effect=fail):
+            with self.dm.getCursor() as cur:
+                with self.assertRaises(interfaces.DatabaseDisconnected):
+                    cur.execute("DROP TABLE IF EXISTS mytab")
+
+        def fail(*args, **kw):
+            raise psycopg2.InterfaceError('boom')
+
+        with mock.patch(
+                'pjpersist.datamanager.PJPersistCursor._execute_and_log',
+                side_effect=fail):
+            with self.dm.getCursor() as cur:
+                with self.assertRaises(interfaces.DatabaseDisconnected):
+                    cur.execute("DROP TABLE IF EXISTS mytab")
 
 
 class QueryLoggingTestCase(testing.PJTestCase):
