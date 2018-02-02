@@ -17,10 +17,10 @@ import zope.schema._field
 import zope.schema.interfaces
 import pjpersist.serialize
 
+@zope.interface.implementer(zope.schema.interfaces.IList)
 class PJSequence(zope.schema._field.AbstractCollection):
-    zope.interface.implements(zope.schema.interfaces.IList)
     _type = (tuple, list, pjpersist.serialize.PersistentList)
 
+@zope.interface.implementer(zope.schema.interfaces.IDict)
 class PJMapping(zope.schema._field.Dict):
-    zope.interface.implements(zope.schema.interfaces.IDict)
     _type = (dict, pjpersist.serialize.PersistentDict)

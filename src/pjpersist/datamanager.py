@@ -181,7 +181,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
             try:
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # XXX: ugly: we're creating here missing tables on the fly
                 msg = e.message
                 TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
@@ -201,7 +201,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
                     try:
                         return self._execute_and_log(sql, args)
-                    except psycopg2.Error, e:
+                    except psycopg2.Error as e:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
@@ -216,7 +216,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             try:
                 # otherwise just execute the given sql
                 return self._execute_and_log(sql, args)
-            except psycopg2.Error, e:
+            except psycopg2.Error as e:
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
@@ -371,8 +371,8 @@ class Root(UserDict.DictMixin):
             return [doc['name'] for doc in cur.fetchall()]
 
 
+@zope.interface.implementer(interfaces.IPJDataManager)
 class PJDataManager(object):
-    zope.interface.implements(interfaces.IPJDataManager)
 
     root = None
 
@@ -747,7 +747,7 @@ class PJDataManager(object):
         # run the given method, check for conflicts and DB disconnect
         try:
             op()
-        except psycopg2.Error, e:
+        except psycopg2.Error as e:
             check_for_conflict(e, "DataManager.commit")
             check_for_disconnect(e, "DataManager.commit")
             raise
@@ -765,7 +765,7 @@ class PJDataManager(object):
             self._conn.set_session(isolation_level=isolation_level,
                                    deferrable=deferrable,
                                    readonly=readonly)
-        except psycopg2.Error, e:
+        except psycopg2.Error as e:
             check_for_disconnect(e, 'PJDataManager.begin')
             raise
 
@@ -798,7 +798,7 @@ class PJDataManager(object):
         try:
             xid = self._conn.xid(0, txnid, self.database)
             self._conn.tpc_begin(xid)
-        except psycopg2.Error, e:
+        except psycopg2.Error as e:
             check_for_disconnect(e, 'PJDataManager._begin')
             raise
         self._tpc_activated = True

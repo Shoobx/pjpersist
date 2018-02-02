@@ -5,9 +5,8 @@ from setuptools import setup, find_packages
 
 
 def read(*rnames):
-    text = open(os.path.join(os.path.dirname(__file__), *rnames)).read()
-    return unicode(text, 'utf-8').encode('ascii', 'xmlcharrefreplace')
-
+    with open(os.path.join(os.path.dirname(__file__), *rnames), 'rb') as f:
+        return f.read().decode('utf-8')
 
 setup(
     name='pjpersist',
@@ -29,6 +28,8 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
         'Framework :: ZODB',
         'License :: OSI Approved :: Zope Public License',
         'Natural Language :: English',

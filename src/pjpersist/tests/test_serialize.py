@@ -17,7 +17,7 @@ import doctest
 import persistent
 import pprint
 import copy
-import copy_reg
+import six.moves.copyreg
 import pickle
 
 from pjpersist import interfaces, serialize, testing
@@ -63,7 +63,7 @@ Constant = Constant()
 class CopyReggedConstant(object):
     def custom_reduce_fn(self):
         return 'CopyReggedConstant'
-copy_reg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
+six.moves.copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
 
@@ -169,7 +169,7 @@ def doctest_DBRef():
     Serialization also works well.
 
       >>> refp = pickle.dumps(dbref1)
-      >>> print refp
+      >>> print(refp)
       ccopy_reg
       _reconstructor
       p0
@@ -371,7 +371,7 @@ def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
       1.0
       >>> writer.get_state(u'Test')
       u'Test'
-      >>> print writer.get_state(None)
+      >>> print(writer.get_state(None))
       None
     """
 
@@ -1200,9 +1200,9 @@ def doctest_deserialize_persistent_foreign_references():
         'id': u'0001020304050607080a0b0c0'}]
 
       >>> top = dm.root['top']
-      >>> print top.name
+      >>> print(top.name)
       main
-      >>> print top.other.name
+      >>> print(top.other.name)
       top_other
       >>> top.other.state
       {u'complex_data': u'value'}
@@ -1291,3 +1291,4 @@ def test_suite():
         optionflags=testing.OPTIONFLAGS)
     suite.layer = testing.db_layer
     return suite
+

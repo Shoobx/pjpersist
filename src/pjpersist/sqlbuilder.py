@@ -140,34 +140,34 @@ class JGET(object):
 
     Normally it just gets a JSON key of a table field:
 
-       >>> print JGET("data", "key", table="Person").__sqlrepr__('postgres')
+       >>> print(JGET("data", "key", table="Person").__sqlrepr__('postgres'))
        ((Person.data) -> ('key'))
 
     We can also pass a field object and omit the table:
 
-       >>> print JGET(Field("Person", "data"), "key").__sqlrepr__('postgres')
+       >>> print(JGET(Field("Person", "data"), "key").__sqlrepr__('postgres'))
        ((Person.data) -> ('key'))
 
     The right operand for comparison operators gets converted to JSON:
 
-       >>> print (JGET("data", "key", table="Person") == {'foo': 'bar'}
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") == {'foo': 'bar'}
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) = ('{"foo": "bar"}'::jsonb))
 
-       >>> print (JGET("data", "key", table="Person") >= [True, False, None]
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") >= [True, False, None]
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) >= ('[true, false, null]'::jsonb))
 
     But not always (is this a good idea?):
     (adamG: no it's not a good idea, because -> returns jsonb which is never NULL
     see doctest_datetime_range)
 
-       >>> print (JGET("data", "key", table="Person") == None
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") == None
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) = ('null'::jsonb))
 
-       >>> print (JGET("data", "key", table="Person") != None
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") != None
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) <> ('null'::jsonb))
     """
 
@@ -285,3 +285,4 @@ class UnionAll(Union):
 
 # We can replace Union with _BetterUnion now, so all existing code uses it
 Union = _BetterUnion
+

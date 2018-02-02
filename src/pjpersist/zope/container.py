@@ -127,10 +127,10 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
         self._p_changed = True
 
 
+@zope.interface.implementer(IContainer, zinterfaces.IPJContainer)
 class PJContainer(contained.Contained,
                   persistent.Persistent,
                   UserDict.DictMixin):
-    zope.interface.implements(IContainer, zinterfaces.IPJContainer)
     _pj_table = None
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'

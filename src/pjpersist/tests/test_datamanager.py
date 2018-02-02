@@ -1293,7 +1293,9 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 20)
+        # We get 20 tracebacks with Buildouts bin/py, but 27 with
+        # python setup.py ftest. Make both work:
+        self.assertIn(len(ctb), (20, 27))
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 

@@ -14,12 +14,12 @@
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
 from __future__ import absolute_import
-import copy_reg
 import datetime
 
 import persistent.interfaces
 import persistent.dict
 import persistent.list
+import six
 import types
 import zope.interface
 from zope.dottedname.resolve import resolve
@@ -40,12 +40,11 @@ FMT_DATETIME = "%Y-%m-%dT%H:%M:%S"
 
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
-    unicode: "text",
-    str: "text",
+    six.text_type: "text",
+    bytes: "text",
     bool: "bool",
     float: "double",
     int: "integer",
-    long: "bigint",
     Decimal: "numeric",
     datetime.date: "date",
     datetime.time: "time",
@@ -54,6 +53,8 @@ PYTHON_TO_PG_TYPES = {
     list: "array",
 }
 
+if six.PY2:
+    PYTHON_TO_PG_TYPES[long] = "bigint"
 
 def get_dotted_name(obj, escape=False):
     name = obj.__module__ + '.' + obj.__name__
@@ -180,8 +181,8 @@ class DBRef(object):
 class Binary(str):
     pass
 
+@zope.interface.implementer(interfaces.IObjectSerializer)
 class ObjectSerializer(object):
-    zope.interface.implements(interfaces.IObjectSerializer)
 
     def can_read(self, state):
         raise NotImplementedError
@@ -196,8 +197,8 @@ class ObjectSerializer(object):
         raise NotImplementedError
 
 
+@zope.interface.implementer(interfaces.IObjectWriter)
 class ObjectWriter(object):
-    zope.interface.implements(interfaces.IObjectWriter)
 
     def __init__(self, jar):
         self._jar = jar
@@ -221,7 +222,7 @@ class ObjectWriter(object):
         # old-style classes with all of the possible pickle extensions.
 
         # Get the state of the object. Only pickable objects can be reduced.
-        reduce_fn = copy_reg.dispatch_table.get(objectType)
+        reduce_fn = six.moves.copyreg.dispatch_table.get(objectType)
         if reduce_fn is not None:
             reduced = reduce_fn(obj)
         else:
@@ -242,12 +243,12 @@ class ObjectWriter(object):
                 obj_state = {}
         # We are trying very hard to create a clean JSONB (sub-)document. But
         # we need a little bit of meta-data to help us out later.
-        if factory == copy_reg._reconstructor and \
+        if factory == six.moves.copyreg._reconstructor and \
                args == (obj.__class__, object, None):
             # This is the simple case, which means we can produce a nicer
             # JSONB output.
             state = {'_py_type': get_dotted_name(args[0])}
-        elif factory == copy_reg.__newobj__ and args == (obj.__class__,):
+        elif factory == six.moves.copyreg.__newobj__ and args == (obj.__class__,):
             # Another simple case for persistent objects that do not want
             # their own document.
             state = {interfaces.PY_TYPE_ATTR_NAME: get_dotted_name(args[0])}
@@ -444,8 +445,8 @@ class ObjectWriter(object):
         return obj._p_oid
 
 
+@zope.interface.implementer(interfaces.IObjectReader)
 class ObjectReader(object):
-    zope.interface.implements(interfaces.IObjectReader)
 
     def __init__(self, jar):
         self._jar = jar
@@ -526,12 +527,12 @@ class ObjectReader(object):
         if '_py_type' in state:
             # Handle the simplified case.
             klass = self.simple_resolve(state.pop('_py_type'))
-            sub_obj = copy_reg._reconstructor(klass, object, None)
+            sub_obj = six.moves.copyreg._reconstructor(klass, object, None)
         elif interfaces.PY_TYPE_ATTR_NAME in state:
             # Another simple case for persistent objects that do not want
             # their own document.
             klass = self.simple_resolve(state.pop(interfaces.PY_TYPE_ATTR_NAME))
-            sub_obj = copy_reg.__newobj__(klass)
+            sub_obj = six.moves.copyreg.__newobj__(klass)
         else:
             factory = self.simple_resolve(state.pop('_py_factory'))
             factory_args = self.get_object(state.pop('_py_factory_args'), obj)

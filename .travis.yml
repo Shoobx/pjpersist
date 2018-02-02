@@ -1,12 +1,12 @@
 language: python
 python:
     - 2.7
+    - 3.6
 addons:
   postgresql: "9.6"
 install:
-    - virtualenv env
-    - env/bin/pip install -U setuptools distribute coveralls
-    - env/bin/python bootstrap.py
+    - pip install -U setuptools coveralls
+    - python bootstrap.py
     - bin/buildout
 before_script:
     - psql -c "create user pjpersist with createdb password 'pjpersist';" -U postgres

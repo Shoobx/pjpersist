@@ -13,6 +13,7 @@
 ##############################################################################
 """Mongo Persistence Testing Support"""
 from __future__ import absolute_import
+from __future__ import print_function
 import atexit
 import doctest
 import logging
@@ -25,7 +26,7 @@ import threading
 import transaction
 import unittest
 from pprint import pprint
-from StringIO import StringIO
+from io import BytesIO
 
 import zope.component
 from zope.testing import module, renormalizing
@@ -139,8 +140,8 @@ def setUp(test):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             try:
                 cur.execute('SELECT * FROM ' + table)
-            except psycopg2.ProgrammingError, err:
-                print err
+            except psycopg2.ProgrammingError as err:
+                print(err)
             else:
                 pprint([dict(e) for e in cur.fetchall()])
         if isolate:
@@ -258,7 +259,7 @@ def setUpLogging(logger, level=logging.DEBUG, format='%(message)s',
                  copy_to_stdout=False):
     if isinstance(logger, str):
         logger = logging.getLogger(logger)
-    buf = StringIO()
+    buf = BytesIO()
     handler = logging.StreamHandler(buf)
     handler._added_by_tests_ = True
     handler._old_propagate_ = logger.propagate
@@ -267,7 +268,7 @@ def setUpLogging(logger, level=logging.DEBUG, format='%(message)s',
     logger.addHandler(handler)
     if copy_to_stdout:
         # can't use logging.StreamHandler(sys.stdout) because sys.stdout might
-        # be changed latter to a StringIO, and we want messages to be seen
+        # be changed latter to a BytesIO, and we want messages to be seen
         # by doctests.
         handler = StdoutHandler()
         handler._added_by_tests_ = True

@@ -12,12 +12,13 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
+from __future__ import print_function
 import doctest
 from pjpersist import testing, mquery
 
 
 def run(sqlx):
-    print sqlx.__sqlrepr__('postgres')
+    print(sqlx.__sqlrepr__('postgres'))
 
 
 def test_convert():

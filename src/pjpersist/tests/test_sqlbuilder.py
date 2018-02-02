@@ -53,7 +53,7 @@ def doctest_sqlbuilder():
 
     We can cast JSON strings to the JSONB type:
 
-        >>> print run(sb.JSONB('{"universe": {"answer": 42}}'))
+        >>> print(run(sb.JSONB('{"universe": {"answer": 42}}')))
         '{"universe": {"answer": 42}}'::jsonb
 
     And perform JSONB "set operations" on the objects:
@@ -100,7 +100,7 @@ def doctest_sqlbuilder_with_queries():
         ...     sb.Select(['r'], staticTables=['regional_sales'])
         ... )
 
-        >>> print run(withstmt)
+        >>> print(run(withstmt))
         WITH regional_sales (r, a) AS ( SELECT region, amount FROM orders )
         SELECT r FROM regional_sales
 
@@ -110,7 +110,7 @@ def doctest_sqlbuilder_with_queries():
         ...     recursive=True
         ... )
 
-        >>> print run(withstmt)
+        >>> print(run(withstmt))
         WITH RECURSIVE regional_sales (r, a) AS (
             SELECT region, amount FROM orders )
         SELECT r FROM regional_sales
@@ -123,7 +123,7 @@ def doctest_sqlbuilder_unions():
         ...     sb.Select(['r'], staticTables=['regional_sales']),
         ...     sb.Select(['r'], staticTables=['global_sales'])
         ... )
-        >>> print run(union)
+        >>> print(run(union))
         ( SELECT r FROM regional_sales )
         UNION
         ( SELECT r FROM global_sales )
@@ -132,7 +132,7 @@ def doctest_sqlbuilder_unions():
         ...     sb.Select(['r'], staticTables=['regional_sales']),
         ...     sb.Select(['r'], staticTables=['global_sales'])
         ... )
-        >>> print run(union)
+        >>> print(run(union))
         ( SELECT r FROM regional_sales )
         UNION ALL
         ( SELECT r FROM global_sales )
@@ -147,3 +147,4 @@ def test_suite():
             module=sb,
             optionflags=testing.OPTIONFLAGS),
         ])
+

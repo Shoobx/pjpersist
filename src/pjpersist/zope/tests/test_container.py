@@ -13,6 +13,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers Tests"""
+from __future__ import print_function
 import atexit
 import doctest
 import unittest
@@ -969,8 +970,8 @@ def doctest_PJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
       ...     )
       ... def handleObjectAddedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -995,8 +996,8 @@ def doctest_PJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
       ...     )
       ... def handleObjectRemovedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1035,8 +1036,8 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
       ...     )
       ... def handleObjectAddedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1059,8 +1060,8 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
       ...     )
       ... def handleObjectRemovedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1524,7 +1525,7 @@ def doctest_firing_events_PJContainer():
 
       >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
       ... def eventHandler(event):
-      ...     print event
+      ...     print(event)
 
       >>> zope.component.provideHandler(eventHandler)
 
@@ -1578,7 +1579,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
       ... def eventHandler(event):
-      ...     print event
+      ...     print(event)
 
       >>> zope.component.provideHandler(eventHandler)
 
@@ -1642,9 +1643,9 @@ class IPerson(zope.interface.Interface):
     phone = zope.schema.TextLine(title=u'Phone')
 
 
+@zope.interface.implementer(IPerson)
 class ColumnPerson(SimpleColumnSerialization, container.PJContained,
                    persistent.Persistent):
-    zope.interface.implements(IPerson)
     _p_pj_table = 'cperson'
     _pj_column_fields = select_fields(IPerson, 'name')
 
@@ -1774,7 +1775,7 @@ def doctest_PJContainer_get_sb_fields():
 
       >>> def printit(res):
       ...     for r in res:
-      ...           print r.__sqlrepr__('postgres')
+      ...           print(r.__sqlrepr__('postgres'))
 
       >>> printit(c._get_sb_fields(('name',)))
       ((cperson.data) -> ('name')) AS name
@@ -2030,7 +2031,7 @@ checker = renormalizing.RENormalizing([
     zope.lifecycleevent.interfaces.IObjectModifiedEvent
     )
 def handleObjectModifiedEvent(object, event):
-    print event.__class__.__name__+':', repr(object)
+    print(event.__class__.__name__+':', repr(object))
 
 
 def setUp(test):
@@ -2039,8 +2040,8 @@ def setUp(test):
 
     # since the table gets created in PJContainer.__init__ we need to provide
     # a IPJDataManagerProvider
+    @zope.interface.implementer(interfaces.IPJDataManagerProvider)
     class Provider(object):
-        zope.interface.implements(interfaces.IPJDataManagerProvider)
 
         def get(self, database):
             return test.globs['dm']
@@ -2096,3 +2097,4 @@ def test_suite():
         unittest.makeSuite(AllItemsPJContainerInterfaceTest),
         unittest.makeSuite(SubDocumentPJContainerInterfaceTest),
         ))
+
