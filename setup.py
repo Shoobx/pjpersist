@@ -61,6 +61,7 @@ setup(
         'Operating System :: OS Independent'],
     packages=find_packages('src'),
     package_dir={'': 'src'},
+    data_files=[('pjpersist', ['README.rst'])],  # in order to test it with tox
     extras_require = dict(
         test=TESTS_REQUIRE,
         zope=(
