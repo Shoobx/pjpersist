@@ -179,25 +179,25 @@ class JGET(object):
         self.selector = selector
 
     def __lt__(self, other):
-        return SQLOp("<", self, JSONB(json.dumps(other)))
+        return SQLOp("<", self, JSONB(json.dumps(other, sort_keys=True)))
     def __le__(self, other):
-        return SQLOp("<=", self, JSONB(json.dumps(other)))
+        return SQLOp("<=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __gt__(self, other):
-        return SQLOp(">", self, JSONB(json.dumps(other)))
+        return SQLOp(">", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ge__(self, other):
-        return SQLOp(">=", self, JSONB(json.dumps(other)))
+        return SQLOp(">=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __eq__(self, other):
-        return SQLOp("=", self, JSONB(json.dumps(other)))
+        return SQLOp("=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ne__(self, other):
-        return SQLOp("<>", self, JSONB(json.dumps(other)))
+        return SQLOp("<>", self, JSONB(json.dumps(other, sort_keys=True)))
     def __and__(self, other):
-        return SQLOp("AND", self, JSONB(json.dumps(other)))
+        return SQLOp("AND", self, JSONB(json.dumps(other, sort_keys=True)))
     def __rand__(self, other):
-        return SQLOp("AND", JSONB(json.dumps(other), self))
+        return SQLOp("AND", JSONB(json.dumps(other, sort_keys=True), self))
     def __or__(self, other):
-        return SQLOp("OR", self, JSONB(json.dumps(other)))
+        return SQLOp("OR", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ror__(self, other):
-        return SQLOp("OR", JSONB(json.dumps(other), self))
+        return SQLOp("OR", JSONB(json.dumps(other, sort_keys=True), self))
     def __invert__(self):
         return SQLPrefix("NOT", self)
 

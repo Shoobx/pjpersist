@@ -15,6 +15,7 @@
 from __future__ import print_function
 import doctest
 import json
+import pprint
 
 from pjpersist import testing, mquery, sqlbuilder as sb
 
@@ -54,7 +55,7 @@ def select(conn, query, print_sql=False):
                 print('SQL> ', sql)
             cur.execute(sql)
             for e in cur.fetchall():
-                print(e[0])
+                pprint.pprint(e[0])
     finally:
         conn.rollback()
 
@@ -71,7 +72,7 @@ def doctest_operators():
 
        >>> select(conn, {'nr': 42})
        {u'nr': 42}
-       {u'nr': 42, u'drink': u'whiskey', u'day': u'Friday', u'plan': u'getdown'}
+       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
 
     We can query for an element in the list:
 
@@ -82,14 +83,14 @@ def doctest_operators():
 
        >>> select(conn, {'nr': {'$gt': 40}})
        {u'nr': 42}
-       {u'nr': [1, None], u'more': {u'strings': [u'a', u'f', u'x']}}
-       {u'nr': 42, u'drink': u'whiskey', u'day': u'Friday', u'plan': u'getdown'}
+       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
+       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
 
     List searches:
 
        >>> select(conn, {'nr': {'$in': [40, 41, 42]}})
        {u'nr': 42}
-       {u'nr': 42, u'drink': u'whiskey', u'day': u'Friday', u'plan': u'getdown'}
+       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
 
        >>> select(conn, {'foo': {'$in': ['foo', 'bar', 'baz']}})
        {u'foo': u'bar'}
@@ -98,7 +99,7 @@ def doctest_operators():
        {u'foo': u'bar'}
 
        >>> select(conn, {'more.strings': {'$in': ['a', 'g']}})
-       {u'nr': [1, None], u'more': {u'strings': [u'a', u'f', u'x']}}
+       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
 
        >>> select(conn, {'more.strings': {'$in': ['h', 'g']}})
 
@@ -117,8 +118,8 @@ def doctest_operators():
        {u'foo': u'bar'}
        {u'nr': 42}
        {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'nr': [1, None], u'more': {u'strings': [u'a', u'f', u'x']}}
-       {u'nr': 42, u'drink': u'whiskey', u'day': u'Friday', u'plan': u'getdown'}
+       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
+       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
 
 
     Existence of keys:
@@ -139,7 +140,7 @@ def doctest_operators():
        {u'foo': u'bar'}
        {u'nr': 42}
        {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'nr': 42, u'drink': u'whiskey', u'day': u'Friday', u'plan': u'getdown'}
+       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
 
     List sizes:
 
@@ -183,7 +184,7 @@ def doctest_operators():
                    OR (((mq.data) -> ('nr')) IS NULL)))
        {u'foo': u'bar'}
        {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'nr': [1, None], u'more': {u'strings': [u'a', u'f', u'x']}}
+       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
 
     """
 
