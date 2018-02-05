@@ -8,6 +8,31 @@ def read(*rnames):
     with open(os.path.join(os.path.dirname(__file__), *rnames), 'rb') as f:
         return f.read().decode('utf-8')
 
+def alltests():
+   import os
+   import sys
+   import unittest
+   # use the zope.testrunner machinery to find all the
+   # test suites we've put under ourselves
+   import zope.testrunner.find
+   import zope.testrunner.options
+   here = os.path.abspath(os.path.join(os.path.dirname(__file__), 'src'))
+   args = sys.argv[:]
+   defaults = ["--test-path", here]
+   options = zope.testrunner.options.get_options(args, defaults)
+   suites = list(zope.testrunner.find.find_suites(options))
+   return unittest.TestSuite(suites)
+
+
+TESTS_REQUIRE = [
+    'zope.testrunner',
+    'zope.app.testing',
+    'zope.testing',
+    'ZODB',
+    'mock',
+   ]
+
+
 setup(
     name='pjpersist',
     version='1.2.3.dev0',
@@ -37,12 +62,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     extras_require = dict(
-        test=(
-            'zope.app.testing',
-            'zope.testing',
-            'ZODB',
-            'mock'
-        ),
+        test=TESTS_REQUIRE,
         zope=(
             'zope.container',
         ),
@@ -67,4 +87,6 @@ setup(
     profile = pjpersist.tests.performance:main
     json_speed_test = pjpersist.tests.json_speed_test:main
     ''',
+    tests_require=TESTS_REQUIRE,
+    test_suite='__main__.alltests',
 )
