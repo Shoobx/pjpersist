@@ -360,10 +360,13 @@ class PJContainer(contained.Contained,
     def __len__(self):
         return self.count()
 
+    def items(self):
+        return list(self.iteritems())
+
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
-            return self._cache.iteritems()
+            return self._cache.items()
         result = self.raw_find()
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
