@@ -148,7 +148,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
     def log_query(self, sql, args, duration):
 
         txn = transaction.get()
-        txn = '%i - %s' % (id(txn), txn.description),
+        txn = '%i - %s' % (id(txn), txn.description)
 
         TABLE_LOG.debug(
             "%s,\n args:%r,\n TXN:%s,\n time:%sms",
