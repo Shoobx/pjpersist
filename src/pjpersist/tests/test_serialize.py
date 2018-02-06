@@ -170,9 +170,6 @@ def doctest_DBRef():
     Serialization also works well.
 
       >>> refp = pickle.dumps(dbref1)
-      >>> print(refp)
-      ccopy_reg
-      ...
 
       >>> dbref11 = pickle.loads(refp)
       >>> dbref1 == dbref11
@@ -296,7 +293,7 @@ def doctest_ObjectWriter_get_non_persistent_state():
       >>> pprint.pprint(
       ...     writer.get_non_persistent_state(datetime.date(2011, 11, 1)))
       {'_py_factory': 'datetime.date',
-       '_py_factory_args': [{'_py_type': 'BINARY', 'data': 'B9sLAQ==\n'}]}
+       '_py_factory_args': [{'_py_type': 'BINARY', 'data': 'B9sLAQ=='}]}
 
       >>> serialize.SERIALIZERS = orig_serializers
     """

@@ -14,6 +14,7 @@
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
 from __future__ import absolute_import
+import base64
 import datetime
 
 import persistent.interfaces
@@ -284,7 +285,7 @@ class ObjectWriter(object):
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
-        if isinstance(obj, str):
+        if six.PY2 and isinstance(obj, str):
             # In Python 2, strings can be ASCII, encoded unicode or binary
             # data. Unfortunately, BSON cannot handle that. So, if we have a
             # string that cannot be UTF-8 decoded (luckily ASCII is a valid
@@ -293,7 +294,17 @@ class ObjectWriter(object):
                 obj.decode('utf-8')
                 return obj
             except UnicodeError:
-                return {'_py_type': 'BINARY', 'data': obj.encode('base64')}
+                return {
+                    '_py_type': 'BINARY',
+                    'data': obj.encode('base64').srip()
+                }
+        if six.PY3 and isinstance(obj, bytes):
+            return {
+                '_py_type': 'BINARY',
+                'data': base64.b64encode(obj).decode('ascii')
+            }
+        if six.PY3 and isinstance(obj, str):
+            return obj
         # Some objects might not naturally serialize well and create a very
         # ugly JSONB entry. Thus, we allow custom serializers to be
         # registered, which can encode/decode different types of objects.
