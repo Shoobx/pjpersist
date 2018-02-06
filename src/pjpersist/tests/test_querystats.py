@@ -51,7 +51,7 @@ def doctest_calc_and_report_empty():
     Print out empty query report
 
         >>> qr = QueryReport()
-        >>> print qr.calc_and_report()
+        >>> print(qr.calc_and_report())
         Query report: no queries were executed
         """
 
@@ -66,7 +66,7 @@ def doctest_calc_and_report_several():
         >>> qr.record("SELECT 3", ["a", "b", 3], 0.8)
         >>> qr.report_traceback = True
 
-        >>> print qr.calc_and_report()
+        >>> print(qr.calc_and_report())
         Query report:
         ------------------------------------------------------------
         10 most expensive queries:
@@ -96,3 +96,4 @@ def test_suite():
         optionflags=testing.OPTIONFLAGS)
 
     return dtsuite
+

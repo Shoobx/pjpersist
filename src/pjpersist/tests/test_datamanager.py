@@ -15,8 +15,8 @@
 import doctest
 import persistent
 import unittest
-import logging
 import psycopg2
+import six
 from pprint import pprint
 
 import transaction
@@ -156,7 +156,7 @@ def doctest_PJDataManager_object_dump_load_reset():
       >>> foo.name = 'Foo'
       >>> foo._p_changed
       True
-      >>> dm._registered_objects.values()
+      >>> list(dm._registered_objects.values())
       [<Foo Foo>]
 
       >>> foo_ref = dm.dump(foo)
@@ -218,7 +218,7 @@ def doctest_PJDataManager_flush():
 
     The object is now registered with the data manager:
 
-      >>> dm._registered_objects.values()
+      >>> list(dm._registered_objects.values())
       [<Foo Foo>]
 
     Let's now flush the registered objects:
@@ -258,7 +258,7 @@ def doctest_PJDataManager_insert():
 
     It is also added to the list of inserted objects:
 
-      >>> dm._inserted_objects.values()
+      >>> list(dm._inserted_objects.values())
       [<Foo foo>]
 
     Let's make sure it is really in PostGreSQL:
@@ -284,7 +284,7 @@ def doctest_PJDataManager_insert():
       >>> foo2 = Foo('Foo 2')
       >>> dm.register(foo2)
 
-      >>> dm._registered_objects.values()
+      >>> list(dm._registered_objects.values())
       [<Foo Foo 2>]
 
     But storing works as expected (flush is implicit before find):
@@ -322,7 +322,7 @@ def doctest_PJDataManager_remove():
 
     Also, the object is added to the list of removed objects:
 
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo foo>]
 
     Note that you cannot remove objects that are not in the database:
@@ -346,7 +346,7 @@ def doctest_PJDataManager_remove():
 
       >>> dm._inserted_objects
       {}
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo Foo 3>]
 
     """
@@ -366,7 +366,7 @@ def doctest_PJDataManager_insert_remove():
 
       >>> dm._inserted_objects
       {}
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo foo>]
 
       >>> dumpTable(dm._get_table_from_object(foo)[1])
@@ -389,13 +389,13 @@ def doctest_PJDataManager_insert_remove_modify():
 
       >>> dm._inserted_objects
       {}
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo foo>]
 
       >>> foo.name = 'bar'
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo bar>]
-      >>> dm._registered_objects.values()
+      >>> list(dm._registered_objects.values())
       []
 
       >>> dumpTable(dm._get_table_from_object(foo)[1])
@@ -417,7 +417,7 @@ def doctest_PJDataManager_remove_modify_flush():
     Let's now remove it:
 
       >>> dm.remove(foo)
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo foo>]
 
     Within the same transaction we modify the object. But the object should
@@ -450,7 +450,7 @@ def doctest_PJDataManager_remove_flush_modify():
 
       >>> foo._p_changed = True
       >>> dm.remove(foo)
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo foo>]
 
     Now, because of other lookups, the changes are flushed, which should not
@@ -621,12 +621,12 @@ def doctest_PJDataManager_abort():
 
       >>> foo = dm.load(foo_ref)
       >>> foo.name = '1'
-      >>> dm._registered_objects.values()
+      >>> list(dm._registered_objects.values())
       [<Foo 1>]
 
       >>> foo2 = dm.load(foo2_ref)
       >>> dm.remove(foo2)
-      >>> dm._removed_objects.values()
+      >>> list(dm._removed_objects.values())
       [<Foo two>]
 
       >>> foo3_ref = dm.insert(Foo('three'))
@@ -789,7 +789,7 @@ def doctest_PJDataManager_sortKey():
     The data manager's sort key is trivial.
 
       >>> dm.sortKey()
-      ('PJDataManager', 0)
+      'PJDataManager:...'
     """
 
 
@@ -1055,7 +1055,6 @@ def doctest_PJDataManager_no_compare():
     that cause flushes and queries in the data manager. This can have very
     convoluted side effects, including loss of data.
 
-      >>> import UserDict
       >>> class BadObject(persistent.Persistent):
       ...     def __init__(self, name):
       ...         self.name = name
@@ -1085,12 +1084,14 @@ def doctest_PJDataManager_no_compare():
 
     """
 
+if six.PY3:
+    long = int
 
 def doctest_PJDataManager_long():
     r"""PJDataManager: Test behavior of long integers.
 
       >>> dm.root['app'] = Root()
-      >>> dm.root['app'].x = 1L
+      >>> dm.root['app'].x = long(1)
       >>> commit()
 
     Let's see how it is deserialzied?
@@ -1293,7 +1294,9 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        self.assertEquals(len(ctb), 20)
+        # We get 20 tracebacks with Buildouts bin/py, but 27 with
+        # python setup.py ftest. Make both work:
+        self.assertIn(len(ctb), (20, 27))
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 

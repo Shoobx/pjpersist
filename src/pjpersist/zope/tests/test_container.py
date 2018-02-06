@@ -13,6 +13,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers Tests"""
+from __future__ import print_function
 import atexit
 import doctest
 import unittest
@@ -283,7 +284,7 @@ def doctest_SimplePJContainer_basic():
 
       >>> dm.root['c'][u'stephan'] = SimplePerson(u'Stephan')
       ContainerModifiedEvent: <...SimplePJContainer ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c'][u'stephan']
       <SimplePerson Stephan>
@@ -315,7 +316,7 @@ def doctest_SimplePJContainer_basic():
                  u'name': u'Stephan'},
         'id': u'0001020304050607080a0b0c0'}]
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c']['stephan'].__parent__
       <pjpersist.zope.container.SimplePJContainer object at 0x7fec50f86500>
@@ -330,10 +331,10 @@ def doctest_SimplePJContainer_basic():
                                         u'table': u'person'}}},
         'id': u'0001020304050607080a0b0c0'}]
 
-      >>> dm.root['c'].items()
+      >>> list(dm.root['c'].items())
       [(u'stephan', <SimplePerson Stephan>)]
 
-      >>> dm.root['c'].values()
+      >>> list(dm.root['c'].values())
       [<SimplePerson Stephan>]
 
     Now remove the item:
@@ -343,7 +344,7 @@ def doctest_SimplePJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['stephan']
       Traceback (most recent call last):
@@ -353,7 +354,7 @@ def doctest_SimplePJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     The object is also removed from PJ:
@@ -398,7 +399,7 @@ def doctest_PJContainer_basic():
 
       >>> dm.root['c'][u'stephan'] = Person(u'Stephan')
       ContainerModifiedEvent: <...PJContainer ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c'][u'stephan']
       <Person Stephan>
@@ -426,7 +427,7 @@ def doctest_PJContainer_basic():
 
       >>> 'stephan' in dm.root['c']
       True
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c']['stephan'].__parent__
       <pjpersist.zope.container.PJContainer object at 0x7fec50f86500>
@@ -450,7 +451,7 @@ def doctest_PJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['stephan']
       Traceback (most recent call last):
@@ -460,7 +461,7 @@ def doctest_PJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     Check adding of more objects:
@@ -518,7 +519,7 @@ def doctest_PJContainer_pj_parent_key_value():
     Now the ZODB case:
 
       >>> c._p_jar = object()
-      >>> c._p_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
+      >>> c._p_oid = b'\x00\x00\x00\x00\x00\x00\x00\x01'
       >>> c._pj_get_parent_key_value()
       'zodb-0000000000000001'
 
@@ -575,7 +576,7 @@ def doctest_PJContainer_setitem_with_no_key_PJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
 """
@@ -593,7 +594,7 @@ def doctest_PJContainer_setitem_with_no_key_IdNamesPJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
 """
@@ -614,7 +615,7 @@ def doctest_PJContainer_add_PJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
 """
@@ -634,7 +635,7 @@ def doctest_PJContainer_add_IdNamesPJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
 """
@@ -854,8 +855,8 @@ def doctest_PJ_Container_count():
 
       >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer('person')
-      >>> dm.root['people'].count()
-      0L
+      >>> int(dm.root['people'].count())
+      0
 
       >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
       >>> dm.root['people'][u'roy'] = Person(u'Roy')
@@ -863,15 +864,15 @@ def doctest_PJ_Container_count():
       >>> dm.root['people'][u'adam'] = Person(u'Adam')
       >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
       >>> dm.root['people'][u'russ'] = Person(u'Russ')
-      >>> dm.root['people'].count()
-      6L
+      >>> int(dm.root['people'].count())
+      6
 
       >>> table = Person._p_pj_table
       >>> datafld = sb.Field('person', 'data')
       >>> fld = sb.JSON_GETITEM_TEXT(datafld, 'name')
       >>> qry = fld.startswith('Ro')
-      >>> dm.root['people'].count(qry)
-      2L
+      >>> int(dm.root['people'].count(qry))
+      2
   """
 
 
@@ -969,8 +970,8 @@ def doctest_PJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
       ...     )
       ... def handleObjectAddedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -995,8 +996,8 @@ def doctest_PJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
       ...     )
       ... def handleObjectRemovedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1005,7 +1006,7 @@ def doctest_PJContainer_cache_events():
 
     Remove the very first object
 
-      >>> del ppl[ppl.keys()[0]]
+      >>> del ppl[list(ppl.keys())[0]]
       container length: 0
 
     """
@@ -1035,8 +1036,8 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectAddedEvent
       ...     )
       ... def handleObjectAddedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1059,8 +1060,8 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     zope.lifecycleevent.interfaces.IObjectRemovedEvent
       ...     )
       ... def handleObjectRemovedEvent(object, event):
-      ...     print "container length:", len(ppl)
-      ...
+      ...     print("container length:", len(ppl))
+      ... 
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1069,7 +1070,7 @@ def doctest_IdNamesPJContainer_cache_events():
 
     Remove the very first object
 
-      >>> del ppl[ppl.keys()[0]]
+      >>> del ppl[list(ppl.keys())[0]]
       container length: 0
 
     """
@@ -1090,14 +1091,14 @@ def doctest_IdNamesPJContainer_basic():
     Let's now add a new person:
 
       >>> dm.root['c'].add(Person(u'Stephan'))
-      >>> keys = dm.root['c'].keys()
+      >>> keys = list(dm.root['c'].keys())
       >>> keys
       [u'0001020304050607080a0b0c0']
       >>> name = keys[0]
       >>> dm.root['c'][name]
       <Person Stephan>
 
-      >>> dm.root['c'].values()
+      >>> list(dm.root['c'].values())
       [<Person Stephan>]
 
       >>> dm.root['c'][name].__parent__
@@ -1148,7 +1149,7 @@ def doctest_IdNamesPJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c'][name]
       Traceback (most recent call last):
@@ -1158,7 +1159,7 @@ def doctest_IdNamesPJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
     """
 
@@ -1236,13 +1237,13 @@ def doctest_SubDocumentPJContainer_basic():
 
       >>> dm.root['app_root']['people'][u'stephan'] = Person(u'Stephan')
       ContainerModifiedEvent: <...SubDocumentPJContainer ...>
-      >>> dm.root['app_root']['people'].keys()
+      >>> list(dm.root['app_root']['people'].keys())
       [u'stephan']
       >>> dm.root['app_root']['people'][u'stephan']
       <Person Stephan>
 
       >>> transaction.commit()
-      >>> dm.root['app_root']['people'].keys()
+      >>> list(dm.root['app_root']['people'].keys())
       [u'stephan']
     """
 
@@ -1267,7 +1268,7 @@ def doctest_PJContainer_with_ZODB():
 
     So let's try again:
 
-      >>> root['app']['people'].keys()
+      >>> list(root['app']['people'].keys())
       []
 
     Next we create a person object and make sure it gets properly persisted.
@@ -1275,7 +1276,7 @@ def doctest_PJContainer_with_ZODB():
       >>> root['app']['people']['stephan'] = Person(u'Stephan')
       >>> transaction.commit()
       >>> root = zodb.open().root()
-      >>> root['app']['people'].keys()
+      >>> list(root['app']['people'].keys())
       [u'stephan']
 
       >>> stephan = root['app']['people']['stephan']
@@ -1288,7 +1289,7 @@ def doctest_PJContainer_with_ZODB():
       [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
                  u'key': u'stephan',
                  u'name': u'Stephan',
-                 u'parent': u'zodb-01af3b00c5
+                 u'parent': u'zodb-01af3b00c5'},
         'id': u'0001020304050607080a0b0c0'}]
 
     Note that we produced a nice hex-presentation of the ZODB's OID.
@@ -1362,7 +1363,7 @@ def doctest_Realworldish():
 
       >>> dm.root['c'][u'one'] = Campaign(u'one')
       ContainerModifiedEvent: <...Campaigns ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'one']
       >>> dm.root['c'][u'one']
       <Campaign one>
@@ -1390,7 +1391,7 @@ def doctest_Realworldish():
 
       >>> 'one' in dm.root['c']
       True
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'one']
       >>> dm.root['c']['one'].__parent__
       <Campaigns foobar>
@@ -1414,7 +1415,7 @@ def doctest_Realworldish():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['one']
       Traceback (most recent call last):
@@ -1424,7 +1425,7 @@ def doctest_Realworldish():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     Check adding of more objects:
@@ -1493,7 +1494,7 @@ def doctest_load_does_not_set_p_changed():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = People()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       >>> transaction.commit()
 
@@ -1524,7 +1525,7 @@ def doctest_firing_events_PJContainer():
 
       >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
       ... def eventHandler(event):
-      ...     print event
+      ...     print(event)
 
       >>> zope.component.provideHandler(eventHandler)
 
@@ -1532,7 +1533,7 @@ def doctest_firing_events_PJContainer():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = People()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
@@ -1542,7 +1543,7 @@ def doctest_firing_events_PJContainer():
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
       ...     people.add(PeoplePerson(name, random.randint(0, 100)))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1553,7 +1554,7 @@ def doctest_firing_events_PJContainer():
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+20, )
       ...     people[name] = PeoplePerson(name, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1578,7 +1579,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
       ... def eventHandler(event):
-      ...     print event
+      ...     print(event)
 
       >>> zope.component.provideHandler(eventHandler)
 
@@ -1586,7 +1587,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = PeopleWithIDKeys()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
@@ -1596,7 +1597,7 @@ def doctest_firing_events_IdNamesPJContainer():
       >>> list(people.keys())
       [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
       ...     people.add(PeoplePerson(name, random.randint(0, 100)))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1610,7 +1611,7 @@ def doctest_firing_events_IdNamesPJContainer():
     We can set custom keys as well, they will end up in mongo documents as _id
     attributes.
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = '4e7ddf12e1382374030%.5i' % (idx+20, )
       ...     people[name] = PeoplePerson(name, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1642,9 +1643,9 @@ class IPerson(zope.interface.Interface):
     phone = zope.schema.TextLine(title=u'Phone')
 
 
+@zope.interface.implementer(IPerson)
 class ColumnPerson(SimpleColumnSerialization, container.PJContained,
                    persistent.Persistent):
-    zope.interface.implements(IPerson)
     _p_pj_table = 'cperson'
     _pj_column_fields = select_fields(IPerson, 'name')
 
@@ -1674,7 +1675,7 @@ def doctest_PJContainer_SimpleColumnSerialization():
       >>> dm._ensure_sql_columns(ColumnPerson(u'foo'), table)
 
       >>> dm.root['people'] = people = ColumnPeople()
-      >>> for idx in xrange(20):
+      >>> for idx in range(20):
       ...     people[None] = ColumnPerson(u'Mr Number %.5i' %idx)
 
       >> dumpTable('cperson')
@@ -1774,7 +1775,7 @@ def doctest_PJContainer_get_sb_fields():
 
       >>> def printit(res):
       ...     for r in res:
-      ...           print r.__sqlrepr__('postgres')
+      ...           print(r.__sqlrepr__('postgres'))
 
       >>> printit(c._get_sb_fields(('name',)))
       ((cperson.data) -> ('name')) AS name
@@ -2021,8 +2022,13 @@ checker = renormalizing.RENormalizing([
      "'0001020304050607080a0b0c0'"),
     (re.compile(r"object at 0x[0-9a-f]*>"),
      "object at 0x001122>"),
-    (re.compile(r"zodb-[0-9a-f].*"),
+    (re.compile(r"u'zodb-[0-9a-f]+'"),
+     "'zodb-01af3b00c5'"),
+    (re.compile(r"zodb-[0-9a-f]+"),
      "zodb-01af3b00c5"),
+    # Mangle unicode strings
+    (re.compile("u('.*?')"), r"\1"),
+    (re.compile('u(".*?")'), r"\1"),
     ])
 
 @zope.component.adapter(
@@ -2030,7 +2036,7 @@ checker = renormalizing.RENormalizing([
     zope.lifecycleevent.interfaces.IObjectModifiedEvent
     )
 def handleObjectModifiedEvent(object, event):
-    print event.__class__.__name__+':', repr(object)
+    print(event.__class__.__name__+':', repr(object))
 
 
 def setUp(test):
@@ -2039,8 +2045,8 @@ def setUp(test):
 
     # since the table gets created in PJContainer.__init__ we need to provide
     # a IPJDataManagerProvider
+    @zope.interface.implementer(interfaces.IPJDataManagerProvider)
     class Provider(object):
-        zope.interface.implements(interfaces.IPJDataManagerProvider)
 
         def get(self, database):
             return test.globs['dm']
@@ -2096,3 +2102,4 @@ def test_suite():
         unittest.makeSuite(AllItemsPJContainerInterfaceTest),
         unittest.makeSuite(SubDocumentPJContainerInterfaceTest),
         ))
+

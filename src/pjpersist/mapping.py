@@ -15,12 +15,12 @@
 """PostGreSQL/JSONB Mapping Implementations"""
 from __future__ import absolute_import
 import json
-import UserDict
+from future.moves.collections import MutableMapping
 
 from pjpersist import serialize, interfaces
 
 
-class PJTableMapping(UserDict.DictMixin, object):
+class PJTableMapping(MutableMapping, object):
     __pj_table__ = None
     __pj_mapping_key__ = 'key'
 
@@ -67,3 +67,9 @@ class PJTableMapping(UserDict.DictMixin, object):
             return [
                 res['data'][self.__pj_mapping_key__]
                 for res in cur.fetchall()]
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())

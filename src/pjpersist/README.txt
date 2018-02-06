@@ -450,10 +450,10 @@ is possible for the object to conduct some custom storage function.
   ...     format = 'email'
   ...
   ...     def _pj_after_store_hook(self, conn):
-  ...         print 'After Store Hook'
+  ...         print('After Store Hook')
   ...
   ...     def _pj_after_load_hook(self, conn):
-  ...         print 'After Load Hook'
+  ...         print('After Load Hook')
 
 When we store the object, the hook is called:
 (actually twice, because this is a new object)
@@ -496,8 +496,8 @@ will be always deserialized from the ``data`` jsonb field.
 Initially, we are storing only the name in a column:
 
   >>> from pjpersist.persistent import SimpleColumnSerialization, select_fields
-  >>> class ColumnPerson(SimpleColumnSerialization, Person):
-  ...     zope.interface.implements(IPerson)
+  >>> @zope.interface.implementer(IPerson)
+  ... class ColumnPerson(SimpleColumnSerialization, Person):
   ...     _p_pj_table = 'cperson'
   ...     _pj_column_fields = select_fields(IPerson, 'name')
 

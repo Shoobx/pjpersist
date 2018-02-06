@@ -14,6 +14,7 @@
 """Mongo Persistence Doc Tests"""
 import datetime
 import doctest
+import os
 import unittest
 from pprint import pprint
 
@@ -60,6 +61,13 @@ def setUpRST(test):
 
 
 def test_suite():
+    # Try to support README.rst both in-place tests and installed in a
+    # virtualenv.  With a virtualenv, it drops as a data file into
+    # pjpersist/README.rst relative of the virtualenv's root.
+    readme_rst_path = (
+        '../../../README.rst'
+        if os.path.exists('../../../README.rst')
+        else '../../../../../pjpersist/README.rst')
     suite = unittest.TestSuite((
         doctest.DocFileSuite(
             '../README.txt',
@@ -67,7 +75,7 @@ def test_suite():
             checker=testing.checker,
             optionflags=testing.OPTIONFLAGS),
         doctest.DocFileSuite(
-            '../../../README.rst',
+            readme_rst_path,
             setUp=setUpRST, tearDown=tearDown,
             checker=testing.checker,
             optionflags=testing.OPTIONFLAGS),

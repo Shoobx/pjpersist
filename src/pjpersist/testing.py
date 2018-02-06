@@ -13,6 +13,7 @@
 ##############################################################################
 """Mongo Persistence Testing Support"""
 from __future__ import absolute_import
+from __future__ import print_function
 import atexit
 import doctest
 import logging
@@ -24,13 +25,25 @@ import sys
 import threading
 import transaction
 import unittest
+import six
 from pprint import pprint
-from StringIO import StringIO
+from io import StringIO
 
 import zope.component
 from zope.testing import module, renormalizing
 
 from pjpersist import datamanager, serialize, serializers, interfaces
+
+py3checkers = [
+    # Mangle unicode strings
+    (re.compile("u('.*?')"), r"\1"),
+    (re.compile('u(".*?")'), r"\1"),
+    # Mangle long ints
+    (re.compile('([0-9]+)L$'), r"\1"),
+    (re.compile('__builtin__'), 'builtins'),
+    (re.compile('pjpersist.interfaces.CircularReferenceError'),
+     'CircularReferenceError'),
+]
 
 checker = renormalizing.RENormalizing([
     # Date/Time objects
@@ -42,7 +55,7 @@ checker = renormalizing.RENormalizing([
     # Object repr output.
     (re.compile(r"object at 0x[0-9a-f]*>"),
      "object at 0x001122>"),
-    ])
+    ] + py3checkers)
 
 OPTIONFLAGS = (
     doctest.NORMALIZE_WHITESPACE|
@@ -139,8 +152,8 @@ def setUp(test):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             try:
                 cur.execute('SELECT * FROM ' + table)
-            except psycopg2.ProgrammingError, err:
-                print err
+            except psycopg2.ProgrammingError as err:
+                print(err)
             else:
                 pprint([dict(e) for e in cur.fetchall()])
         if isolate:

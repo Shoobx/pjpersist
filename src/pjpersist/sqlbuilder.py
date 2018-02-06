@@ -140,34 +140,34 @@ class JGET(object):
 
     Normally it just gets a JSON key of a table field:
 
-       >>> print JGET("data", "key", table="Person").__sqlrepr__('postgres')
+       >>> print(JGET("data", "key", table="Person").__sqlrepr__('postgres'))
        ((Person.data) -> ('key'))
 
     We can also pass a field object and omit the table:
 
-       >>> print JGET(Field("Person", "data"), "key").__sqlrepr__('postgres')
+       >>> print(JGET(Field("Person", "data"), "key").__sqlrepr__('postgres'))
        ((Person.data) -> ('key'))
 
     The right operand for comparison operators gets converted to JSON:
 
-       >>> print (JGET("data", "key", table="Person") == {'foo': 'bar'}
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") == {'foo': 'bar'}
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) = ('{"foo": "bar"}'::jsonb))
 
-       >>> print (JGET("data", "key", table="Person") >= [True, False, None]
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") >= [True, False, None]
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) >= ('[true, false, null]'::jsonb))
 
     But not always (is this a good idea?):
     (adamG: no it's not a good idea, because -> returns jsonb which is never NULL
     see doctest_datetime_range)
 
-       >>> print (JGET("data", "key", table="Person") == None
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") == None
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) = ('null'::jsonb))
 
-       >>> print (JGET("data", "key", table="Person") != None
-       ...     ).__sqlrepr__('postgres')
+       >>> print((JGET("data", "key", table="Person") != None
+       ...     ).__sqlrepr__('postgres'))
        (((Person.data) -> ('key')) <> ('null'::jsonb))
     """
 
@@ -179,25 +179,25 @@ class JGET(object):
         self.selector = selector
 
     def __lt__(self, other):
-        return SQLOp("<", self, JSONB(json.dumps(other)))
+        return SQLOp("<", self, JSONB(json.dumps(other, sort_keys=True)))
     def __le__(self, other):
-        return SQLOp("<=", self, JSONB(json.dumps(other)))
+        return SQLOp("<=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __gt__(self, other):
-        return SQLOp(">", self, JSONB(json.dumps(other)))
+        return SQLOp(">", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ge__(self, other):
-        return SQLOp(">=", self, JSONB(json.dumps(other)))
+        return SQLOp(">=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __eq__(self, other):
-        return SQLOp("=", self, JSONB(json.dumps(other)))
+        return SQLOp("=", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ne__(self, other):
-        return SQLOp("<>", self, JSONB(json.dumps(other)))
+        return SQLOp("<>", self, JSONB(json.dumps(other, sort_keys=True)))
     def __and__(self, other):
-        return SQLOp("AND", self, JSONB(json.dumps(other)))
+        return SQLOp("AND", self, JSONB(json.dumps(other, sort_keys=True)))
     def __rand__(self, other):
-        return SQLOp("AND", JSONB(json.dumps(other), self))
+        return SQLOp("AND", JSONB(json.dumps(other, sort_keys=True), self))
     def __or__(self, other):
-        return SQLOp("OR", self, JSONB(json.dumps(other)))
+        return SQLOp("OR", self, JSONB(json.dumps(other, sort_keys=True)))
     def __ror__(self, other):
-        return SQLOp("OR", JSONB(json.dumps(other), self))
+        return SQLOp("OR", JSONB(json.dumps(other, sort_keys=True), self))
     def __invert__(self):
         return SQLPrefix("NOT", self)
 
@@ -285,3 +285,4 @@ class UnionAll(Union):
 
 # We can replace Union with _BetterUnion now, so all existing code uses it
 Union = _BetterUnion
+

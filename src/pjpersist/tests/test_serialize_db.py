@@ -12,6 +12,7 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
+from __future__ import print_function
 import datetime
 import doctest
 import json
@@ -75,7 +76,7 @@ def select(conn, query, print_sql=False, **kwargs):
                 'postgres'
             )
             if print_sql:
-                print 'SQL> ', sql
+                print('SQL> ', sql)
             cur.execute(sql)
             for e in cur.fetchall():
                 pprint(e[0])
@@ -123,7 +124,7 @@ def doctest_datetime_range():
     >>> sorted([dt for dt in DTIMES if dt > DTIMES[10]])
     Traceback (most recent call last):
     ...
-    TypeError: can't compare datetime.datetime to NoneType
+    TypeError: ...
 
     >>> select(conn, sb.JGET(datafld, 'dtime') < pjvalue(DTIMES[10]),
     ...     print_sql=True, orderBy="(data->'dtime')")
@@ -195,6 +196,7 @@ def doctest_datetime_range():
 def test_suite():
     suite = doctest.DocTestSuite(
         setUp=setUp, tearDown=testing.tearDown,
+        checker=testing.checker,
         optionflags=testing.OPTIONFLAGS)
     suite.layer = testing.db_layer
     return suite

@@ -13,12 +13,12 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers"""
-import UserDict
-import json
+import binascii
 import persistent
 import transaction
 import zope.component
 import warnings
+from future.moves.collections import MutableMapping
 
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
@@ -127,10 +127,10 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
         self._p_changed = True
 
 
+@zope.interface.implementer(IContainer, zinterfaces.IPJContainer)
 class PJContainer(contained.Contained,
                   persistent.Persistent,
-                  UserDict.DictMixin):
-    zope.interface.implements(IContainer, zinterfaces.IPJContainer)
+                  MutableMapping):
     _pj_table = None
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'
@@ -166,7 +166,7 @@ class PJContainer(contained.Contained,
         if interfaces.IPJDataManager.providedBy(self._p_jar):
             return self
         else:
-            return 'zodb-'+''.join("%02x" % ord(x) for x in self._p_oid).strip()
+            return str('zodb-' + binascii.hexlify(self._p_oid).decode('ascii'))
 
     def _pj_get_resolve_filter(self):
         """return a filter that selects the rows of the current container"""
@@ -204,7 +204,7 @@ class PJContainer(contained.Contained,
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache'):
             txn._v_pj_container_cache = {}
-        return txn._v_pj_container_cache.setdefault(self, {})
+        return txn._v_pj_container_cache.setdefault(id(self), {})
 
     @property
     def _cache_complete(self):
@@ -213,13 +213,13 @@ class PJContainer(contained.Contained,
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache_complete'):
             txn._v_pj_container_cache_complete = {}
-        return txn._v_pj_container_cache_complete.get(self, False)
+        return txn._v_pj_container_cache_complete.get(id(self), False)
 
     def _cache_mark_complete(self):
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache_complete'):
             txn._v_pj_container_cache_complete = {}
-        txn._v_pj_container_cache_complete[self] = True
+        txn._v_pj_container_cache_complete[id(self)] = True
 
     def _cache_get_key(self, id, doc):
         return doc[self._pj_mapping_key]
@@ -356,12 +356,18 @@ class PJContainer(contained.Contained,
         return iter(doc[self._pj_mapping_key] for doc in result)
 
     def keys(self):
-        return list(self.__iter__())
+        return self.__iter__()
+
+    def __len__(self):
+        return self.count()
+
+    def items(self):
+        return list(self.iteritems())
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
-            return self._cache.iteritems()
+            return self._cache.items()
         result = self.raw_find()
         items = [(row['data'][self._pj_mapping_key],
                   self._load_one(row['id'], row['data']))
@@ -542,7 +548,8 @@ class IdNamesPJContainer(PJContainer):
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
         result = self.raw_find(None, fields=('id',))
-        return iter(unicode(row['id']) for row in result)
+
+        return iter(row['id'] for row in result)
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items

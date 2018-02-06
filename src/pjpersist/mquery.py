@@ -39,7 +39,7 @@ class Converter(object):
             accessor = self.getField(doc, key, json=True)
             # some values, esp. datetime must go through PJ serialize
             pjvalue = serialize.ObjectWriter(None).get_state(value)
-            jvalue = json.dumps(pjvalue)
+            jvalue = json.dumps(pjvalue, sort_keys=True)
 
             if key == '_id':
                 jvalue = value
@@ -55,7 +55,7 @@ class Converter(object):
                 }[key]
                 clauses.append(oper(*(self.convert(expr) for expr in value)))
             elif isinstance(value, dict):
-                for operator, operand in value.items():
+                for operator, operand in sorted(value.items()):
                     clauses.append(
                         self.operator_expr(
                             operator, doc, key, operand))
@@ -98,7 +98,7 @@ class Converter(object):
         op1 = self.getField(field, key, json=True)
         # some values, esp. datetime must go through PJ serialize
         pjvalue = serialize.ObjectWriter(None).get_state(op2)
-        op2j = json.dumps(pjvalue)
+        op2j = json.dumps(pjvalue, sort_keys=True)
 
         if key == '_id':
             op2j = op2

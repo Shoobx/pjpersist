@@ -14,13 +14,13 @@
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
 from __future__ import absolute_import
-import copy_reg
+import base64
 import datetime
 
 import persistent.interfaces
 import persistent.dict
 import persistent.list
-import types
+import six
 import zope.interface
 from zope.dottedname.resolve import resolve
 from decimal import Decimal
@@ -40,12 +40,11 @@ FMT_DATETIME = "%Y-%m-%dT%H:%M:%S"
 
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
-    unicode: "text",
-    str: "text",
+    six.text_type: "text",
+    bytes: "text",
     bool: "bool",
     float: "double",
     int: "integer",
-    long: "bigint",
     Decimal: "numeric",
     datetime.date: "date",
     datetime.time: "time",
@@ -54,6 +53,8 @@ PYTHON_TO_PG_TYPES = {
     list: "array",
 }
 
+if six.PY2:
+    PYTHON_TO_PG_TYPES[long] = "bigint"
 
 def get_dotted_name(obj, escape=False):
     name = obj.__module__ + '.' + obj.__name__
@@ -180,8 +181,8 @@ class DBRef(object):
 class Binary(str):
     pass
 
+@zope.interface.implementer(interfaces.IObjectSerializer)
 class ObjectSerializer(object):
-    zope.interface.implements(interfaces.IObjectSerializer)
 
     def can_read(self, state):
         raise NotImplementedError
@@ -196,8 +197,8 @@ class ObjectSerializer(object):
         raise NotImplementedError
 
 
+@zope.interface.implementer(interfaces.IObjectWriter)
 class ObjectWriter(object):
-    zope.interface.implements(interfaces.IObjectWriter)
 
     def __init__(self, jar):
         self._jar = jar
@@ -221,7 +222,7 @@ class ObjectWriter(object):
         # old-style classes with all of the possible pickle extensions.
 
         # Get the state of the object. Only pickable objects can be reduced.
-        reduce_fn = copy_reg.dispatch_table.get(objectType)
+        reduce_fn = six.moves.copyreg.dispatch_table.get(objectType)
         if reduce_fn is not None:
             reduced = reduce_fn(obj)
         else:
@@ -242,12 +243,12 @@ class ObjectWriter(object):
                 obj_state = {}
         # We are trying very hard to create a clean JSONB (sub-)document. But
         # we need a little bit of meta-data to help us out later.
-        if factory == copy_reg._reconstructor and \
+        if factory == six.moves.copyreg._reconstructor and \
                args == (obj.__class__, object, None):
             # This is the simple case, which means we can produce a nicer
             # JSONB output.
             state = {'_py_type': get_dotted_name(args[0])}
-        elif factory == copy_reg.__newobj__ and args == (obj.__class__,):
+        elif factory == six.moves.copyreg.__newobj__ and args == (obj.__class__,):
             # Another simple case for persistent objects that do not want
             # their own document.
             state = {interfaces.PY_TYPE_ATTR_NAME: get_dotted_name(args[0])}
@@ -284,7 +285,7 @@ class ObjectWriter(object):
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
-        if isinstance(obj, str):
+        if six.PY2 and isinstance(obj, str):
             # In Python 2, strings can be ASCII, encoded unicode or binary
             # data. Unfortunately, BSON cannot handle that. So, if we have a
             # string that cannot be UTF-8 decoded (luckily ASCII is a valid
@@ -293,7 +294,17 @@ class ObjectWriter(object):
                 obj.decode('utf-8')
                 return obj
             except UnicodeError:
-                return {'_py_type': 'BINARY', 'data': obj.encode('base64')}
+                return {
+                    '_py_type': 'BINARY',
+                    'data': obj.encode('base64').strip()
+                }
+        if six.PY3 and isinstance(obj, bytes):
+            return {
+                '_py_type': 'BINARY',
+                'data': base64.b64encode(obj).decode('ascii')
+            }
+        if six.PY3 and isinstance(obj, str):
+            return obj
         # Some objects might not naturally serialize well and create a very
         # ugly JSONB entry. Thus, we allow custom serializers to be
         # registered, which can encode/decode different types of objects.
@@ -311,7 +322,7 @@ class ObjectWriter(object):
             return {'_py_type': 'datetime.datetime',
                     'value': obj.strftime(FMT_DATETIME)}
 
-        if isinstance(obj, (type, types.ClassType)):
+        if isinstance(obj, six.class_types):
             # We frequently store class and function paths as meta-data, so we
             # need to be able to properly encode those.
             return {'_py_type': 'type',
@@ -339,8 +350,8 @@ class ObjectWriter(object):
             data = []
             for key, value in obj.items():
                 data.append((key, self.get_state(value, pobj)))
-                has_non_string_key |= not isinstance(key, basestring)
-                if (not isinstance(key, basestring) or '\0' in key):
+                has_non_string_key |= not isinstance(key, six.string_types)
+                if (not isinstance(key, six.string_types) or '\0' in key):
                     has_non_string_key = True
             if not has_non_string_key:
                 # The easy case: all keys are strings:
@@ -368,7 +379,8 @@ class ObjectWriter(object):
             #    reference while NOT catching a
             #    >>> anobj = object()
             #    >>> alist = [anobj, anobj]
-            if re.args[0] == 'maximum recursion depth exceeded':
+
+            if re.args[0].startswith('maximum recursion depth exceeded'):
                 raise interfaces.CircularReferenceError(obj)
             else:
                 raise
@@ -444,8 +456,8 @@ class ObjectWriter(object):
         return obj._p_oid
 
 
+@zope.interface.implementer(interfaces.IObjectReader)
 class ObjectReader(object):
-    zope.interface.implements(interfaces.IObjectReader)
 
     def __init__(self, jar):
         self._jar = jar
@@ -526,12 +538,12 @@ class ObjectReader(object):
         if '_py_type' in state:
             # Handle the simplified case.
             klass = self.simple_resolve(state.pop('_py_type'))
-            sub_obj = copy_reg._reconstructor(klass, object, None)
+            sub_obj = six.moves.copyreg._reconstructor(klass, object, None)
         elif interfaces.PY_TYPE_ATTR_NAME in state:
             # Another simple case for persistent objects that do not want
             # their own document.
             klass = self.simple_resolve(state.pop(interfaces.PY_TYPE_ATTR_NAME))
-            sub_obj = copy_reg.__newobj__(klass)
+            sub_obj = six.moves.copyreg.__newobj__(klass)
         else:
             factory = self.simple_resolve(state.pop('_py_factory'))
             factory_args = self.get_object(state.pop('_py_factory_args'), obj)
@@ -562,7 +574,7 @@ class ObjectReader(object):
             if state_py_type == 'BINARY':
                 # Binary data in Python 2 is presented as a string. We will
                 # convert back to binary when serializing again.
-                return state['data'].decode('base64')
+                return base64.b64decode(state['data'])
             if state_py_type == 'DBREF':
                 # Load a persistent object. Using the _jar.load() method to make
                 # sure we're loading from right database and caching is properly
@@ -671,7 +683,7 @@ class ObjectReader(object):
         return obj
 
 
-class table:
+class table(object):
     """Declare the table used by the class.
 
     sets also the atrtibute interfaces.TABLE_ATTR_NAME

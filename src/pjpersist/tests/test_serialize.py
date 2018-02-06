@@ -12,12 +12,14 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Serialization Tests"""
+import base64
 import datetime
 import doctest
 import persistent
 import pprint
 import copy
-import copy_reg
+import six
+import six.moves.copyreg
 import pickle
 
 from pjpersist import interfaces, serialize, testing
@@ -63,7 +65,7 @@ Constant = Constant()
 class CopyReggedConstant(object):
     def custom_reduce_fn(self):
         return 'CopyReggedConstant'
-copy_reg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
+six.moves.copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
 
@@ -135,11 +137,11 @@ def doctest_DBRef():
       >>> dbref1.as_tuple()
       ('database1', 'table1', '0001')
 
-      >>> dbref1.as_json()
-      {'id': '0001',
-       'table': 'table1',
-       '_py_type': 'DBREF',
-       'database': 'database1'}
+      >>> pprint.pprint(dbref1.as_json())
+      {'_py_type': 'DBREF',
+       'database': 'database1',
+       'id': '0001',
+       'table': 'table1'}
 
     Note that the hash of a ref is consistent over all DBRef instances:
 
@@ -169,32 +171,6 @@ def doctest_DBRef():
     Serialization also works well.
 
       >>> refp = pickle.dumps(dbref1)
-      >>> print refp
-      ccopy_reg
-      _reconstructor
-      p0
-      (cpjpersist.serialize
-      DBRef
-      p1
-      c__builtin__
-      object
-      p2
-      Ntp3
-      Rp4
-      (dp5
-      S'table'
-      p6
-      S'table1'
-      p7
-      sS'id'
-      p8
-      S'0001'
-      p9
-      sS'database'
-      p10
-      S'database1'
-      p11
-      sb.
 
       >>> dbref11 = pickle.loads(refp)
       >>> dbref1 == dbref11
@@ -289,8 +265,8 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> this = This(1)
-      >>> writer.get_non_persistent_state(this)
-      {'num': 1, '_py_type': '__main__.This'}
+      >>> pprint.pprint(writer.get_non_persistent_state(this))
+      {'_py_type': '__main__.This', 'num': 1}
 
     A simple old-style class:
 
@@ -299,8 +275,8 @@ def doctest_ObjectWriter_get_non_persistent_state():
       ...         self.num = num
 
       >>> that = That(1)
-      >>> writer.get_non_persistent_state(that)
-      {'num': 1, '_py_type': '__main__.That'}
+      >>> pprint.pprint(writer.get_non_persistent_state(that))
+      {'_py_type': '__main__.That', 'num': 1}
 
     The method also handles persistent classes that do not want their own
     document:
@@ -315,9 +291,10 @@ def doctest_ObjectWriter_get_non_persistent_state():
       >>> orig_serializers = serialize.SERIALIZERS
       >>> serialize.SERIALIZERS = []
 
-      >>> writer.get_non_persistent_state(datetime.date(2011, 11, 1))
+      >>> pprint.pprint(
+      ...     writer.get_non_persistent_state(datetime.date(2011, 11, 1)))
       {'_py_factory': 'datetime.date',
-       '_py_factory_args': [{'data': 'B9sLAQ==\n', '_py_type': 'BINARY'}]}
+       '_py_factory_args': [{'_py_type': 'BINARY', 'data': 'B9sLAQ=='}]}
 
       >>> serialize.SERIALIZERS = orig_serializers
     """
@@ -359,19 +336,23 @@ def doctest_ObjectWriter_get_persistent_state():
     """
 
 
+if six.PY3:
+    long = int
+
+
 def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
     """ObjectWriter: get_state(): PJ-native Types
 
       >>> writer = serialize.ObjectWriter(None)
       >>> writer.get_state(1)
       1
-      >>> writer.get_state(1L)
+      >>> writer.get_state(long(1))
       1L
       >>> writer.get_state(1.0)
       1.0
       >>> writer.get_state(u'Test')
       u'Test'
-      >>> print writer.get_state(None)
+      >>> print(writer.get_state(None))
       None
     """
 
@@ -391,10 +372,10 @@ def doctest_ObjectWriter_get_state_types():
     """ObjectWriter: get_state(): types (type, class)
 
       >>> writer = serialize.ObjectWriter(None)
-      >>> writer.get_state(Top)
-      {'path': 'pjpersist.tests.test_serialize.Top', '_py_type': 'type'}
-      >>> writer.get_state(str)
-      {'path': '__builtin__.str', '_py_type': 'type'}
+      >>> pprint.pprint(writer.get_state(Top))
+      {'_py_type': 'type', 'path': 'pjpersist.tests.test_serialize.Top'}
+      >>> pprint.pprint(writer.get_state(str))
+      {'_py_type': 'type', 'path': '__builtin__.str'}
     """
 
 def doctest_ObjectWriter_get_state_sequences():
@@ -408,10 +389,10 @@ def doctest_ObjectWriter_get_state_sequences():
       ...         self.num = num
 
       >>> writer = serialize.ObjectWriter(None)
-      >>> writer.get_state((1, '2', Number(3)))
-      [1, '2', {'num': 3, '_py_type': '__main__.Number'}]
-      >>> writer.get_state([1, '2', Number(3)])
-      [1, '2', {'num': 3, '_py_type': '__main__.Number'}]
+      >>> pprint.pprint(writer.get_state((1, '2', Number(3))))
+      [1, '2', {'_py_type': '__main__.Number', 'num': 3}]
+      >>> pprint.pprint(writer.get_state([1, '2', Number(3)]))
+      [1, '2', {'_py_type': '__main__.Number', 'num': 3}]
     """
 
 def doctest_ObjectWriter_get_state_mappings():
@@ -425,13 +406,13 @@ def doctest_ObjectWriter_get_state_mappings():
       ...         self.num = num
 
       >>> writer = serialize.ObjectWriter(None)
-      >>> writer.get_state({'1': 1, '2': '2', '3': Number(3)})
-      {'1': 1, '3': {'num': 3, '_py_type': '__main__.Number'}, '2': '2'}
+      >>> pprint.pprint(writer.get_state({'1': 1, '2': '2', '3': Number(3)}))
+      {'1': 1, '2': '2', '3': {'_py_type': '__main__.Number', 'num': 3}}
 
     Unfortunately, JSONB only supports text keys. So whenever we have non-text
     keys, we need to create a less natural, but consistent structure:
 
-      >>> writer.get_state({1: 'one', 2: 'two', 3: 'three'})
+      >>> pprint.pprint(writer.get_state({1: 'one', 2: 'two', 3: 'three'}))
       {'dict_data': [(1, 'one'), (2, 'two'), (3, 'three')]}
     """
 
@@ -441,11 +422,11 @@ def doctest_ObjectWriter_get_state_Persistent():
       >>> writer = serialize.ObjectWriter(dm)
 
       >>> top = Top()
-      >>> writer.get_state(top)
-      {'id': '0001020304050607080a0b0c',
-       'table': 'Top',
-       '_py_type': 'DBREF',
-       'database': 'pjpersist_test'}
+      >>> pprint.pprint(writer.get_state(top))
+      {'_py_type': 'DBREF',
+       'database': 'pjpersist_test',
+       'id': '0001020304050607080a0b0c',
+       'table': 'Top'}
 
     But a persistent object can declare that it does not want a separate
     document:
@@ -508,8 +489,10 @@ def doctest_ObjectWriter_get_state_same_obj_in_dict():
       >> pickletools.dis(dumps(pdict))
 
       >>> pprint.pprint(writer.get_state(pdict))
-      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'},
-       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 'data': 'data'}}
+      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 
+               'data': 'data'},
+       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 
+               'data': 'data'}}
 
     """
 
@@ -974,12 +957,16 @@ def doctest_ObjectReader_get_non_persistent_object_py_factory():
 def doctest_ObjectReader_get_object_binary():
     """ObjectReader: get_object(): binary data
 
-    Binary data is just converted to a string:
+    Binary data is just converted to bytes:
 
       >>> reader = serialize.ObjectReader(dm)
       >>> reader.get_object(
-      ...     {'_py_type': 'BINARY', 'data': 'hello'.encode('base64')}, None)
-      'hello'
+      ...     {
+      ...         '_py_type': 'BINARY',
+      ...         'data': base64.b64encode(b'hello'),
+      ...     },
+      ...     None) == b'hello'
+      True
     """
 
 def doctest_ObjectReader_get_object_dbref():
@@ -1042,15 +1029,15 @@ def doctest_ObjectReader_get_object_mapping():
     Mappings become persistent dicts with all obejcts deserialized.
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> pprint.pprint(reader.get_object({'1': 1, '2': 2, '3': 3}, None))
-      {'1': 1, '3': 3, '2': 2}
+      >>> pprint.pprint(dict(reader.get_object({'1': 1, '2': 2, '3': 3}, None)))
+      {'1': 1, '2': 2, '3': 3}
 
     Since JSONB does not allow for non-string keys, the state for a dict with
     non-string keys looks different:
 
-      >>> pprint.pprint(reader.get_object(
+      >>> pprint.pprint(dict(reader.get_object(
       ...     {'dict_data': [(1, '1'), (2, '2'), (3, '3')]},
-      ...     None))
+      ...     None)))
       {1: '1', 2: '2', 3: '3'}
     """
 
@@ -1200,9 +1187,9 @@ def doctest_deserialize_persistent_foreign_references():
         'id': u'0001020304050607080a0b0c0'}]
 
       >>> top = dm.root['top']
-      >>> print top.name
+      >>> print(top.name)
       main
-      >>> print top.other.name
+      >>> print(top.other.name)
       top_other
       >>> top.other.state
       {u'complex_data': u'value'}
@@ -1251,8 +1238,10 @@ def doctest_table_decorator():
 
     Check that TABLE_KLASS_MAP gets updated
 
-      >>> serialize.TABLE_KLASS_MAP
-      {'foobar_table': set([<class '__main__.Foo'>])}
+      >>> len(serialize.TABLE_KLASS_MAP)
+      1
+      >>> list(serialize.TABLE_KLASS_MAP['foobar_table'])
+      [<class '__main__.Foo'>]
 
     Add a few more classes
 
@@ -1291,3 +1280,4 @@ def test_suite():
         optionflags=testing.OPTIONFLAGS)
     suite.layer = testing.db_layer
     return suite
+

@@ -19,8 +19,8 @@ import zope.interface
 from pjpersist import interfaces
 
 
+@zope.interface.implementer(interfaces.IPersistentSerializationHooks)
 class PersistentSerializationHooks(persistent.Persistent):
-    zope.interface.implements(interfaces.IPersistentSerializationHooks)
 
     def _pj_after_store_hook(self, conn):
         return None
@@ -29,8 +29,8 @@ class PersistentSerializationHooks(persistent.Persistent):
         return None
 
 
+@zope.interface.implementer(interfaces.IColumnSerialization)
 class SimpleColumnSerialization(object):
-    zope.interface.implements(interfaces.IColumnSerialization)
 
     _pj_column_fields = ()
 

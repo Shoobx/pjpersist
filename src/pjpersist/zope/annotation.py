@@ -17,10 +17,7 @@ from persistent.dict import PersistentDict
 from zope import component, interface
 from zope.annotation import interfaces
 
-try:
-    from UserDict import DictMixin
-except ImportError:
-    from collections import MutableMapping as DictMixin
+from collections import MutableMapping
 
 class IPJAttributeAnnotatable(interfaces.IAnnotatable):
     """Marker indicating that annotations can be stored on an attribute.
@@ -35,7 +32,7 @@ def normalize_key(key):
 
 @interface.implementer(interfaces.IAnnotations)
 @component.adapter(IPJAttributeAnnotatable)
-class AttributeAnnotations(DictMixin):
+class AttributeAnnotations(MutableMapping):
     """Store annotations on an object
 
     Store annotations in the `__annotations__` attribute on a
