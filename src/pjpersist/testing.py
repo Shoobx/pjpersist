@@ -36,12 +36,12 @@ from pjpersist import datamanager, serialize, serializers, interfaces
 
 if six.PY3:
     py3checkers = [
-        # Mangle unicode strrings
+        # Mangle unicode strings
         (re.compile("u('.*?')"), r"\1"),
         (re.compile('u(".*?")'), r"\1"),
         # Mangle long ints
         (re.compile('([0-9]+)L$'), r"\1"),
-        (re.complile('__builtin__'), 'builtins'),
+        (re.compile('__builtin__'), 'builtins'),
     ]
 
 checker = renormalizing.RENormalizing([
