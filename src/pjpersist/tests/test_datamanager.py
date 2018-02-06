@@ -789,7 +789,7 @@ def doctest_PJDataManager_sortKey():
     The data manager's sort key is trivial.
 
       >>> dm.sortKey()
-      ('PJDataManager', 0)
+      'PJDataManager:...'
     """
 
 

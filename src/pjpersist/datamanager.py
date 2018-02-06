@@ -838,7 +838,9 @@ class PJDataManager(object):
         self.abort(transaction)
 
     def sortKey(self):
-        return ('PJDataManager', 0)
+        # `'PJDataManager:%s' % id(self)` would be a better sort key,
+        # but this makes our DatamanagerConflictTest lock up.
+        return 'PJDataManager:0'
 
     def _report_stats(self):
         if not PJ_ENABLE_QUERY_STATS:
