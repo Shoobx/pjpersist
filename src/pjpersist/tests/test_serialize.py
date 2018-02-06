@@ -965,8 +965,8 @@ def doctest_ObjectReader_get_object_binary():
       ...         '_py_type': 'BINARY',
       ...         'data': base64.b64encode(b'hello'),
       ...     },
-      ...     None)
-      b'hello'
+      ...     None) == b'hello'
+      True
     """
 
 def doctest_ObjectReader_get_object_dbref():
