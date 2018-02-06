@@ -284,7 +284,7 @@ def doctest_SimplePJContainer_basic():
 
       >>> dm.root['c'][u'stephan'] = SimplePerson(u'Stephan')
       ContainerModifiedEvent: <...SimplePJContainer ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c'][u'stephan']
       <SimplePerson Stephan>
@@ -316,7 +316,7 @@ def doctest_SimplePJContainer_basic():
                  u'name': u'Stephan'},
         'id': u'0001020304050607080a0b0c0'}]
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c']['stephan'].__parent__
       <pjpersist.zope.container.SimplePJContainer object at 0x7fec50f86500>
@@ -331,10 +331,10 @@ def doctest_SimplePJContainer_basic():
                                         u'table': u'person'}}},
         'id': u'0001020304050607080a0b0c0'}]
 
-      >>> dm.root['c'].items()
+      >>> list(dm.root['c'].items())
       [(u'stephan', <SimplePerson Stephan>)]
 
-      >>> dm.root['c'].values()
+      >>> list(dm.root['c'].values())
       [<SimplePerson Stephan>]
 
     Now remove the item:
@@ -344,7 +344,7 @@ def doctest_SimplePJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['stephan']
       Traceback (most recent call last):
@@ -354,7 +354,7 @@ def doctest_SimplePJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     The object is also removed from PJ:
@@ -399,7 +399,7 @@ def doctest_PJContainer_basic():
 
       >>> dm.root['c'][u'stephan'] = Person(u'Stephan')
       ContainerModifiedEvent: <...PJContainer ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c'][u'stephan']
       <Person Stephan>
@@ -427,7 +427,7 @@ def doctest_PJContainer_basic():
 
       >>> 'stephan' in dm.root['c']
       True
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'stephan']
       >>> dm.root['c']['stephan'].__parent__
       <pjpersist.zope.container.PJContainer object at 0x7fec50f86500>
@@ -451,7 +451,7 @@ def doctest_PJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['stephan']
       Traceback (most recent call last):
@@ -461,7 +461,7 @@ def doctest_PJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     Check adding of more objects:
@@ -576,7 +576,7 @@ def doctest_PJContainer_setitem_with_no_key_PJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
 """
@@ -594,7 +594,7 @@ def doctest_PJContainer_setitem_with_no_key_IdNamesPJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
 """
@@ -615,7 +615,7 @@ def doctest_PJContainer_add_PJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
 """
@@ -635,7 +635,7 @@ def doctest_PJContainer_add_IdNamesPJContainer():
 
       >>> sorted(dm.root['people'].keys())
       [u'...']
-      >>> stephan = dm.root['people'].values()[0]
+      >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
 """
@@ -1098,7 +1098,7 @@ def doctest_IdNamesPJContainer_basic():
       >>> dm.root['c'][name]
       <Person Stephan>
 
-      >>> dm.root['c'].values()
+      >>> list(dm.root['c'].values())
       [<Person Stephan>]
 
       >>> dm.root['c'][name].__parent__
@@ -2024,6 +2024,9 @@ checker = renormalizing.RENormalizing([
      "object at 0x001122>"),
     (re.compile(r"zodb-[0-9a-f].*"),
      "zodb-01af3b00c5"),
+    # Mangle unicode strings
+    (re.compile("u('.*?')"), r"\1"),
+    (re.compile('u(".*?")'), r"\1"),
     ])
 
 @zope.component.adapter(
