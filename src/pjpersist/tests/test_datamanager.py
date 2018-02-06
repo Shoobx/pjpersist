@@ -15,8 +15,8 @@
 import doctest
 import persistent
 import unittest
-import logging
 import psycopg2
+import six
 from pprint import pprint
 
 import transaction
@@ -1084,12 +1084,14 @@ def doctest_PJDataManager_no_compare():
 
     """
 
+if six.PY3:
+    long = int
 
 def doctest_PJDataManager_long():
     r"""PJDataManager: Test behavior of long integers.
 
       >>> dm.root['app'] = Root()
-      >>> dm.root['app'].x = 1L
+      >>> dm.root['app'].x = long(1)
       >>> commit()
 
     Let's see how it is deserialzied?

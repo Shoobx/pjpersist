@@ -306,8 +306,9 @@ def check_for_disconnect(e, sql, beacon=None):
         if beacon is None:
             beacon = uuid.uuid4()
         beacon = 'Beacon: %s' % beacon
-        LOG.warn("Caught exception %r, reraising as DatabaseDisconnected %s",
-                 e, beacon)
+        LOG.warning(
+            "Caught exception %r, reraising as DatabaseDisconnected %s",
+            e, beacon)
         raise interfaces.DatabaseDisconnected(str(e).strip(), beacon, sql)
 
 
@@ -695,7 +696,7 @@ class PJDataManager(object):
         # Just in case the object was modified before removal, let's remove it
         # from the modification list. Note that all sub-objects need to be
         # deleted too!
-        for key, reg_obj in self._registered_objects.items():
+        for key, reg_obj in list(self._registered_objects.items()):
             if self._get_doc_object(reg_obj) is obj:
                 del self._registered_objects[key]
         # We are not doing anything fancy here, since the object might be

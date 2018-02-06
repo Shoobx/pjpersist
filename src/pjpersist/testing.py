@@ -25,6 +25,7 @@ import sys
 import threading
 import transaction
 import unittest
+import six
 from pprint import pprint
 from io import BytesIO
 
@@ -32,6 +33,15 @@ import zope.component
 from zope.testing import module, renormalizing
 
 from pjpersist import datamanager, serialize, serializers, interfaces
+
+if six.PY3:
+    py3checkers = [
+        # Mangle unicode strrings
+        (re.compile("u('.*?')"), r"\1"),
+        (re.compile('u(".*?")'), r"\1"),
+        # Mangle long ints
+        (re.compile('([0-9]+)L$'), r"\1"),
+    ]
 
 checker = renormalizing.RENormalizing([
     # Date/Time objects
@@ -43,7 +53,7 @@ checker = renormalizing.RENormalizing([
     # Object repr output.
     (re.compile(r"object at 0x[0-9a-f]*>"),
      "object at 0x001122>"),
-    ])
+    ] + py3checkers)
 
 OPTIONFLAGS = (
     doctest.NORMALIZE_WHITESPACE|
