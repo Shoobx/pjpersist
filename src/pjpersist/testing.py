@@ -34,18 +34,16 @@ from zope.testing import module, renormalizing
 
 from pjpersist import datamanager, serialize, serializers, interfaces
 
-py3checkers = []
-if six.PY3:
-    py3checkers = [
-        # Mangle unicode strings
-        (re.compile("u('.*?')"), r"\1"),
-        (re.compile('u(".*?")'), r"\1"),
-        # Mangle long ints
-        (re.compile('([0-9]+)L$'), r"\1"),
-        (re.compile('__builtin__'), 'builtins'),
-        (re.compile('pjpersist.interfaces.CircularReferenceError'),
-         'CircularReferenceError'),
-    ]
+py3checkers = [
+    # Mangle unicode strings
+    (re.compile("u('.*?')"), r"\1"),
+    (re.compile('u(".*?")'), r"\1"),
+    # Mangle long ints
+    (re.compile('([0-9]+)L$'), r"\1"),
+    (re.compile('__builtin__'), 'builtins'),
+    (re.compile('pjpersist.interfaces.CircularReferenceError'),
+     'CircularReferenceError'),
+]
 
 checker = renormalizing.RENormalizing([
     # Date/Time objects
