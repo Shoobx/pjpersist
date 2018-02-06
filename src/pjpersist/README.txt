@@ -496,8 +496,8 @@ will be always deserialized from the ``data`` jsonb field.
 Initially, we are storing only the name in a column:
 
   >>> from pjpersist.persistent import SimpleColumnSerialization, select_fields
-  >>> class ColumnPerson(SimpleColumnSerialization, Person):
-  ...     zope.interface.implements(IPerson)
+  >>> @zope.interface.implementer(IPerson)
+  ... class ColumnPerson(SimpleColumnSerialization, Person):
   ...     _p_pj_table = 'cperson'
   ...     _pj_column_fields = select_fields(IPerson, 'name')
 
