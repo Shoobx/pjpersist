@@ -121,8 +121,8 @@ def createId():
     id += struct.pack(">B", tidx & 0xFF)
     # 2 bytes counter
     THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
-    THREAD_COUNTERS[tidx] += 1 % 0xFFFF
-    id += struct.pack(">H", THREAD_COUNTERS[tidx])
+    THREAD_COUNTERS[tidx] += 1
+    id += struct.pack(">H", THREAD_COUNTERS[tidx] & 0xFFFF)
     return binascii.hexlify(id).decode('ascii')
 
 
