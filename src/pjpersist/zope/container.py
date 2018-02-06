@@ -203,7 +203,7 @@ class PJContainer(contained.Contained,
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache'):
             txn._v_pj_container_cache = {}
-        return txn._v_pj_container_cache.setdefault(self, {})
+        return txn._v_pj_container_cache.setdefault(id(self), {})
 
     @property
     def _cache_complete(self):
@@ -212,13 +212,13 @@ class PJContainer(contained.Contained,
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache_complete'):
             txn._v_pj_container_cache_complete = {}
-        return txn._v_pj_container_cache_complete.get(self, False)
+        return txn._v_pj_container_cache_complete.get(id(self), False)
 
     def _cache_mark_complete(self):
         txn = transaction.manager.get()
         if not hasattr(txn, '_v_pj_container_cache_complete'):
             txn._v_pj_container_cache_complete = {}
-        txn._v_pj_container_cache_complete[self] = True
+        txn._v_pj_container_cache_complete[id(self)] = True
 
     def _cache_get_key(self, id, doc):
         return doc[self._pj_mapping_key]
