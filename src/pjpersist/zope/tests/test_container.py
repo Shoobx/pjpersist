@@ -519,7 +519,7 @@ def doctest_PJContainer_pj_parent_key_value():
     Now the ZODB case:
 
       >>> c._p_jar = object()
-      >>> c._p_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
+      >>> c._p_oid = b'\x00\x00\x00\x00\x00\x00\x00\x01'
       >>> c._pj_get_parent_key_value()
       'zodb-0000000000000001'
 
@@ -1289,7 +1289,7 @@ def doctest_PJContainer_with_ZODB():
       [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
                  u'key': u'stephan',
                  u'name': u'Stephan',
-                 u'parent': u'zodb-01af3b00c5
+                 u'parent': u'zodb-01af3b00c5'},
         'id': u'0001020304050607080a0b0c0'}]
 
     Note that we produced a nice hex-presentation of the ZODB's OID.
@@ -2022,7 +2022,9 @@ checker = renormalizing.RENormalizing([
      "'0001020304050607080a0b0c0'"),
     (re.compile(r"object at 0x[0-9a-f]*>"),
      "object at 0x001122>"),
-    (re.compile(r"zodb-[0-9a-f].*"),
+    (re.compile(r"u'zodb-[0-9a-f]+'"),
+     "'zodb-01af3b00c5'"),
+    (re.compile(r"zodb-[0-9a-f]+"),
      "zodb-01af3b00c5"),
     # Mangle unicode strings
     (re.compile("u('.*?')"), r"\1"),

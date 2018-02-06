@@ -13,6 +13,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers"""
+import binascii
 import persistent
 import transaction
 import zope.component
@@ -165,7 +166,7 @@ class PJContainer(contained.Contained,
         if interfaces.IPJDataManager.providedBy(self._p_jar):
             return self
         else:
-            return 'zodb-'+''.join("%02x" % ord(x) for x in self._p_oid).strip()
+            return str('zodb-' + binascii.hexlify(self._p_oid).decode('ascii'))
 
     def _pj_get_resolve_filter(self):
         """return a filter that selects the rows of the current container"""
