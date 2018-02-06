@@ -196,6 +196,7 @@ def doctest_datetime_range():
 def test_suite():
     suite = doctest.DocTestSuite(
         setUp=setUp, tearDown=testing.tearDown,
+        checker=testing.checker,
         optionflags=testing.OPTIONFLAGS)
     suite.layer = testing.db_layer
     return suite

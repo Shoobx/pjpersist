@@ -17,6 +17,7 @@ import doctest
 import persistent
 import pprint
 import copy
+import six
 import six.moves.copyreg
 import pickle
 
@@ -337,13 +338,17 @@ def doctest_ObjectWriter_get_persistent_state():
     """
 
 
+if six.PY3:
+    long = int
+
+
 def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
     """ObjectWriter: get_state(): PJ-native Types
 
       >>> writer = serialize.ObjectWriter(None)
       >>> writer.get_state(1)
       1
-      >>> writer.get_state(1L)
+      >>> writer.get_state(long(1))
       1L
       >>> writer.get_state(1.0)
       1.0
@@ -1232,7 +1237,7 @@ def doctest_table_decorator():
     Check that TABLE_KLASS_MAP gets updated
 
       >>> serialize.TABLE_KLASS_MAP
-      {'foobar_table': set([<class '__main__.Foo'>])}
+      {'foobar_table': {<class '__main__.Foo'>}}
 
     Add a few more classes
 

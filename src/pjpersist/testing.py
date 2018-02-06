@@ -41,6 +41,7 @@ if six.PY3:
         (re.compile('u(".*?")'), r"\1"),
         # Mangle long ints
         (re.compile('([0-9]+)L$'), r"\1"),
+        (re.complile('__builtin__'), 'builtins'),
     ]
 
 checker = renormalizing.RENormalizing([
