@@ -14,7 +14,6 @@
 ##############################################################################
 """PostGreSQL/JSONB Persistent Data Manager"""
 from __future__ import absolute_import
-import UserDict
 import binascii
 import hashlib
 import logging
@@ -26,6 +25,7 @@ import psycopg2.errorcodes
 import pjpersist.sqlbuilder as sb
 import random
 import re
+import six
 import socket
 import struct
 import threading
@@ -35,6 +35,7 @@ import transaction
 import uuid
 import zope.interface
 
+from future.moves.collections import MutableMapping
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
@@ -83,7 +84,7 @@ CONFLICT_TRACEBACK_INFO = threading.local()
 CONFLICT_TRACEBACK_INFO.traceback = None
 
 mhash = hashlib.md5()
-mhash.update(socket.gethostname())
+mhash.update(socket.gethostname().encode('utf-8'))
 HOSTNAME_HASH = mhash.digest()[:3]
 PID_HASH = struct.pack(">H", os.getpid() % 0xFFFF)
 
@@ -117,12 +118,12 @@ def createId():
     if tname not in THREAD_NAMES:
         THREAD_NAMES.append(tname)
     tidx = THREAD_NAMES.index(tname)
-    id += struct.pack(">i", tidx)[-1]
+    id += struct.pack(">B", tidx & 0xFF)
     # 2 bytes counter
     THREAD_COUNTERS.setdefault(tidx, random.randint(0, 0xFFFF))
     THREAD_COUNTERS[tidx] += 1 % 0xFFFF
-    id += struct.pack(">i", THREAD_COUNTERS[tidx])[-2:]
-    return binascii.hexlify(id)
+    id += struct.pack(">H", THREAD_COUNTERS[tidx])
+    return binascii.hexlify(id).decode('ascii')
 
 
 class Json(psycopg2.extras.Json):
@@ -163,7 +164,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         flush_hint - list of tables to flush before querying database
         """
         # Convert SQLBuilder object to string
-        if not isinstance(sql, basestring):
+        if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
         # Flush the data manager before any select.
         firstword = sql.strip().split()[0].lower()
@@ -183,7 +184,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 return self._execute_and_log(sql, args)
             except psycopg2.Error as e:
                 # XXX: ugly: we're creating here missing tables on the fly
-                msg = e.message
+                msg = str(e)
                 TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
                 # if the exception message matches
                 m = re.search('relation "(.*?)" does not exist', msg)
@@ -201,7 +202,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
 
                     try:
                         return self._execute_and_log(sql, args)
-                    except psycopg2.Error as e:
+                    except psycopg2.Error as exc2:
                         # Join the transaction, because failed queries require
                         # aborting the transaction.
                         self.datamanager._join_txn()
@@ -310,7 +311,7 @@ def check_for_disconnect(e, sql, beacon=None):
         raise interfaces.DatabaseDisconnected(str(e).strip(), beacon, sql)
 
 
-class Root(UserDict.DictMixin):
+class Root(MutableMapping):
 
     table = 'persistence_root'
 
@@ -370,6 +371,12 @@ class Root(UserDict.DictMixin):
             cur.execute(sb.Select(sb.Field(self.table, 'name')))
             return [doc['name'] for doc in cur.fetchall()]
 
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())
+
 
 @zope.interface.implementer(interfaces.IPJDataManager)
 class PJDataManager(object):
@@ -427,7 +434,7 @@ class PJDataManager(object):
         return createId()
 
     def create_tables(self, tables):
-        if isinstance(tables, basestring):
+        if isinstance(tables, six.string_types):
             tables = [tables]
 
         for tbl in tables:

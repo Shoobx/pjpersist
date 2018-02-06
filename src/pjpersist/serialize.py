@@ -20,7 +20,6 @@ import persistent.interfaces
 import persistent.dict
 import persistent.list
 import six
-import types
 import zope.interface
 from zope.dottedname.resolve import resolve
 from decimal import Decimal
@@ -312,7 +311,7 @@ class ObjectWriter(object):
             return {'_py_type': 'datetime.datetime',
                     'value': obj.strftime(FMT_DATETIME)}
 
-        if isinstance(obj, (type, types.ClassType)):
+        if isinstance(obj, six.class_types):
             # We frequently store class and function paths as meta-data, so we
             # need to be able to properly encode those.
             return {'_py_type': 'type',
@@ -340,8 +339,8 @@ class ObjectWriter(object):
             data = []
             for key, value in obj.items():
                 data.append((key, self.get_state(value, pobj)))
-                has_non_string_key |= not isinstance(key, basestring)
-                if (not isinstance(key, basestring) or '\0' in key):
+                has_non_string_key |= not isinstance(key, six.string_types)
+                if (not isinstance(key, six.string_types) or '\0' in key):
                     has_non_string_key = True
             if not has_non_string_key:
                 # The easy case: all keys are strings:
@@ -672,7 +671,7 @@ class ObjectReader(object):
         return obj
 
 
-class table:
+class table(object):
     """Declare the table used by the class.
 
     sets also the atrtibute interfaces.TABLE_ATTR_NAME

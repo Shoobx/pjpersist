@@ -1494,7 +1494,7 @@ def doctest_load_does_not_set_p_changed():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = People()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       >>> transaction.commit()
 
@@ -1533,7 +1533,7 @@ def doctest_firing_events_PJContainer():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = People()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
@@ -1543,7 +1543,7 @@ def doctest_firing_events_PJContainer():
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
       ...     people.add(PeoplePerson(name, random.randint(0, 100)))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1554,7 +1554,7 @@ def doctest_firing_events_PJContainer():
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+20, )
       ...     people[name] = PeoplePerson(name, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1587,7 +1587,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> transaction.commit()
       >>> dm.root['people'] = people = PeopleWithIDKeys()
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
@@ -1597,7 +1597,7 @@ def doctest_firing_events_IdNamesPJContainer():
       >>> list(people.keys())
       [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
       ...     people.add(PeoplePerson(name, random.randint(0, 100)))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1611,7 +1611,7 @@ def doctest_firing_events_IdNamesPJContainer():
     We can set custom keys as well, they will end up in mongo documents as _id
     attributes.
 
-      >>> for idx in xrange(2):
+      >>> for idx in range(2):
       ...     name = '4e7ddf12e1382374030%.5i' % (idx+20, )
       ...     people[name] = PeoplePerson(name, random.randint(0, 100))
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
@@ -1675,7 +1675,7 @@ def doctest_PJContainer_SimpleColumnSerialization():
       >>> dm._ensure_sql_columns(ColumnPerson(u'foo'), table)
 
       >>> dm.root['people'] = people = ColumnPeople()
-      >>> for idx in xrange(20):
+      >>> for idx in range(20):
       ...     people[None] = ColumnPerson(u'Mr Number %.5i' %idx)
 
       >> dumpTable('cperson')

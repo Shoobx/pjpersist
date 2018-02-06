@@ -13,12 +13,11 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers"""
-import UserDict
-import json
 import persistent
 import transaction
 import zope.component
 import warnings
+from future.moves.collections import MutableMapping
 
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
@@ -130,7 +129,7 @@ class SimplePJContainer(sample.SampleContainer, persistent.Persistent):
 @zope.interface.implementer(IContainer, zinterfaces.IPJContainer)
 class PJContainer(contained.Contained,
                   persistent.Persistent,
-                  UserDict.DictMixin):
+                  MutableMapping):
     _pj_table = None
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'
