@@ -355,7 +355,10 @@ class PJContainer(contained.Contained,
         return iter(doc[self._pj_mapping_key] for doc in result)
 
     def keys(self):
-        return list(self.__iter__())
+        return self.__iter__()
+
+    def __len__(self):
+        return self.count()
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items
@@ -541,7 +544,8 @@ class IdNamesPJContainer(PJContainer):
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
         result = self.raw_find(None, fields=('id',))
-        return iter(unicode(row['id']) for row in result)
+
+        return iter(row['id'] for row in result)
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items

@@ -124,7 +124,7 @@ def doctest_datetime_range():
     >>> sorted([dt for dt in DTIMES if dt > DTIMES[10]])
     Traceback (most recent call last):
     ...
-    TypeError: can't compare datetime.datetime to NoneType
+    TypeError: ...
 
     >>> select(conn, sb.JGET(datafld, 'dtime') < pjvalue(DTIMES[10]),
     ...     print_sql=True, orderBy="(data->'dtime')")

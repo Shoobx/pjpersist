@@ -12,6 +12,7 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Serialization Tests"""
+import base64
 import datetime
 import doctest
 import persistent
@@ -956,12 +957,16 @@ def doctest_ObjectReader_get_non_persistent_object_py_factory():
 def doctest_ObjectReader_get_object_binary():
     """ObjectReader: get_object(): binary data
 
-    Binary data is just converted to a string:
+    Binary data is just converted to bytes:
 
       >>> reader = serialize.ObjectReader(dm)
       >>> reader.get_object(
-      ...     {'_py_type': 'BINARY', 'data': 'hello'.encode('base64')}, None)
-      'hello'
+      ...     {
+      ...         '_py_type': 'BINARY',
+      ...         'data': base64.b64encode(b'hello'),
+      ...     },
+      ...     None)
+      b'hello'
     """
 
 def doctest_ObjectReader_get_object_dbref():
@@ -1233,8 +1238,10 @@ def doctest_table_decorator():
 
     Check that TABLE_KLASS_MAP gets updated
 
-      >>> serialize.TABLE_KLASS_MAP
-      {'foobar_table': {<class '__main__.Foo'>}}
+      >>> len(serialize.TABLE_KLASS_MAP)
+      1
+      >>> list(serialize.TABLE_KLASS_MAP['foobar_table'])
+      [<class '__main__.Foo'>]
 
     Add a few more classes
 

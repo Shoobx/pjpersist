@@ -67,3 +67,9 @@ class PJTableMapping(MutableMapping, object):
             return [
                 res['data'][self.__pj_mapping_key__]
                 for res in cur.fetchall()]
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())

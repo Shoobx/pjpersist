@@ -855,8 +855,8 @@ def doctest_PJ_Container_count():
 
       >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer('person')
-      >>> dm.root['people'].count()
-      0L
+      >>> int(dm.root['people'].count())
+      0
 
       >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
       >>> dm.root['people'][u'roy'] = Person(u'Roy')
@@ -864,15 +864,15 @@ def doctest_PJ_Container_count():
       >>> dm.root['people'][u'adam'] = Person(u'Adam')
       >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
       >>> dm.root['people'][u'russ'] = Person(u'Russ')
-      >>> dm.root['people'].count()
-      6L
+      >>> int(dm.root['people'].count())
+      6
 
       >>> table = Person._p_pj_table
       >>> datafld = sb.Field('person', 'data')
       >>> fld = sb.JSON_GETITEM_TEXT(datafld, 'name')
       >>> qry = fld.startswith('Ro')
-      >>> dm.root['people'].count(qry)
-      2L
+      >>> int(dm.root['people'].count(qry))
+      2
   """
 
 
@@ -1006,7 +1006,7 @@ def doctest_PJContainer_cache_events():
 
     Remove the very first object
 
-      >>> del ppl[ppl.keys()[0]]
+      >>> del ppl[list(ppl.keys())[0]]
       container length: 0
 
     """
@@ -1070,7 +1070,7 @@ def doctest_IdNamesPJContainer_cache_events():
 
     Remove the very first object
 
-      >>> del ppl[ppl.keys()[0]]
+      >>> del ppl[list(ppl.keys())[0]]
       container length: 0
 
     """
@@ -1091,7 +1091,7 @@ def doctest_IdNamesPJContainer_basic():
     Let's now add a new person:
 
       >>> dm.root['c'].add(Person(u'Stephan'))
-      >>> keys = dm.root['c'].keys()
+      >>> keys = list(dm.root['c'].keys())
       >>> keys
       [u'0001020304050607080a0b0c0']
       >>> name = keys[0]
@@ -1149,7 +1149,7 @@ def doctest_IdNamesPJContainer_basic():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c'][name]
       Traceback (most recent call last):
@@ -1159,7 +1159,7 @@ def doctest_IdNamesPJContainer_basic():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
     """
 
@@ -1237,13 +1237,13 @@ def doctest_SubDocumentPJContainer_basic():
 
       >>> dm.root['app_root']['people'][u'stephan'] = Person(u'Stephan')
       ContainerModifiedEvent: <...SubDocumentPJContainer ...>
-      >>> dm.root['app_root']['people'].keys()
+      >>> list(dm.root['app_root']['people'].keys())
       [u'stephan']
       >>> dm.root['app_root']['people'][u'stephan']
       <Person Stephan>
 
       >>> transaction.commit()
-      >>> dm.root['app_root']['people'].keys()
+      >>> list(dm.root['app_root']['people'].keys())
       [u'stephan']
     """
 
@@ -1268,7 +1268,7 @@ def doctest_PJContainer_with_ZODB():
 
     So let's try again:
 
-      >>> root['app']['people'].keys()
+      >>> list(root['app']['people'].keys())
       []
 
     Next we create a person object and make sure it gets properly persisted.
@@ -1276,7 +1276,7 @@ def doctest_PJContainer_with_ZODB():
       >>> root['app']['people']['stephan'] = Person(u'Stephan')
       >>> transaction.commit()
       >>> root = zodb.open().root()
-      >>> root['app']['people'].keys()
+      >>> list(root['app']['people'].keys())
       [u'stephan']
 
       >>> stephan = root['app']['people']['stephan']
@@ -1363,7 +1363,7 @@ def doctest_Realworldish():
 
       >>> dm.root['c'][u'one'] = Campaign(u'one')
       ContainerModifiedEvent: <...Campaigns ...>
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'one']
       >>> dm.root['c'][u'one']
       <Campaign one>
@@ -1391,7 +1391,7 @@ def doctest_Realworldish():
 
       >>> 'one' in dm.root['c']
       True
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       [u'one']
       >>> dm.root['c']['one'].__parent__
       <Campaigns foobar>
@@ -1415,7 +1415,7 @@ def doctest_Realworldish():
 
     The changes are immediately visible.
 
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
       >>> dm.root['c']['one']
       Traceback (most recent call last):
@@ -1425,7 +1425,7 @@ def doctest_Realworldish():
     Make sure it is really gone after committing:
 
       >>> transaction.commit()
-      >>> dm.root['c'].keys()
+      >>> list(dm.root['c'].keys())
       []
 
     Check adding of more objects:

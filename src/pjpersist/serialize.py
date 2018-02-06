@@ -296,7 +296,7 @@ class ObjectWriter(object):
             except UnicodeError:
                 return {
                     '_py_type': 'BINARY',
-                    'data': obj.encode('base64').srip()
+                    'data': obj.encode('base64').strip()
                 }
         if six.PY3 and isinstance(obj, bytes):
             return {
@@ -379,7 +379,8 @@ class ObjectWriter(object):
             #    reference while NOT catching a
             #    >>> anobj = object()
             #    >>> alist = [anobj, anobj]
-            if re.args[0] == 'maximum recursion depth exceeded':
+
+            if re.args[0].startswith('maximum recursion depth exceeded'):
                 raise interfaces.CircularReferenceError(obj)
             else:
                 raise
@@ -573,7 +574,7 @@ class ObjectReader(object):
             if state_py_type == 'BINARY':
                 # Binary data in Python 2 is presented as a string. We will
                 # convert back to binary when serializing again.
-                return state['data'].decode('base64')
+                return base64.b64decode(state['data'])
             if state_py_type == 'DBREF':
                 # Load a persistent object. Using the _jar.load() method to make
                 # sure we're loading from right database and caching is properly

@@ -27,13 +27,14 @@ import transaction
 import unittest
 import six
 from pprint import pprint
-from io import BytesIO
+from io import StringIO
 
 import zope.component
 from zope.testing import module, renormalizing
 
 from pjpersist import datamanager, serialize, serializers, interfaces
 
+py3checkers = []
 if six.PY3:
     py3checkers = [
         # Mangle unicode strings
@@ -42,6 +43,8 @@ if six.PY3:
         # Mangle long ints
         (re.compile('([0-9]+)L$'), r"\1"),
         (re.compile('__builtin__'), 'builtins'),
+        (re.compile('pjpersist.interfaces.CircularReferenceError'),
+         'CircularReferenceError'),
     ]
 
 checker = renormalizing.RENormalizing([
@@ -270,7 +273,7 @@ def setUpLogging(logger, level=logging.DEBUG, format='%(message)s',
                  copy_to_stdout=False):
     if isinstance(logger, str):
         logger = logging.getLogger(logger)
-    buf = BytesIO()
+    buf = StringIO()
     handler = logging.StreamHandler(buf)
     handler._added_by_tests_ = True
     handler._old_propagate_ = logger.propagate
@@ -279,7 +282,7 @@ def setUpLogging(logger, level=logging.DEBUG, format='%(message)s',
     logger.addHandler(handler)
     if copy_to_stdout:
         # can't use logging.StreamHandler(sys.stdout) because sys.stdout might
-        # be changed latter to a BytesIO, and we want messages to be seen
+        # be changed latter to a StringIO, and we want messages to be seen
         # by doctests.
         handler = StdoutHandler()
         handler._added_by_tests_ = True
