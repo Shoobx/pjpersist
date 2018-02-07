@@ -356,7 +356,8 @@ class PJContainer(contained.Contained,
         return iter(doc[self._pj_mapping_key] for doc in result)
 
     def keys(self):
-        return self.__iter__()
+        # PY3: remove the list
+        return list(self.__iter__())
 
     def __len__(self):
         return self.count()
