@@ -18,6 +18,7 @@ import persistent
 import transaction
 import zope.component
 import warnings
+import weakref
 from future.moves.collections import MutableMapping
 
 from zope.container import contained, sample
@@ -202,8 +203,7 @@ class PJContainer(contained.Contained,
         if not USE_CONTAINER_CACHE:
             return {}
         txn = transaction.manager.get()
-        if not hasattr(txn, '_v_pj_container_cache'):
-            txn._v_pj_container_cache = {}
+        self._cache_autoinvalidate()
         return txn._v_pj_container_cache.setdefault(id(self), {})
 
     @property
@@ -211,9 +211,33 @@ class PJContainer(contained.Contained,
         if not USE_CONTAINER_CACHE:
             return False
         txn = transaction.manager.get()
+        self._cache_autoinvalidate()
+        return txn._v_pj_container_cache_complete.get(id(self), False)
+
+    def _cache_autoinvalidate(self):
+        """Make sure cache is not used after object is gc'd.
+
+        Addresses can be reused after the object is garbage collected,
+        so in order to use id(self) as the key, we need to check
+        whether the object is still alive with a weakref.
+        """
+        txn = transaction.manager.get()
+        if not hasattr(txn, '_v_pj_container_cache_sentinel'):
+            txn._v_pj_container_cache_sentinel = weakref.WeakValueDictionary()
+        sentinel = txn._v_pj_container_cache_sentinel
+
         if not hasattr(txn, '_v_pj_container_cache_complete'):
             txn._v_pj_container_cache_complete = {}
-        return txn._v_pj_container_cache_complete.get(id(self), False)
+        if not hasattr(txn, '_v_pj_container_cache'):
+            txn._v_pj_container_cache = {}
+
+        if not id(self) in sentinel:
+            # Blow the caches for this id
+            txn._v_pj_container_cache_complete.pop(id(self), None)
+            txn._v_pj_container_cache.pop(id(self), None)
+
+        # Now the id is valid!
+        sentinel[id(self)] = self
 
     def _cache_mark_complete(self):
         txn = transaction.manager.get()
@@ -327,7 +351,7 @@ class PJContainer(contained.Contained,
             self._pj_jar.remove(value)
         # Remove the object from the container cache.
         if USE_CONTAINER_CACHE:
-            del self._cache[key]
+            self._cache.pop(key, None)
         # Send the uncontained event.
         contained.uncontained(value, self, key)
 
