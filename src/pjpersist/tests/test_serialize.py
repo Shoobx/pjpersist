@@ -62,6 +62,11 @@ class Constant(object):
         return 'Constant'
 Constant = Constant()
 
+class StringConstant(str):
+    def __reduce__(self):
+        return 'StringConstant'
+StringConstant = StringConstant()
+
 class CopyReggedConstant(object):
     def custom_reduce_fn(self):
         return 'CopyReggedConstant'
@@ -366,6 +371,8 @@ def doctest_ObjectWriter_get_state_constant():
       {'_py_constant': 'pjpersist.interfaces.IObjectWriter'}
       >>> writer.get_state(CopyReggedConstant)
       {'_py_constant': 'pjpersist.tests.test_serialize.CopyReggedConstant'}
+      >>> writer.get_state(StringConstant)
+      {'_py_constant': 'pjpersist.tests.test_serialize.StringConstant'}
     """
 
 def doctest_ObjectWriter_get_state_types():
@@ -489,9 +496,9 @@ def doctest_ObjectWriter_get_state_same_obj_in_dict():
       >> pickletools.dis(dumps(pdict))
 
       >>> pprint.pprint(writer.get_state(pdict))
-      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 
+      {'one': {'_py_type': 'pjpersist.tests.test_serialize.Simple',
                'data': 'data'},
-       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple', 
+       'two': {'_py_type': 'pjpersist.tests.test_serialize.Simple',
                'data': 'data'}}
 
     """
