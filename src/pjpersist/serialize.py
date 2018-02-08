@@ -56,6 +56,11 @@ PYTHON_TO_PG_TYPES = {
 if six.PY2:
     PYTHON_TO_PG_TYPES[long] = "bigint"
 
+
+KNOWN_FACTORIES = {
+    '__builtin__.set': set,
+}
+
 def get_dotted_name(obj, escape=False):
     name = obj.__module__ + '.' + obj.__name__
     if not escape:
@@ -473,6 +478,8 @@ class ObjectReader(object):
         try:
             klass = PATH_RESOLVE_CACHE[path]
         except KeyError:
+            if path in KNOWN_FACTORIES:
+                return KNOWN_FACTORIES[path]
             try:
                 klass = resolve(path)
             except ImportError:
