@@ -20,6 +20,7 @@ import zope.component
 import warnings
 import weakref
 from future.moves.collections import MutableMapping
+from future.utils import viewitems
 
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
@@ -579,7 +580,7 @@ class IdNamesPJContainer(PJContainer):
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items
         if self._cache_complete:
-            return self._cache.iteritems()
+            return viewitems(self._cache)
         # Load all objects from the database.
         result = self.raw_find()
         items = [(row['id'],
