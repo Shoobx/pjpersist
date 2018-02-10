@@ -16,12 +16,11 @@
 import binascii
 import persistent
 import transaction
+import sys
 import zope.component
 import warnings
 import weakref
-from future.moves.collections import MutableMapping
-from future.utils import viewitems
-
+from collections import MutableMapping
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer
 
@@ -32,6 +31,11 @@ from pjpersist.mquery import Converter
 
 USE_CONTAINER_CACHE = True
 
+def viewitems(dictionary):
+    if sys.version_info[0] == 3:
+        return dictionary.items()
+    else:
+        return dictionary.viewitems()
 
 class PJContained(contained.Contained):
 

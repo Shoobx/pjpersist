@@ -69,7 +69,6 @@ setup(
         ),
     ),
     install_requires=[
-        'future',
         'persistent',
         'transaction',
         'repoze.lru',
