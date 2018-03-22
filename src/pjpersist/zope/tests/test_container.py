@@ -666,6 +666,36 @@ def doctest_PJContainer_bool():
   """
 
 
+def doctest_PJContainer_values():
+    """PJContainer.values() results in a single query to a database
+
+    We have a container with several items in it
+
+      >>> dm.root['people'] = container.PJContainer('person')
+      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
+      >>> dm.root['people'][u'roy'] = Person(u'Roy')
+
+    To count the queries, enable query statistics
+
+
+      >>> txn = transaction.manager.get()
+      >>> if hasattr(txn, '_v_pj_container_cache'):
+      ...     delattr(txn, '_v_pj_container_cache')
+      >>> dm._query_report.qlog = []
+
+      >>> with mock.patch.object(datamanager, "PJ_ENABLE_QUERY_STATS", True):
+      ...     items = list(dm.root['people'].values())
+
+      >>> from pprint import pprint
+
+    We should have one query to 'persistence_root' table and one query to
+    'person` table.'
+      >>> len(dm._query_report.qlog)
+      2
+
+    """
+
+
 def doctest_PJContainer_find():
     r"""PJContainer: find
 

@@ -403,6 +403,9 @@ class PJContainer(contained.Contained,
         # Return an iterator of the items.
         return iter(items)
 
+    def values(self):
+        return [v for _, v in self.iteritems()]
+
     def _get_sb_fields(self, fields):
         """Return sqlbuilder fields based on passed field names or * if no
         fields are passed"""
