@@ -317,6 +317,7 @@ class PJContainer(contained.Contained,
 
     def __setitem__(self, key, value):
         # When the key is None, we need to determine it.
+        orig_key = key
         if key is None:
             if self._pj_mapping_key is None:
                 key = self._pj_jar.createId()
@@ -324,7 +325,28 @@ class PJContainer(contained.Contained,
                 # we have _pj_mapping_key, use that attribute
                 key = getattr(value, self._pj_mapping_key)
         # We want to be as close as possible to using the Zope semantics.
-        contained.setitem(self, self._real_setitem, key, value)
+        self._contained_setitem(self._real_setitem, key, value, orig_key)
+
+    def _contained_setitem(self, setitemf, key, value, check_old):
+        # This is based on zope.container.contained.setitem(), but we skip
+        # the check if the name is in the container in case the key was just
+        # generated.
+        #
+        # This check generates a SELECT query and causes conflicts in case
+        # there are many transactions adding to the container.
+        key = contained.checkAndConvertName(key)
+        marker = object()
+        if check_old:
+            old = self.get(key, marker)
+            if old is value:
+                return
+            if old is not marker:
+                raise KeyError(key)
+        value, event = contained.containedEvent(value, self, key)
+        setitemf(key, value)
+        if event:
+            zope.event.notify(event)
+            contained.notifyContainerModified(self)
 
     def add(self, value, key=None):
         # We are already supporting ``None`` valued keys, which prompts the key
