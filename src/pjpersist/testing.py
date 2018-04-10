@@ -27,7 +27,7 @@ import transaction
 import unittest
 import six
 from pprint import pprint
-from io import StringIO
+from six import StringIO
 
 import zope.component
 from zope.testing import module, renormalizing
