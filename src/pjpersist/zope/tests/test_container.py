@@ -1001,7 +1001,7 @@ def doctest_PJContainer_cache_events():
       ...     )
       ... def handleObjectAddedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1027,7 +1027,7 @@ def doctest_PJContainer_cache_events():
       ...     )
       ... def handleObjectRemovedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1067,7 +1067,7 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     )
       ... def handleObjectAddedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1091,7 +1091,7 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     )
       ... def handleObjectRemovedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
