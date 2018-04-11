@@ -66,7 +66,8 @@ def test_suite():
     # pjpersist/README.rst relative of the virtualenv's root.
     readme_rst_path = (
         '../../../README.rst'
-        if os.path.exists('../../../README.rst')
+        if os.path.exists(os.path.join(
+                os.path.dirname(__file__), '../../../README.rst'))
         else '../../../../../pjpersist/README.rst')
     suite = unittest.TestSuite((
         doctest.DocFileSuite(

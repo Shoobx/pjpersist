@@ -640,6 +640,63 @@ def doctest_PJContainer_add_IdNamesPJContainer():
       True
 """
 
+def doctest_PJContainer_concurrent_adds():
+    """PJContainer: add(value) can be called from many transactions.
+
+      >>> dm.root['people'] = container.IdNamesPJContainer('person')
+      >>> dm.root['people'].add(Person('Roy'))
+      >>> dm.commit(None)
+      >>> commit()
+
+    Let's register a query stats listener:
+
+      >>> class Stats(object):
+      ...     def __init__(self):
+      ...         self.queries = []
+      ...     def record(self, sql, saneargs, *args):
+      ...         self.queries.append((sql, saneargs))
+      ...
+      >>> stats = Stats()
+      >>> datamanager.register_query_stats_listener(stats)
+
+    Many persons are added from many connections:
+
+      >>> threads = []
+      >>> THREADS = 10
+      >>> for i in range(THREADS):
+      ...     @testing.run_in_thread
+      ...     def add_person():
+      ...         conn2 = testing.getConnection(testing.DBNAME)
+      ...         try:
+      ...             dm2 = datamanager.PJDataManager(conn2)
+      ...             ppl = dm2.root['people']
+      ...
+      ...             ppl.add(Person('Stephan %s' % i))
+      ...
+      ...             dm2.commit(None)
+      ...         finally:
+      ...             conn2.close()
+      ...     threads.append(add_person)
+
+    Let's wait for threads to finish:
+
+      >>> for thread in threads:
+      ...    thread.join()
+
+      >>> datamanager.unregister_query_stats_listener(stats)
+
+    We expect to find THREADS + 1 persons:
+
+      >>> len(dm.root['people'])
+      11
+
+    There was one query per person executed (excluding persistence magic):
+
+      >>> len([sql for (sql, args) in stats.queries if 'person' in sql])
+      10
+
+    """
+
 
 def doctest_PJContainer_bool():
   """PJContainers can be evaluated to boolean, however this
@@ -1001,7 +1058,7 @@ def doctest_PJContainer_cache_events():
       ...     )
       ... def handleObjectAddedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1027,7 +1084,7 @@ def doctest_PJContainer_cache_events():
       ...     )
       ... def handleObjectRemovedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
@@ -1067,7 +1124,7 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     )
       ... def handleObjectAddedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectAddedEvent)
 
@@ -1091,7 +1148,7 @@ def doctest_IdNamesPJContainer_cache_events():
       ...     )
       ... def handleObjectRemovedEvent(object, event):
       ...     print("container length:", len(ppl))
-      ... 
+      ...
 
       >>> zope.component.provideHandler(handleObjectRemovedEvent)
 
