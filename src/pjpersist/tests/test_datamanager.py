@@ -21,12 +21,13 @@ from pprint import pprint
 
 import transaction
 import mock
-from zope.testing import module
 
 from pjpersist import interfaces, serialize, testing, datamanager
 
+
 class Root(persistent.Persistent):
     pass
+
 
 class Foo(persistent.Persistent):
     name = None
@@ -35,7 +36,8 @@ class Foo(persistent.Persistent):
         self.name = name
 
     def __repr__(self):
-        return '<%s %s>' %(self.__class__.__name__, self.name)
+        return '<%s %s>' % (self.__class__.__name__, self.name)
+
 
 class Super(persistent.Persistent):
     _p_pj_table = 'Super'
@@ -44,7 +46,7 @@ class Super(persistent.Persistent):
         self.name = name
 
     def __repr__(self):
-        return '<%s %s>' %(self.__class__.__name__, self.name)
+        return '<%s %s>' % (self.__class__.__name__, self.name)
 
 
 class Sub(Super):
@@ -59,17 +61,19 @@ class Bar(persistent.Persistent):
         self.name = name
 
     def __repr__(self):
-        return '<%s %s>' %(self.__class__.__name__, self.name)
+        return '<%s %s>' % (self.__class__.__name__, self.name)
 
 
 class FooItem(object):
     def __init__(self):
         self.bar = 6
 
+
 class ComplexFoo(persistent.Persistent):
     def __init__(self):
         self.item = FooItem()
         self.name = 'complex'
+
 
 def doctest_Root():
     r"""Root: General Test
