@@ -648,6 +648,17 @@ def doctest_PJContainer_concurrent_adds():
       >>> dm.commit(None)
       >>> commit()
 
+    Let's register a query stats listener:
+
+      >>> class Stats(object):
+      ...     def __init__(self):
+      ...         self.queries = []
+      ...     def record(self, sql, saneargs, *args):
+      ...         self.queries.append((sql, saneargs))
+      ...
+      >>> stats = Stats()
+      >>> datamanager.register_query_stats_listener(stats)
+
     Many persons are added from many connections:
 
       >>> threads = []
@@ -672,10 +683,17 @@ def doctest_PJContainer_concurrent_adds():
       >>> for thread in threads:
       ...    thread.join()
 
+      >>> datamanager.unregister_query_stats_listener(stats)
+
     We expect to find THREADS + 1 persons:
 
       >>> len(dm.root['people'])
       11
+
+    There was one query per person executed (excluding persistence magic):
+
+      >>> len([sql for (sql, args) in stats.queries if 'person' in sql])
+      10
 
     """
 
