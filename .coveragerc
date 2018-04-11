@@ -1,3 +1,7 @@
 [run]
-include = */pjpersist/*
+# ugly, but no better idea how to filter for JUST pjpersist
+# the problem is
+# py27 create: /home/travis/build/Shoobx/pjpersist/.tox/py27
+# so just */pjpersist/* matches practically all files
+include = */site-packages/pjpersist/*
 omit = */test*
