@@ -168,7 +168,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             sql = sql.__sqlrepr__('postgres')
         # Flush the data manager before any select.
         firstword = sql.strip().split()[0].lower()
-        if self.flush and firstword in ('select', 'with'):
+        if self.flush and firstword in ('select', 'with') and flush_hint != []:
             # print "FLUSHING %s FOR %s" % (flush_hint, sql)
             self.datamanager.flush(flush_hint=flush_hint)
 
@@ -537,7 +537,8 @@ class PJDataManager(object):
         tbl = sb.Table(table)
         with self.getCursor() as cur:
             cur.execute(sb.Select(sb.Field(table, '*'), tbl.id == id),
-                        beacon="%s:%s:%s" % (database, table, id))
+                        beacon="%s:%s:%s" % (database, table, id),
+                        flush_hint=[table])
             res = cur.fetchone()
             return res['data'] if res is not None else None
 
