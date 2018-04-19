@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.3.2 (unreleased)
+1.3.2 (2018-04-19)
 ------------------
 
 - More precise flushing of datamanager to avoid unnecessary database
