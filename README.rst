@@ -13,6 +13,9 @@ pjpersist
 .. image:: https://img.shields.io/pypi/pyversions/pjpersist.svg
    :target: https://pypi.python.org/pypi/pjpersist/
 
+.. image:: https://api.codeclimate.com/v1/badges/4ec0dc21a6419e5362e8/maintainability
+   :target: https://codeclimate.com/github/Shoobx/pjpersist/maintainability
+   :alt: Maintainability
 
 
 A Python PostGreSQL/JSONB Persistence Backend.
