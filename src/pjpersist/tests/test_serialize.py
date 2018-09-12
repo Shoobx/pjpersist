@@ -880,8 +880,8 @@ def doctest_ObjectReader_get_non_persistent_object_py_type():
       >>> reader = serialize.ObjectReader(dm)
       >>> state = {'_py_type': 'pjpersist.tests.test_serialize.Simple'}
       >>> save_state = copy.deepcopy(state)
-      >>> reader.get_non_persistent_object(state, None)
-      <pjpersist.tests.test_serialize.Simple object at 0x306f410>
+      >>> reader.get_non_persistent_object(state, None).__class__
+      <class 'pjpersist.tests.test_serialize.Simple'>
 
     Make sure that state is unchanged:
 
@@ -919,16 +919,16 @@ def doctest_ObjectReader_get_non_persistent_object_py_persistent_type():
       >>> save_state = copy.deepcopy(state)
 
       >>> tier2 = reader.get_non_persistent_object(state, top)
-      >>> tier2
-      <pjpersist.tests.test_serialize.Tier2 object at 0x306f410>
+      >>> tier2.__class__
+      <class 'pjpersist.tests.test_serialize.Tier2'>
 
     We keep track of the containing object, so we can set _p_changed when this
     object changes.
 
-      >>> tier2._p_pj_doc_object
-      <pjpersist.tests.test_serialize.Top object at 0x7fa30b534050>
-      >>> tier2._p_jar
-      <pjpersist.datamanager.PJDataManager object at 0x7fc3cab375d0>
+      >>> tier2._p_pj_doc_object.__class__
+      <class 'pjpersist.tests.test_serialize.Top'>
+      >>> tier2._p_jar.__class__
+      <class 'pjpersist.datamanager.PJDataManager'>
 
     Make sure that state is unchanged:
 
@@ -949,8 +949,8 @@ def doctest_ObjectReader_get_non_persistent_object_py_factory():
       >>> save_state = copy.deepcopy(state)
 
       >>> top = reader.get_non_persistent_object(state, None)
-      >>> top
-      <pjpersist.tests.test_serialize.Top object at 0x306f410>
+      >>> top.__class__
+      <class 'pjpersist.tests.test_serialize.Top'>
       >>> top.name
       'TOP'
 
@@ -987,8 +987,8 @@ def doctest_ObjectReader_get_object_dbref():
     Database references load the ghost state of the object they represent:
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> reader.get_object(top._p_oid.as_json(), None)
-      <pjpersist.tests.test_serialize.Top object at 0x2801938>
+      >>> reader.get_object(top._p_oid.as_json(), None).__class__
+      <class 'pjpersist.tests.test_serialize.Top'>
     """
 
 def doctest_ObjectReader_get_object_type_ref():
@@ -1014,8 +1014,8 @@ def doctest_ObjectReader_get_object_instance():
       ...     {u'_py_type': 'pjpersist.tests.test_serialize.Simple',
       ...      u'name': u'easy'},
       ...     None)
-      >>> simple
-      <pjpersist.tests.test_serialize.Simple object at 0x2bcc950>
+      >>> simple.__class__
+      <class 'pjpersist.tests.test_serialize.Simple'>
       >>> simple.name
       u'easy'
     """
@@ -1073,8 +1073,8 @@ def doctest_ObjectReader_get_ghost():
 
       >>> reader = serialize.ObjectReader(dm)
       >>> gobj = reader.get_ghost(top._p_oid)
-      >>> gobj._p_jar
-      <pjpersist.datamanager.PJDataManager object at 0x2720e50>
+      >>> gobj._p_jar.__class__
+      <class 'pjpersist.datamanager.PJDataManager'>
       >>> gobj._p_state
       0
 
@@ -1098,8 +1098,8 @@ def doctest_ObjectReader_set_ghost_state():
 
       >>> reader = serialize.ObjectReader(dm)
       >>> gobj = reader.get_ghost(top._p_oid)
-      >>> gobj._p_jar
-      <pjpersist.datamanager.PJDataManager object at 0x2720e50>
+      >>> gobj._p_jar.__class__
+      <class 'pjpersist.datamanager.PJDataManager'>
       >>> gobj._p_state
       0
 
@@ -1155,8 +1155,8 @@ def doctest_deserialize_persistent_references():
 
       >>> id(top2.foo) == id(top.foo)
       False
-      >>> top2.foo
-      <pjpersist.tests.test_serialize.Foo object at 0x7fb1a0c0b668>
+      >>> top2.foo.__class__
+      <class 'pjpersist.tests.test_serialize.Foo'>
       >>> top2.foo.name
       u'foo'
     """

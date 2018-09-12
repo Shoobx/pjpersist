@@ -289,16 +289,16 @@ def doctest_SimplePJContainer_basic():
       >>> dm.root['c'][u'stephan']
       <SimplePerson Stephan>
 
-      >>> dm.root['c']['stephan'].__parent__
-      <pjpersist.zope.container.SimplePJContainer object at 0x7fec50f86500>
+      >>> dm.root['c']['stephan'].__parent__.__class__
+      <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> dm.root['c']['stephan'].__name__
       u'stephan'
 
     You can also access objects using the ``get()`` method of course:
 
       >>> stephan = dm.root['c'].get(u'stephan')
-      >>> stephan.__parent__
-      <pjpersist.zope.container.SimplePJContainer object at 0x7fec50f86500>
+      >>> stephan.__parent__.__class__
+      <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> stephan.__name__
       u'stephan'
 
@@ -318,8 +318,8 @@ def doctest_SimplePJContainer_basic():
 
       >>> list(dm.root['c'].keys())
       [u'stephan']
-      >>> dm.root['c']['stephan'].__parent__
-      <pjpersist.zope.container.SimplePJContainer object at 0x7fec50f86500>
+      >>> dm.root['c']['stephan'].__parent__.__class__
+      <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> dm.root['c']['stephan'].__name__
       u'stephan'
 
@@ -404,8 +404,8 @@ def doctest_PJContainer_basic():
       >>> dm.root['c'][u'stephan']
       <Person Stephan>
 
-      >>> dm.root['c']['stephan'].__parent__
-      <pjpersist.zope.container.PJContainer object at 0x7fec50f86500>
+      >>> dm.root['c']['stephan'].__parent__.__class__
+      <class 'pjpersist.zope.container.PJContainer'>
       >>> dm.root['c']['stephan'].__name__
       u'stephan'
 
@@ -429,8 +429,8 @@ def doctest_PJContainer_basic():
       True
       >>> list(dm.root['c'].keys())
       [u'stephan']
-      >>> dm.root['c']['stephan'].__parent__
-      <pjpersist.zope.container.PJContainer object at 0x7fec50f86500>
+      >>> dm.root['c']['stephan'].__parent__.__class__
+      <class 'pjpersist.zope.container.PJContainer'>
       >>> dm.root['c']['stephan'].__name__
       u'stephan'
 
@@ -527,8 +527,8 @@ def doctest_PJContainer_pj_parent_key_value():
 
       >>> c._p_jar = c._p_oid = None
       >>> dm.root['people'] = c
-      >>> c._pj_get_parent_key_value()
-      <pjpersist.zope.container.PJContainer object at 0x32deed8>
+      >>> c._pj_get_parent_key_value().__class__
+      <class 'pjpersist.zope.container.PJContainer'>
 
     In that final case, the container itself is returned, because upon
     serialization, we simply look up the dbref.
@@ -1188,8 +1188,8 @@ def doctest_IdNamesPJContainer_basic():
       >>> list(dm.root['c'].values())
       [<Person Stephan>]
 
-      >>> dm.root['c'][name].__parent__
-      <pjpersist.zope.container.IdNamesPJContainer object at 0x7fec50f86500>
+      >>> dm.root['c'][name].__parent__.__class__
+      <class 'pjpersist.zope.container.IdNamesPJContainer'>
       >>> dm.root['c'][name].__name__
       u'0001020304050607080a0b0c0'
 
@@ -1313,8 +1313,8 @@ def doctest_SubDocumentPJContainer_basic():
     avoidable using a sub-class. Let's make sure the container can be loaded
     correctly:
 
-      >>> dm.root['app_root']['people']
-      <pjpersist.zope.container.SubDocumentPJContainer ...>
+      >>> dm.root['app_root']['people'].__class__
+      <class 'pjpersist.zope.container.SubDocumentPJContainer'>
       >>> dm.root['app_root']['people'].__parent__
       <ApplicationRoot>
       >>> dm.root['app_root']['people'].__name__
@@ -1348,10 +1348,10 @@ def doctest_PJContainer_with_ZODB():
 
       >>> transaction.commit()
       >>> root = zodb.open().root()
-      >>> root['app']
-      <zope.container.btree.BTreeContainer object at 0x7fbb5842f578>
-      >>> root['app']['people']
-      <pjpersist.zope.container.PJContainer object at 0x7fd6e23555f0>
+      >>> root['app'].__class__
+      <class 'zope.container.btree.BTreeContainer'>
+      >>> root['app']['people'].__class__
+      <class 'pjpersist.zope.container.PJContainer'>
 
     So let's try again:
 
@@ -1369,8 +1369,8 @@ def doctest_PJContainer_with_ZODB():
       >>> stephan = root['app']['people']['stephan']
       >>> stephan.__name__
       u'stephan'
-      >>> stephan.__parent__
-      <pjpersist.zope.container.PJContainer object at 0x7f6b6273b7d0>
+      >>> stephan.__parent__.__class__
+      <class 'pjpersist.zope.container.PJContainer'>
 
       >>> dumpTable('person')
       [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',

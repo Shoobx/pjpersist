@@ -50,11 +50,7 @@ checker = renormalizing.RENormalizing([
     (re.compile(r'datetime.datetime\(.*\)'),
      'datetime.datetime(2011, 10, 1, 9, 45)'),
     # IDs
-    (re.compile(r"'[0-9a-f]{24}'"),
-     "'0001020304050607080a0b0c0'"),
-    # Object repr output.
-    (re.compile(r"object at 0x[0-9a-f]*>"),
-     "object at 0x001122>"),
+    (re.compile(r"'[0-9a-f]{24}'"), "'0001020304050607080a0b0c0'"),
     ] + py3checkers)
 
 OPTIONFLAGS = (
@@ -134,7 +130,6 @@ def tearDownSerializers(test):
 def setUp(test):
     module.setUp(test)
     setUpSerializers(test)
-    #createDB()
     g = test.globs
     g['conn'] = getConnection(DBNAME)
     g['conn_other'] = getConnection(DBNAME_OTHER)
@@ -172,7 +167,6 @@ def tearDown(test):
     cleanDB(test.globs['conn_other'])
     test.globs['conn'].close()
     test.globs['conn_other'].close()
-    #dropDB()
     resetCaches()
 
 
@@ -217,7 +211,6 @@ class PJTestCase(unittest.TestCase):
     layer = db_layer
 
     def setUp(self):
-        #module.setUp(self)
         setUpSerializers(self)
         self.conn = getConnection(DBNAME)
         cleanDB(self.conn)
@@ -225,7 +218,6 @@ class PJTestCase(unittest.TestCase):
 
     def tearDown(self):
         datamanager.CONFLICT_TRACEBACK_INFO.traceback = None
-        #module.tearDown(self)
         tearDownSerializers(self)
         transaction.abort()
         cleanDB(self.conn)

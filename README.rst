@@ -42,7 +42,7 @@ Let's now define a simple persistent object:
 
   >>> import persistent
 
-  >>> class Person(persistent.Persistent, ReprMixin):
+  >>> class Person(ReprMixin, persistent.Persistent):
   ...
   ...     def __init__(self, name, phone=None, address=None, friends=None,
   ...                  visited=(), birthday=None):
@@ -81,7 +81,7 @@ PostGreSQL:
 
 Let's now add an address for Stephan. Addresses are also persistent objects:
 
-  >>> class Address(persistent.Persistent, ReprMixin):
+  >>> class Address(ReprMixin, persistent.Persistent):
   ...     _p_pj_table = 'address'
   ...
   ...     def __init__(self, city, zip):
