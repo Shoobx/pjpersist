@@ -56,7 +56,7 @@ PJ_ENABLE_QUERY_STATS = False
 # `register_query_stats_listener`.
 GLOBAL_QUERY_STATS_LISTENERS = set()
 
-# Maximum query length to output qith query log
+# Maximum query length to output with query log
 MAX_QUERY_ARGUMENT_LENGTH = 500
 
 
@@ -154,6 +154,45 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             "%s,\n args:%r,\n TXN:%s,\n time:%sms",
             sql, args, txn, duration*1000)
 
+    def _autoCreateTables(self, sql, args, beacon):
+        # XXX: need to set a savepoint, just in case the real execute
+        #      fails, it would take down all further commands
+        super(PJPersistCursor, self).execute("SAVEPOINT before_execute;")
+
+        try:
+            return self._execute_and_log(sql, args)
+        except psycopg2.Error as e:
+            # XXX: ugly: we're creating here missing tables on the fly
+            msg = str(e)
+            TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
+            # if the exception message matches
+            m = re.search('relation "(.*?)" does not exist', msg)
+            if m:
+                # need to rollback to the above savepoint, otherwise
+                # PG would just ignore any further command
+                super(PJPersistCursor, self).execute(
+                    "ROLLBACK TO SAVEPOINT before_execute;")
+
+                # we extract the tableName from the exception message
+                tableName = m.group(1)
+
+                self.datamanager._create_doc_table(
+                    self.datamanager.database, tableName)
+
+                try:
+                    return self._execute_and_log(sql, args)
+                except psycopg2.Error:
+                    # Join the transaction, because failed queries require
+                    # aborting the transaction.
+                    self.datamanager._join_txn()
+            # Join the transaction, because failed queries require
+            # aborting the transaction.
+            self.datamanager._join_txn()
+            check_for_conflict(e, sql, beacon=beacon)
+            check_for_disconnect(e, sql, beacon=beacon)
+            # otherwise let it fly away
+            raise
+
     def execute(self, sql, args=None, beacon=None, flush_hint=None):
         """execute a SQL statement
         sql - SQL string or SQLBuilder expression
@@ -176,43 +215,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         # cache of the data manager. (SR)
 
         if PJ_AUTO_CREATE_TABLES:
-            # XXX: need to set a savepoint, just in case the real execute
-            #      fails, it would take down all further commands
-            super(PJPersistCursor, self).execute("SAVEPOINT before_execute;")
-
-            try:
-                return self._execute_and_log(sql, args)
-            except psycopg2.Error as e:
-                # XXX: ugly: we're creating here missing tables on the fly
-                msg = str(e)
-                TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
-                # if the exception message matches
-                m = re.search('relation "(.*?)" does not exist', msg)
-                if m:
-                    # need to rollback to the above savepoint, otherwise
-                    # PG would just ignore any further command
-                    super(PJPersistCursor, self).execute(
-                        "ROLLBACK TO SAVEPOINT before_execute;")
-
-                    # we extract the tableName from the exception message
-                    tableName = m.group(1)
-
-                    self.datamanager._create_doc_table(
-                        self.datamanager.database, tableName)
-
-                    try:
-                        return self._execute_and_log(sql, args)
-                    except psycopg2.Error as exc2:
-                        # Join the transaction, because failed queries require
-                        # aborting the transaction.
-                        self.datamanager._join_txn()
-                # Join the transaction, because failed queries require
-                # aborting the transaction.
-                self.datamanager._join_txn()
-                check_for_conflict(e, sql, beacon=beacon)
-                check_for_disconnect(e, sql, beacon=beacon)
-                # otherwise let it fly away
-                raise
+            self._autoCreateTables(sql, args, beacon)
         else:
             try:
                 # otherwise just execute the given sql
