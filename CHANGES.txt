@@ -6,7 +6,9 @@ CHANGES
 1.3.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Implemented skipping tpc_prepare when DM has no writes.
+  We figured that AWS Aurora is dog slow at the moment on tpc_prepare.
+  When the DataManager has no writes, there's no need to call tpc_prepare.
 
 
 1.3.2 (2018-04-19)

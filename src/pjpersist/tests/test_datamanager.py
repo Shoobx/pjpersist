@@ -12,6 +12,7 @@
 #
 ##############################################################################
 """PJ Data Manager Tests"""
+import contextlib
 import doctest
 import persistent
 import unittest
@@ -779,7 +780,7 @@ def doctest_PJDataManager_transaction_abort_after_query():
 
     We aborted transaction and now we can continue doing stuff
 
-    >>> cur = dm.getCursor()
+      >>> cur = dm.getCursor()
       >>> cur.execute("SELECT 1")
       >>> cur.fetchall()
       [[1]]
@@ -1298,12 +1299,10 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # verify by length that we have the full traceback
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
-        # We get
-        # - 20 tracebacks with Buildouts bin/py
-        # - 27 with python setup.py ftest
-        # - 25 with tox+zope-testrunner+coverage
         # Make all work
-        self.assertIn(len(ctb), (20, 25, 27))
+        self.assertIn(len(ctb), (21,  # tracebacks with Buildouts bin/py
+                                 26,  # with tox+zope-testrunner+coverage
+                                 28))  # with python setup.py ftest
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 
@@ -1499,45 +1498,146 @@ class TransactionOptionsTestCase(testing.PJTestCase):
 
 class DirtyTestCase(testing.PJTestCase):
 
-    def test_dirty(self):
-        """Test PJDataManager.dirty setting
+    def setUp(self):
+        super(DirtyTestCase, self).setUp()
+
+        # get rid of the previous transaction
+        transaction.manager.free(transaction.get())
+
+        tpc_patch = mock.patch(
+            "pjpersist.datamanager.PJ_TWO_PHASE_COMMIT_ENABLED", True)
+        self.patches = [tpc_patch]
+        for p in self.patches:
+            p.start()
+
+        # first PJDataManager instantiation creates tables, what makes the dm
+        # dirty, what we want to avoid here
+        self.conn = testing.getConnection(testing.DBNAME)
+        self.dm = datamanager.PJDataManager(self.conn)
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+        super(DirtyTestCase, self).tearDown()
+
+    def test_isDirty(self):
+        """Test PJDataManager.isDirty setting
         """
         # by default a pristine DM is not dirty
         self.assertEqual(self.dm.isDirty(), False)
 
-        # add an object
-        self.dm.root['foo'] = Foo('foo-first')
-        self.assertEqual(self.dm.isDirty(), True)
+        with self.cursor():
+            # add an object
+            self.dm.root['foo'] = Foo('foo-first')
+            self.assertEqual(self.dm.isDirty(), True)
 
         # a commit/abort clears the dirty flag
-        transaction.commit()
         self.assertEqual(self.dm.isDirty(), False)
 
-        # modify an object property
-        self.dm.root['foo'].name = 'blabla'
-        self.assertEqual(self.dm.isDirty(), True)
+        with self.cursor(abort=True):
+            # modify an object property
+            self.dm.root['foo'].name = 'blabla'
+            self.assertEqual(self.dm.isDirty(), True)
 
         # a commit/abort clears the dirty flag
-        transaction.abort()
         self.assertEqual(self.dm.isDirty(), False)
 
         # delete an object in a separate transaction
-        self.dm.root['foo2'] = Foo('foo-second')
-        transaction.commit()
-        del self.dm.root['foo2']
-        self.assertEqual(self.dm.isDirty(), True)
-        transaction.commit()
+        with self.cursor():
+            self.dm.root['foo2'] = Foo('foo-second')
+
+        with self.cursor():
+            del self.dm.root['foo2']
+            self.assertEqual(self.dm.isDirty(), True)
 
         # add and remove an object in the same transaction
-        self.dm.root['foo3'] = Foo('foo-third')
-        del self.dm.root['foo3']
-        self.assertEqual(self.dm.isDirty(), True)
-        transaction.commit()
+        with self.cursor():
+            self.dm.root['foo3'] = Foo('foo-third')
+            del self.dm.root['foo3']
+            self.assertEqual(self.dm.isDirty(), True)
 
         # check the special dump method
-        self.dm.dump(self.dm.root['foo'])
-        self.assertEqual(self.dm.isDirty(), True)
-        transaction.commit()
+        with self.cursor():
+            self.dm.dump(self.dm.root['foo'])
+            self.assertEqual(self.dm.isDirty(), True)
+
+    def test_isDirty_sql(self):
+        """Test PJDataManager.isDirty setting, SQL commands need to set it too
+        """
+        with self.cursor() as cur:
+            cur.execute("SELECT 1")
+            self.assertFalse(self.dm.isDirty())
+
+        with self.cursor() as cur:
+            cur.execute("INSERT INTO mytab VALUES (%s, %s)", [1, '10'])
+            self.assertTrue(self.dm.isDirty())
+
+        # commit clears dirty
+        self.assertFalse(self.dm.isDirty())
+
+        with self.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS mytab")
+            cur.execute("CREATE TABLE mytab "
+                        "(class int NOT NULL, value varchar NOT NULL )")
+            self.assertTrue(self.dm.isDirty())
+
+        with self.cursor() as cur:
+            cur.execute("INSERT INTO mytab VALUES (%s, %s)", [1, '10'])
+
+        with self.cursor(abort=True) as cur:
+            cur.execute("UPDATE mytab SET value='42' WHERE class=1")
+            self.assertTrue(self.dm.isDirty())
+
+        self.assertFalse(self.dm.isDirty())
+
+    def test_clean_dm_tpc_no_prepare(self):
+        # check that a DM that has NO writes does NOT call tpc_prepare
+        self.assertFalse(self.dm.isDirty())
+
+        # load somehing from the DB to get going with PJDataManager
+        self.assertEqual(len(self.dm.root), 0)
+
+        # cannot mock patch a C method (tpc_prepare)
+        # next best is _might_execute_with_error
+        orig = self.dm._might_execute_with_error
+        prep_mock = mock.patch.object(
+            self.dm, '_might_execute_with_error', side_effect=orig)
+        with prep_mock as prep_mock_p:
+            transaction.commit()
+
+        self.assertEqual(prep_mock_p.call_count, 1)  # tpc_commit in tpc_finish
+        self.assertFalse('tpc_prepare' in str(prep_mock_p.call_args_list))
+        self.assertTrue('tpc_commit' in str(prep_mock_p.call_args_list))
+
+    def test_dirty_dm_tpc_prepare(self):
+        # check that a DM that HAS writes DOES call tpc_prepare
+
+        # add an object, do some changes to make the DM dirty
+        self.dm.root['foo'] = Foo('foo-first')
+        self.assertTrue(self.dm.isDirty())
+
+        # cannot mock patch a C method (tpc_prepare)
+        orig = self.dm._might_execute_with_error
+        prep_mock = mock.patch.object(
+            self.dm, '_might_execute_with_error', side_effect=orig)
+        with prep_mock as prep_mock_p:
+            transaction.commit()
+
+        self.assertEqual(prep_mock_p.call_count, 2)  # tpc_commit in tpc_finish
+        self.assertTrue('tpc_prepare' in str(prep_mock_p.call_args_list))
+        self.assertTrue('tpc_commit' in str(prep_mock_p.call_args_list))
+
+    @contextlib.contextmanager
+    def cursor(self, abort=False):
+        transaction.abort()
+        self.dm = datamanager.PJDataManager(self.conn)
+        cur = self.dm.getCursor()
+        yield cur
+        if abort:
+            transaction.abort()
+        else:
+            transaction.commit()
 
 
 def test_suite():

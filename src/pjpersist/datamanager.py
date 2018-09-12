@@ -105,6 +105,27 @@ DISCONNECTED_EXCEPTIONS = (
     psycopg2.InterfaceError,
 )
 
+# hints to decide what sort of SQL command we're about to execute
+# this is a VERY simple estimation whether the given SQL command
+# is a read or write operation
+# an exact solution would be to parse the SQL command, but that is
+# A) slow,
+# B) out of scope,
+# C) since our code issues the commands we're in control
+SQL_FIRST_WORDS = {
+    'alter': 'ddl',
+    'create': 'ddl',
+    'delete': 'write',
+    'drop': 'ddl',
+    'insert': 'write',
+    'update': 'write',
+    'with': 'read',
+    'select': 'read',
+    'truncate': 'write',
+    }
+
+CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = False
+
 
 def createId():
     # 4 bytes current time
@@ -201,14 +222,20 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                  debugging errors. Going to be added to all possible
                  exceptions and log entries
         flush_hint - list of tables to flush before querying database
+                     or None to flush all
         """
         # Convert SQLBuilder object to string
         if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
-        # Flush the data manager before any select.
-        firstword = sql.strip().split()[0].lower()
-        if self.flush and firstword in ('select', 'with') and flush_hint != []:
-            # print "FLUSHING %s FOR %s" % (flush_hint, sql)
+
+        # Figure SQL command type (read/write)
+        firstWord = sql.strip().split()[0].lower()
+        sqlCommandType = SQL_FIRST_WORDS.get(firstWord, 'write')
+        if sqlCommandType in ('write', 'ddl'):
+            self.datamanager._dirty = True
+
+        if self.flush and sqlCommandType == 'read' and flush_hint != []:
+            # Flush the data manager before any select.
             self.datamanager.flush(flush_hint=flush_hint)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
@@ -416,11 +443,14 @@ class PJDataManager(object):
         self._txn_active = False
 
         self.transaction_manager = transaction.manager
+        self._tpc_activated = False
+
         if self.root is None:
+            # this can _join_txn that calls _begin,
+            # that might set _tpc_activated
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
-        self._tpc_activated = False
 
     def getCursor(self, flush=True):
         self._join_txn()
@@ -830,7 +860,8 @@ class PJDataManager(object):
     def tpc_vote(self, transaction):
         if self._tpc_activated:
             assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
-            self._might_execute_with_error(self._conn.tpc_prepare)
+            if self.isDirty() or CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION:
+                self._might_execute_with_error(self._conn.tpc_prepare)
 
     def tpc_finish(self, transaction):
         if self._tpc_activated:
