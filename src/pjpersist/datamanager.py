@@ -127,6 +127,9 @@ SQL_FIRST_WORDS = {
 # Flag whether tpc_vote should call tpc_prepare when the transaction
 # had no writes. See PJDataManager.tpc_vote
 CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = True
+# Flag whether PJDataManager should log on commit whether the transaction
+# had writes.
+LOG_READ_WRITE_TRANSACTION = False
 
 
 def createId():
@@ -852,9 +855,17 @@ class PJDataManager(object):
             raise
         self._tpc_activated = True
 
+    def _log_rw_stats(self, method):
+        if LOG_READ_WRITE_TRANSACTION:
+            if self.isDirty():
+                LOG.info("PJDataManager.%s transaction had writes", method)
+            else:
+                LOG.info("PJDataManager.%s transaction had NO_writes", method)
+
     def commit(self, transaction):
         self.flush()
         self._report_stats()
+        self._log_rw_stats('commit')
 
         if not self._tpc_activated:
             self._might_execute_with_error(self._conn.commit)
@@ -883,6 +894,8 @@ class PJDataManager(object):
 
     def tpc_finish(self, transaction):
         if self._tpc_activated:
+            self._report_stats()
+            self._log_rw_stats('tpc_finish')
             self._might_execute_with_error(self._conn.tpc_commit)
             self._release(self._conn)
             self._dirty = False
