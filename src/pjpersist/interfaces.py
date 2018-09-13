@@ -165,6 +165,9 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
         transaction started (insert/update/delete)
         """
 
+    def setDirty():
+        """Set dirty flag"""
+
 
 class IPJDataManagerProvider(zope.interface.Interface):
     """Utility to get a PJ data manager.

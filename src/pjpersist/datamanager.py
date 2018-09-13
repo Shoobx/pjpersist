@@ -232,7 +232,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         firstWord = sql.strip().split()[0].lower()
         sqlCommandType = SQL_FIRST_WORDS.get(firstWord, 'write')
         if sqlCommandType in ('write', 'ddl'):
-            self.datamanager._dirty = True
+            self.datamanager.setDirty()
 
         if self.flush and sqlCommandType == 'read' and flush_hint != []:
             # Flush the data manager before any select.
@@ -623,7 +623,7 @@ class PJDataManager(object):
                 self._writer.store(docobj)
                 docobject_flushed.add(docobj_id)
 
-            self._dirty = True
+            self.setDirty()
             todo = set(self._registered_objects.keys()) - processed
 
         # Let's now reset all objects as if they were not modified:
@@ -657,7 +657,7 @@ class PJDataManager(object):
 
     def dump(self, obj):
         res = self._writer.store(obj)
-        self._dirty = True
+        self.setDirty()
         if id(obj) in self._registered_objects:
             obj._p_changed = False
             del self._registered_objects[id(obj)]
@@ -697,7 +697,7 @@ class PJDataManager(object):
         if obj._p_oid is not None:
             raise ValueError('Object._p_oid is already set.', obj)
         res = self._writer.store(obj, id=oid)
-        self._dirty = True
+        self.setDirty()
         obj._p_changed = False
         self._object_cache[hash(obj._p_oid)] = obj
         self._inserted_objects[id(obj)] = obj
@@ -716,7 +716,7 @@ class PJDataManager(object):
             cur.execute('DELETE FROM %s WHERE id = %%s' % table,
                         (obj._p_oid.id,),
                         beacon="%s:%s:%s" % (dbname, table, obj._p_oid.id))
-            self._dirty = True
+            self.setDirty()
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
@@ -891,6 +891,9 @@ class PJDataManager(object):
         # what was written can be checked by looking at TABLE_LOG
         # and self._registered_objects
         return self._dirty or bool(self._registered_objects)
+
+    def setDirty(self):
+        self._dirty = True
 
 
 def get_database_name_from_dsn(dsn):
