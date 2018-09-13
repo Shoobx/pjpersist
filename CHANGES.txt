@@ -6,7 +6,7 @@ CHANGES
 1.4.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- No need to log in tpc_finish.
 
 
 1.4.0 (2018-09-13)
