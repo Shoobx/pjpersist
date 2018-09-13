@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.4.0 (unreleased)
+1.4.0 (2018-09-13)
 ------------------
 
 - Implemented skipping tpc_prepare when DM has no writes.
