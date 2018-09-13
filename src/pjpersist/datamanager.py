@@ -105,10 +105,10 @@ DISCONNECTED_EXCEPTIONS = (
     psycopg2.InterfaceError,
 )
 
-# hints to decide what sort of SQL command we're about to execute
+# Hints to decide what sort of SQL command we're about to execute
 # this is a VERY simple estimation whether the given SQL command
 # is a read or write operation
-# an exact solution would be to parse the SQL command, but that is
+# An exact solution would be to parse the SQL command, but that is
 # A) slow,
 # B) out of scope,
 # C) since our code issues the commands we're in control
@@ -124,7 +124,7 @@ SQL_FIRST_WORDS = {
     'truncate': 'write',
     }
 
-CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = False
+CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = True
 
 
 def createId():
@@ -228,14 +228,17 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
         if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
 
-        # Figure SQL command type (read/write)
+        # Determine SQL command type (read/write), well sort of
+        # See also comments on SQL_FIRST_WORDS
         firstWord = sql.strip().split()[0].lower()
+        # By default we opt for 'write' to be on the safe side
         sqlCommandType = SQL_FIRST_WORDS.get(firstWord, 'write')
         if sqlCommandType in ('write', 'ddl'):
             self.datamanager.setDirty()
 
         if self.flush and sqlCommandType == 'read' and flush_hint != []:
             # Flush the data manager before any select.
+            # We do this to have the written data available for queries
             self.datamanager.flush(flush_hint=flush_hint)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
@@ -419,6 +422,7 @@ class PJDataManager(object):
     # constructor is called to "reset" the data manager
     _pristine = True
 
+    # Flag showing whether there is any write in the current transaction
     _dirty = False
 
     def __init__(self, conn, root_table=None):
@@ -446,8 +450,9 @@ class PJDataManager(object):
         self._tpc_activated = False
 
         if self.root is None:
-            # this can _join_txn that calls _begin,
-            # that might set _tpc_activated
+            # Getting Root can call self._join_txn when the table gets
+            # auto-created, that calls self._begin, that might set
+            # self._tpc_activated, so do this after setting self._tpc_activated
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
@@ -860,8 +865,19 @@ class PJDataManager(object):
     def tpc_vote(self, transaction):
         if self._tpc_activated:
             assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
-            if self.isDirty() or CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION:
+            if self.isDirty():
+                # if the transaction wrote anything we have to call tpc_prepare
                 self._might_execute_with_error(self._conn.tpc_prepare)
+            else:
+                # If the transaction had NO writes
+
+                # We try here hard to avoid calling tpc_prepare when there
+                # were NO writes in the current transaction.
+                # We found that on AWS Aurora tpc_prepare is SLOW even with no
+                # writes.
+                if CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION:
+                    # call tpc_prepare only when the config says so
+                    self._might_execute_with_error(self._conn.tpc_prepare)
 
     def tpc_finish(self, transaction):
         if self._tpc_activated:

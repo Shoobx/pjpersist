@@ -1506,12 +1506,15 @@ class DirtyTestCase(testing.PJTestCase):
 
         tpc_patch = mock.patch(
             "pjpersist.datamanager.PJ_TWO_PHASE_COMMIT_ENABLED", True)
-        self.patches = [tpc_patch]
+        no_prep_patch = mock.patch(
+            "pjpersist.datamanager."
+            "CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION", False)
+        self.patches = [tpc_patch, no_prep_patch]
         for p in self.patches:
             p.start()
 
-        # first PJDataManager instantiation creates tables, what makes the dm
-        # dirty, what we want to avoid here
+        # First PJDataManager instantiation creates tables, what makes the dm
+        # dirty, which we want to avoid here.
         self.conn = testing.getConnection(testing.DBNAME)
         self.dm = datamanager.PJDataManager(self.conn)
 
