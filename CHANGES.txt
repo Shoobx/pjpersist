@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.4.1 (unreleased)
+1.4.1 (2018-09-13)
 ------------------
 
 - No need to log in tpc_finish.
