@@ -56,7 +56,7 @@ PJ_ENABLE_QUERY_STATS = False
 # `register_query_stats_listener`.
 GLOBAL_QUERY_STATS_LISTENERS = set()
 
-# Maximum query length to output qith query log
+# Maximum query length to output with query log
 MAX_QUERY_ARGUMENT_LENGTH = 500
 
 
@@ -104,6 +104,32 @@ DISCONNECTED_EXCEPTIONS = (
     psycopg2.OperationalError,
     psycopg2.InterfaceError,
 )
+
+# Hints to decide what sort of SQL command we're about to execute
+# this is a VERY simple estimation whether the given SQL command
+# is a read or write operation
+# An exact solution would be to parse the SQL command, but that is
+# A) slow,
+# B) out of scope,
+# C) since our code issues the commands we're in control
+SQL_FIRST_WORDS = {
+    'alter': 'ddl',
+    'create': 'ddl',
+    'delete': 'write',
+    'drop': 'ddl',
+    'insert': 'write',
+    'update': 'write',
+    'with': 'read',
+    'select': 'read',
+    'truncate': 'write',
+    }
+
+# Flag whether tpc_vote should call tpc_prepare when the transaction
+# had no writes. See PJDataManager.tpc_vote
+CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = True
+# Flag whether PJDataManager should log on commit whether the transaction
+# had writes.
+LOG_READ_WRITE_TRANSACTION = False
 
 
 def createId():
@@ -154,6 +180,45 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             "%s,\n args:%r,\n TXN:%s,\n time:%sms",
             sql, args, txn, duration*1000)
 
+    def _autoCreateTables(self, sql, args, beacon):
+        # XXX: need to set a savepoint, just in case the real execute
+        #      fails, it would take down all further commands
+        super(PJPersistCursor, self).execute("SAVEPOINT before_execute;")
+
+        try:
+            return self._execute_and_log(sql, args)
+        except psycopg2.Error as e:
+            # XXX: ugly: we're creating here missing tables on the fly
+            msg = str(e)
+            TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
+            # if the exception message matches
+            m = re.search('relation "(.*?)" does not exist', msg)
+            if m:
+                # need to rollback to the above savepoint, otherwise
+                # PG would just ignore any further command
+                super(PJPersistCursor, self).execute(
+                    "ROLLBACK TO SAVEPOINT before_execute;")
+
+                # we extract the tableName from the exception message
+                tableName = m.group(1)
+
+                self.datamanager._create_doc_table(
+                    self.datamanager.database, tableName)
+
+                try:
+                    return self._execute_and_log(sql, args)
+                except psycopg2.Error:
+                    # Join the transaction, because failed queries require
+                    # aborting the transaction.
+                    self.datamanager._join_txn()
+            # Join the transaction, because failed queries require
+            # aborting the transaction.
+            self.datamanager._join_txn()
+            check_for_conflict(e, sql, beacon=beacon)
+            check_for_disconnect(e, sql, beacon=beacon)
+            # otherwise let it fly away
+            raise
+
     def execute(self, sql, args=None, beacon=None, flush_hint=None):
         """execute a SQL statement
         sql - SQL string or SQLBuilder expression
@@ -162,57 +227,30 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                  debugging errors. Going to be added to all possible
                  exceptions and log entries
         flush_hint - list of tables to flush before querying database
+                     or None to flush all
         """
         # Convert SQLBuilder object to string
         if not isinstance(sql, six.string_types):
             sql = sql.__sqlrepr__('postgres')
-        # Flush the data manager before any select.
-        firstword = sql.strip().split()[0].lower()
-        if self.flush and firstword in ('select', 'with') and flush_hint != []:
-            # print "FLUSHING %s FOR %s" % (flush_hint, sql)
+
+        # Determine SQL command type (read/write), well sort of
+        # See also comments on SQL_FIRST_WORDS
+        firstWord = sql.strip().split()[0].lower()
+        # By default we opt for 'write' to be on the safe side
+        sqlCommandType = SQL_FIRST_WORDS.get(firstWord, 'write')
+        if sqlCommandType in ('write', 'ddl'):
+            self.datamanager.setDirty()
+
+        if self.flush and sqlCommandType == 'read' and flush_hint != []:
+            # Flush the data manager before any select.
+            # We do this to have the written data available for queries
             self.datamanager.flush(flush_hint=flush_hint)
 
         # XXX: Optimization opportunity to store returned JSONB docs in the
         # cache of the data manager. (SR)
 
         if PJ_AUTO_CREATE_TABLES:
-            # XXX: need to set a savepoint, just in case the real execute
-            #      fails, it would take down all further commands
-            super(PJPersistCursor, self).execute("SAVEPOINT before_execute;")
-
-            try:
-                return self._execute_and_log(sql, args)
-            except psycopg2.Error as e:
-                # XXX: ugly: we're creating here missing tables on the fly
-                msg = str(e)
-                TABLE_LOG.debug("%s %r failed with %s", sql, args, msg)
-                # if the exception message matches
-                m = re.search('relation "(.*?)" does not exist', msg)
-                if m:
-                    # need to rollback to the above savepoint, otherwise
-                    # PG would just ignore any further command
-                    super(PJPersistCursor, self).execute(
-                        "ROLLBACK TO SAVEPOINT before_execute;")
-
-                    # we extract the tableName from the exception message
-                    tableName = m.group(1)
-
-                    self.datamanager._create_doc_table(
-                        self.datamanager.database, tableName)
-
-                    try:
-                        return self._execute_and_log(sql, args)
-                    except psycopg2.Error as exc2:
-                        # Join the transaction, because failed queries require
-                        # aborting the transaction.
-                        self.datamanager._join_txn()
-                # Join the transaction, because failed queries require
-                # aborting the transaction.
-                self.datamanager._join_txn()
-                check_for_conflict(e, sql, beacon=beacon)
-                check_for_disconnect(e, sql, beacon=beacon)
-                # otherwise let it fly away
-                raise
+            self._autoCreateTables(sql, args, beacon)
         else:
             try:
                 # otherwise just execute the given sql
@@ -389,6 +427,7 @@ class PJDataManager(object):
     # constructor is called to "reset" the data manager
     _pristine = True
 
+    # Flag showing whether there is any write in the current transaction
     _dirty = False
 
     def __init__(self, conn, root_table=None):
@@ -413,11 +452,15 @@ class PJDataManager(object):
         self._txn_active = False
 
         self.transaction_manager = transaction.manager
+        self._tpc_activated = False
+
         if self.root is None:
+            # Getting Root can call self._join_txn when the table gets
+            # auto-created, that calls self._begin, that might set
+            # self._tpc_activated, so do this after setting self._tpc_activated
             self.root = Root(self, root_table)
 
         self._query_report = QueryReport()
-        self._tpc_activated = False
 
     def getCursor(self, flush=True):
         self._join_txn()
@@ -590,7 +633,7 @@ class PJDataManager(object):
                 self._writer.store(docobj)
                 docobject_flushed.add(docobj_id)
 
-            self._dirty = True
+            self.setDirty()
             todo = set(self._registered_objects.keys()) - processed
 
         # Let's now reset all objects as if they were not modified:
@@ -624,7 +667,7 @@ class PJDataManager(object):
 
     def dump(self, obj):
         res = self._writer.store(obj)
-        self._dirty = True
+        self.setDirty()
         if id(obj) in self._registered_objects:
             obj._p_changed = False
             del self._registered_objects[id(obj)]
@@ -664,7 +707,7 @@ class PJDataManager(object):
         if obj._p_oid is not None:
             raise ValueError('Object._p_oid is already set.', obj)
         res = self._writer.store(obj, id=oid)
-        self._dirty = True
+        self.setDirty()
         obj._p_changed = False
         self._object_cache[hash(obj._p_oid)] = obj
         self._inserted_objects[id(obj)] = obj
@@ -683,7 +726,7 @@ class PJDataManager(object):
             cur.execute('DELETE FROM %s WHERE id = %%s' % table,
                         (obj._p_oid.id,),
                         beacon="%s:%s:%s" % (dbname, table, obj._p_oid.id))
-            self._dirty = True
+            self.setDirty()
         if hash(obj._p_oid) in self._object_cache:
             del self._object_cache[hash(obj._p_oid)]
 
@@ -812,9 +855,17 @@ class PJDataManager(object):
             raise
         self._tpc_activated = True
 
+    def _log_rw_stats(self, method):
+        if LOG_READ_WRITE_TRANSACTION:
+            if self.isDirty():
+                LOG.info("PJDataManager.%s transaction had writes", method)
+            else:
+                LOG.info("PJDataManager.%s transaction had NO_writes", method)
+
     def commit(self, transaction):
         self.flush()
         self._report_stats()
+        self._log_rw_stats('commit')
 
         if not self._tpc_activated:
             self._might_execute_with_error(self._conn.commit)
@@ -827,10 +878,24 @@ class PJDataManager(object):
     def tpc_vote(self, transaction):
         if self._tpc_activated:
             assert self._conn.status == psycopg2.extensions.STATUS_BEGIN
-            self._might_execute_with_error(self._conn.tpc_prepare)
+            if self.isDirty():
+                # if the transaction wrote anything we have to call tpc_prepare
+                self._might_execute_with_error(self._conn.tpc_prepare)
+            else:
+                # If the transaction had NO writes
+
+                # We try here hard to avoid calling tpc_prepare when there
+                # were NO writes in the current transaction.
+                # We found that on AWS Aurora tpc_prepare is SLOW even with no
+                # writes.
+                if CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION:
+                    # call tpc_prepare only when the config says so
+                    self._might_execute_with_error(self._conn.tpc_prepare)
 
     def tpc_finish(self, transaction):
         if self._tpc_activated:
+            self._report_stats()
+            self._log_rw_stats('tpc_finish')
             self._might_execute_with_error(self._conn.tpc_commit)
             self._release(self._conn)
             self._dirty = False
@@ -857,6 +922,9 @@ class PJDataManager(object):
         # what was written can be checked by looking at TABLE_LOG
         # and self._registered_objects
         return self._dirty or bool(self._registered_objects)
+
+    def setDirty(self):
+        self._dirty = True
 
 
 def get_database_name_from_dsn(dsn):

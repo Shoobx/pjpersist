@@ -162,8 +162,15 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
 
     def isDirty():
         """Return a bool whether there was any database write since the
-        transaction started (insert/update/delete)
+        transaction started.
+
+        A SQL write command or any persistent object change will set this flag.
+
+        `transaction.commit` or `transaction.abort` clears this flag.
         """
+
+    def setDirty():
+        """Set dirty flag"""
 
 
 class IPJDataManagerProvider(zope.interface.Interface):

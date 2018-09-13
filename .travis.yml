@@ -1,17 +1,21 @@
+sudo: required
 language: python
 python:
     - 2.7
     - 3.5
     - 3.6
 addons:
-  postgresql: "9.6"
+    postgresql: "9.6"
 install:
     - pip install tox-travis coveralls
 before_script:
+    - export PGDATA=$(psql -c "SHOW data_directory;" -F "" -A -t -U postgres)
+    - echo "max_prepared_transactions = 10" | sudo tee -a /etc/postgresql/9.6/main/postgresql.conf
+    - sudo /etc/init.d/postgresql restart
     - psql -c "create user pjpersist with createdb password 'pjpersist';" -U postgres
 script:
     - tox
 notifications:
     email: false
 after_success:
-  - coveralls
+    - coveralls
