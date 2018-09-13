@@ -855,17 +855,17 @@ class PJDataManager(object):
             raise
         self._tpc_activated = True
 
-    def _log_rw_stats(self, method):
+    def _log_rw_stats(self):
         if LOG_READ_WRITE_TRANSACTION:
             if self.isDirty():
-                LOG.info("PJDataManager.%s transaction had writes", method)
+                LOG.info("PJDataManager transaction had writes")
             else:
-                LOG.info("PJDataManager.%s transaction had NO_writes", method)
+                LOG.info("PJDataManager transaction had NO_writes")
 
     def commit(self, transaction):
         self.flush()
         self._report_stats()
-        self._log_rw_stats('commit')
+        self._log_rw_stats()
 
         if not self._tpc_activated:
             self._might_execute_with_error(self._conn.commit)
@@ -895,7 +895,6 @@ class PJDataManager(object):
     def tpc_finish(self, transaction):
         if self._tpc_activated:
             self._report_stats()
-            self._log_rw_stats('tpc_finish')
             self._might_execute_with_error(self._conn.tpc_commit)
             self._release(self._conn)
             self._dirty = False

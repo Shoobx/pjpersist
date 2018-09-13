@@ -1509,7 +1509,9 @@ class DirtyTestCase(testing.PJTestCase):
         no_prep_patch = mock.patch(
             "pjpersist.datamanager."
             "CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION", False)
-        self.patches = [tpc_patch, no_prep_patch]
+        log_patch = mock.patch(
+            "pjpersist.datamanager.LOG_READ_WRITE_TRANSACTION", True)
+        self.patches = [tpc_patch, no_prep_patch, log_patch]
         for p in self.patches:
             p.start()
 
