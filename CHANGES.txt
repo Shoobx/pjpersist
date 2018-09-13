@@ -13,7 +13,7 @@ CHANGES
 -----------------------
 
 - Implemented skipping tpc_prepare when DM has no writes.
-  We figured that AWS Aurora is dog slow at the moment on tpc_prepare.
+  We found out that AWS Aurora is dog slow at the moment on tpc_prepare.
   When the DataManager has no writes, there's no need to call tpc_prepare.
 
 
