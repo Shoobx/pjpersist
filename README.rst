@@ -18,16 +18,16 @@ pjpersist
    :alt: Maintainability
 
 
-A Python PostGreSQL/JSONB Persistence Backend.
+A Python PostgreSQL/JSONB Persistence Backend.
 
 Providing transparent persistence of Python objects.
 
 This document outlines the general capabilities of the ``pjpersist``
-package. ``pjpersist`` is a PostGreSQL/JSONB storage implementation for
+package. ``pjpersist`` is a PostgreSQL/JSONB storage implementation for
 persistent Python objects. It is *NOT* a storage for the ZODB.
 
 The goal of ``pjpersist`` is to provide a data manager that serializes objects
-to PostGreSQL using JSONB at transaction boundaries. The PJ data manager is
+to PostgreSQL using JSONB at transaction boundaries. The PJ data manager is
 a persistent data manager, which handles events at transaction boundaries (see
 ``transaction.interfaces.IDataManager``) as well as events from the
 persistency framework (see ``persistent.interfaces.IPersistentDataManager``).
@@ -57,7 +57,7 @@ Let's now define a simple persistent object:
   ...     def __str__(self):
   ...         return self.name
 
-Let's create a new person and store it in PostGreSQL:
+Let's create a new person and store it in PostgreSQL:
 
   >>> stephan = Person(u'Stephan')
   >>> dm.root['stephan'] = stephan
@@ -65,7 +65,7 @@ Let's create a new person and store it in PostGreSQL:
 By default, persistent objects are stored in a tabke having the Python path of
 the class. Since table names cannot statewith an underscore and contain dots,
 we have to escpae the path a little bit. Let's see what got stored in
-PostGreSQL:
+PostgreSQL:
 
   >>> dumpTable('u__main___dot_Person')
   [{'data': {u'_py_persistent_type': u'__main__.Person',
@@ -93,7 +93,7 @@ Let's now add an address for Stephan. Addresses are also persistent objects:
 
   >>> stephan.address = Address('Maynard', '01754')
 
-We need to commit the transaction, to push the data to PostGreSQL:
+We need to commit the transaction, to push the data to PostgreSQL:
 
   >>> transaction.commit()
 
@@ -104,7 +104,7 @@ We need to commit the transaction, to push the data to PostGreSQL:
     'id': u'0001020304050607080a0b0c0'}]
 
 As you can see, even the reference to the Address object looks nice and uses
-the standard PostGreSQL reference construct.
+the standard PostgreSQL reference construct.
 
   >>> dumpTable('u__main___dot_Person')
   [{'data': {u'_py_persistent_type': u'__main__.Person',
@@ -163,7 +163,7 @@ Let's now set various attributes:
   >>> stephan.visited = (u'Germany', u'USA')
   >>> stephan.birthday = datetime.date(1980, 1, 25)
 
-Push the data to PostGreSQL, and dump the results:
+Push the data to PostgreSQL, and dump the results:
 
   >>> transaction.commit()
   >>> dumpTable('u__main___dot_Person')
