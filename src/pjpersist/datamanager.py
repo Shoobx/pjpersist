@@ -124,6 +124,8 @@ SQL_FIRST_WORDS = {
     'truncate': 'write',
     }
 
+# Flag whether tpc_vote should call tpc_prepare when the transaction
+# had no writes. See PJDataManager.tpc_vote
 CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION = True
 
 
