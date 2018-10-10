@@ -36,7 +36,7 @@ TESTS_REQUIRE = [
 
 setup(
     name='pjpersist',
-    version='1.4.2.dev0',
+    version='1.5.0.dev0',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',
@@ -56,6 +56,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Framework :: ZODB',
         'License :: OSI Approved :: Zope Public License',
         'Natural Language :: English',

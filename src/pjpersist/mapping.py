@@ -15,7 +15,12 @@
 """PostGreSQL/JSONB Mapping Implementations"""
 from __future__ import absolute_import
 import json
-from future.moves.collections import MutableMapping
+import six
+
+if six.PY2:
+    from collections import MutableMapping
+else:
+    from collections.abc import MutableMapping
 
 from pjpersist import serialize, interfaces
 

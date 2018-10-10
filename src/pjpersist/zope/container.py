@@ -15,12 +15,17 @@
 """PostGreSQL/JSONB Persistence Zope Containers"""
 import binascii
 import persistent
+import six
 import transaction
 import zope.component
 import warnings
 import weakref
-from future.moves.collections import MutableMapping
 from future.utils import viewitems
+
+if six.PY2:
+    from collections import MutableMapping
+else:
+    from collections.abc import MutableMapping
 
 from zope.container import contained, sample
 from zope.container.interfaces import IContainer

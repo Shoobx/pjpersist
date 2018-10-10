@@ -3,10 +3,10 @@ CHANGES
 =======
 
 
-1.4.2 (unreleased)
+1.5.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Support for Python 3.7. Removed Python 3.5 testing from tox.
 
 
 1.4.1 (2018-09-13)

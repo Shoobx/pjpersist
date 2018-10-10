@@ -35,7 +35,10 @@ import transaction
 import uuid
 import zope.interface
 
-from future.moves.collections import MutableMapping
+if six.PY2:
+    from collections import MutableMapping
+else:
+    from collections.abc import MutableMapping
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
