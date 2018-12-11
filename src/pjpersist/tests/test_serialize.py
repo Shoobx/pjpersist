@@ -73,6 +73,14 @@ class CopyReggedConstant(object):
 six.moves.copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
+class BreakOnNonPlainDictState(object):
+    def __setstate__(self, state):
+        if isinstance(state, dict):
+            # all good
+            for k, v in state.items():
+                setattr(self, k, v)
+        else:
+            raise ValueError("__setstate__ is better of with a dict")
 
 def doctest_link_to_parent():
     """Link to Parent
@@ -872,6 +880,33 @@ def doctest_ObjectReader_resolve_lookup_with_multiple_maps():
       ImportError: DBRef('Top', None, 'pjpersist_test')
     """
 
+def doctest_ObjectReader_get_non_persistent_object_setstate_no_persistent():
+    """ObjectReader: get_non_persistent_object():
+    edge case: Happened in our app that the `sub_obj` has a `__setstate__`
+               method and in a method we change the `state` passed in to
+               `__setstate__`. If `state` is a PersistentDict (with _pj_jar
+               attached) changing the `state` triggers a write on the parent
+               object. That means the readonly transaction suddenly turns into
+               a write with bad side effects.
+               Also, there is no sense to pass a PersistentDict to __setstate__.
+
+    The simplest case is a document with a _py_type:
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> state = {
+      ...     u'_py_type':
+      ...         'pjpersist.tests.test_serialize.BreakOnNonPlainDictState',
+      ...     u'name': u'Here'}
+      >>> obj = reader.get_non_persistent_object(state, None)
+
+    Silence is a good thing, otherwise would raise
+    ValueError("__setstate__ is better of with a dict")
+
+      >>> obj.name
+      u'Here'
+
+    """
+
 def doctest_ObjectReader_get_non_persistent_object_py_type():
     """ObjectReader: get_non_persistent_object(): _py_type
 
@@ -1023,28 +1058,72 @@ def doctest_ObjectReader_get_object_instance():
 def doctest_ObjectReader_get_object_sequence():
     """ObjectReader: get_object(): sequence
 
-    Sequences become persistent lists with all obejcts deserialized.
+    Sequences become persistent lists (by default) with all objects
+    deserialized.
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> reader.get_object([1, '2', 3.0], None)
+      >>> res = reader.get_object([1, '2', 3.0], None)
+      >>> res
       [1, '2', 3.0]
+      >>> type(res)
+      <class 'pjpersist.serialize.PersistentList'>
+
+    We can also ask for a non-persistent list.
+
+      >>> list == type(reader.get_object([1, '2', 3.0],
+      ...     None, preferPersistent=False))
+      True
+
+    But everything not top-level will be converted (deserialized) to persistent:
+
+      >>> res = reader.get_object(
+      ...     [1, {u'2': u'bar'}, 3.0],
+      ...     None, preferPersistent=False)
+      >>> res
+      [1, {'2': 'bar'}, 3.0]
+
+      >>> type(res[1])
+      <class 'pjpersist.serialize.PersistentDict'>
+
     """
 
 def doctest_ObjectReader_get_object_mapping():
     """ObjectReader: get_object(): mapping
 
-    Mappings become persistent dicts with all obejcts deserialized.
+    Mappings become persistent dicts (by default) with all objects deserialized.
 
       >>> reader = serialize.ObjectReader(dm)
-      >>> pprint.pprint(dict(reader.get_object({'1': 1, '2': 2, '3': 3}, None)))
+      >>> res = reader.get_object({'1': 1, '2': 2, '3': 3}, None)
+      >>> pprint.pprint(dict(res))
       {'1': 1, '2': 2, '3': 3}
+      >>> type(res)
+      <class 'pjpersist.serialize.PersistentDict'>
+
+    We can also ask for a non-persistent top level dict.
+
+      >>> dict == type(reader.get_object({'1': 1, '2': 2, '3': 3},
+      ...     None, preferPersistent=False))
+      True
+
+    But everything not top-level will be converted (deserialized) to persistent:
+
+      >>> res = reader.get_object(
+      ...     {'1': {u'foo': u'bar'},
+      ...      '2': 2,
+      ...      '3': 3},
+      ...     None, preferPersistent=False)
+      >>> pprint.pprint(res)
+      {'1': {'foo': 'bar'}, '2': 2, '3': 3}
+      >>> type(res['1'])
+      <class 'pjpersist.serialize.PersistentDict'>
 
     Since JSONB does not allow for non-string keys, the state for a dict with
     non-string keys looks different:
 
-      >>> pprint.pprint(dict(reader.get_object(
+      >>> res = reader.get_object(
       ...     {'dict_data': [(1, '1'), (2, '2'), (3, '3')]},
-      ...     None)))
+      ...     None)
+      >>> pprint.pprint(dict(res))
       {1: '1', 2: '2', 3: '3'}
     """
 

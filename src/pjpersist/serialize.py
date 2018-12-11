@@ -556,10 +556,13 @@ class ObjectReader(object):
             factory_args = self.get_object(state.pop('_py_factory_args'), obj)
             sub_obj = factory(*factory_args)
         if len(state):
-            sub_obj_state = self.get_object(state, obj)
             if hasattr(sub_obj, '__setstate__'):
+                # __setstate__ is better off with a non-persistent parameter
+                sub_obj_state = self.get_object(
+                    state, obj, preferPersistent=False)
                 sub_obj.__setstate__(sub_obj_state)
             else:
+                sub_obj_state = self.get_object(state, obj)
                 sub_obj.__dict__.update(sub_obj_state)
             if isinstance(sub_obj, persistent.Persistent):
                 # This is a persistent sub-object -- mark it as such. Otherwise
@@ -570,7 +573,10 @@ class ObjectReader(object):
             sub_obj._p_jar = self._jar
         return sub_obj
 
-    def get_object(self, state, obj):
+    def get_object(self, state, obj, preferPersistent=None):
+        if preferPersistent is None:
+            # if not passed default to self object setting
+            preferPersistent = self.preferPersistent
         # stateIsDict and state_py_type: optimization to avoid X lookups
         # the code was:
         # if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
@@ -618,7 +624,7 @@ class ObjectReader(object):
             # changes are noticed. Also make sure that all value states are
             # converted to objects.
             sub_obj = [self.get_object(value, obj) for value in state]
-            if self.preferPersistent:
+            if preferPersistent:
                 sub_obj = PersistentList(sub_obj)
                 setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
                 sub_obj._p_jar = self._jar
@@ -635,7 +641,7 @@ class ObjectReader(object):
             sub_obj = dict(
                 [(self.get_object(name, obj), self.get_object(value, obj))
                  for name, value in items])
-            if self.preferPersistent:
+            if preferPersistent:
                 sub_obj = PersistentDict(sub_obj)
                 setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
                 sub_obj._p_jar = self._jar
@@ -655,14 +661,15 @@ class ObjectReader(object):
             raise ImportError(obj._p_oid)
         # Remove unwanted attributes.
         doc.pop(interfaces.PY_TYPE_ATTR_NAME, None)
-        # Now convert the document to a proper Python state dict.
-        state = dict(self.get_object(doc, obj))
         if obj._p_oid not in self._jar._latest_states:
             # Sometimes this method is called to update the object state
             # before storage. Only update the latest states when the object is
             # originally loaded.
             self._jar._latest_states[obj._p_oid] = doc
+        # Now convert the document to a proper Python state dict.
+        state = self.get_object(doc, obj, preferPersistent=False)
         # Set the state.
+        # __setstate__ is better off with a non-persistent parameter
         obj.__setstate__(state)
         # Run the custom load functions.
         if interfaces.IPersistentSerializationHooks.providedBy(obj):
