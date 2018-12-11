@@ -1300,9 +1300,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNotNone(ctb)
         # Make all work
-        self.assertIn(len(ctb), (21,  # tracebacks with Buildouts bin/py
-                                 26,  # with tox+zope-testrunner+coverage
-                                 28))  # with python setup.py ftest
+        self.assertTrue(len(ctb) > 20)
         self.assertIn('Beacon:', ctb[-1])
         transaction.abort()
 
