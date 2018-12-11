@@ -1502,7 +1502,7 @@ class DirtyTestCase(testing.PJTestCase):
         super(DirtyTestCase, self).setUp()
 
         # get rid of the previous transaction
-        transaction.manager.free(transaction.get())
+        transaction.abort()
 
         tpc_patch = mock.patch(
             "pjpersist.datamanager.PJ_TWO_PHASE_COMMIT_ENABLED", True)
