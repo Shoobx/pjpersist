@@ -334,7 +334,10 @@ class PJContainer(contained.Contained,
                 key = self._pj_jar.createId()
             else:
                 # we have _pj_mapping_key, use that attribute
-                key = getattr(value, self._pj_mapping_key)
+                key = getattr(value, self._pj_mapping_key, None)
+                if key is None:
+                    key = self._pj_jar.createId()
+                    setattr(value, self._pj_mapping_key, key)
         # We want to be as close as possible to using the Zope semantics.
         self._contained_setitem(self._real_setitem, key, value, orig_key)
 
