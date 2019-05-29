@@ -268,11 +268,12 @@ class PJContainer(contained.Contained,
         if obj.__parent__ is None:
             obj._v_parent = self
 
-    def _load_one(self, id, doc):
+    def _load_one(self, id, doc, use_cache=True):
         """Get the python object from the id/doc state"""
-        obj = self._cache.get(self._cache_get_key(id, doc))
-        if obj is not None:
-            return obj
+        if use_cache:
+            obj = self._cache.get(self._cache_get_key(id, doc))
+            if obj is not None:
+                return obj
         # Create a DBRef object and then load the full state of the object.
         dbref = serialize.DBRef(self._pj_table, id, self._pj_jar.database)
         # Stick the doc into the _latest_states:
@@ -280,7 +281,8 @@ class PJContainer(contained.Contained,
         obj = self._pj_jar.load(dbref)
         self._locate(obj, id, doc)
         # Add the object into the local container cache.
-        self._cache[obj.__name__] = obj
+        if use_cache:
+            self._cache[obj.__name__] = obj
         return obj
 
     def __cmp__(self, other):

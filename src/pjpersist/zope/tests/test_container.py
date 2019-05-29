@@ -1250,6 +1250,31 @@ def doctest_IdNamesPJContainer_basic():
       []
     """
 
+def doctest_load_one_ignore_cache():
+    """PJContainer._load_one() can be instructed to ignore the cache.
+
+    Let's add some objects:
+
+      >>> transaction.commit()
+      >>> dm.root['people'] = people = People()
+      >>> people[None] = roy = Person(u'Roy')
+
+      >>> people[roy.__name__] == roy
+      True
+
+      >>> people._load_one(roy.__name__, {'name': u'Roy'}) is roy
+      True
+
+      >>> stephan = people._load_one(
+      ...     roy.__name__,
+      ...     {'_py_persistent_type':
+      ...          'pjpersist.zope.tests.test_container.Person',
+      ...      'name': u'Stephan'},
+      ...     use_cache=False)
+      >>> stephan.name
+      u'Stephan'
+    """
+
 def doctest_AllItemsPJContainer_basic():
     """AllItemsPJContainer: basic
 
@@ -2189,4 +2214,3 @@ def test_suite():
         unittest.makeSuite(AllItemsPJContainerInterfaceTest),
         unittest.makeSuite(SubDocumentPJContainerInterfaceTest),
         ))
-
