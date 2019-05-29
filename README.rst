@@ -75,7 +75,7 @@ PostgreSQL:
              u'name': u'Stephan',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-12-04T12:30:00'},
+                        u'value': u'2014-12-04T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -117,7 +117,7 @@ the standard PostgreSQL reference construct.
              u'name': u'Stephan',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-12-04T12:30:00'},
+                        u'value': u'2014-12-04T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -152,7 +152,7 @@ Well, let's create a phone number object for that:
                         u'country': u'+1',
                         u'number': u'394-5124'},
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-12-04T12:30:00'},
+                        u'value': u'2014-12-04T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -184,7 +184,7 @@ Push the data to PostgreSQL, and dump the results:
                         u'country': u'+1',
                         u'number': u'394-5124'},
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-12-04T12:30:00'},
+                        u'value': u'2014-12-04T12:30:00.000000'},
              u'visited': [u'Germany', u'USA']},
     'id': u'0001020304050607080a0b0c0'},
    {'data': {u'_py_persistent_type': u'__main__.Person',
@@ -194,7 +194,7 @@ Push the data to PostgreSQL, and dump the results:
              u'name': u'Roy Mathew',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-12-04T12:30:00'},
+                        u'value': u'2014-12-04T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 

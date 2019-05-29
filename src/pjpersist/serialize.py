@@ -16,6 +16,7 @@
 from __future__ import absolute_import
 import base64
 import datetime
+import warnings
 
 import persistent.interfaces
 import persistent.dict
@@ -35,8 +36,12 @@ PATH_RESOLVE_CACHE = {}
 TABLE_KLASS_MAP = {}
 
 FMT_DATE = "%Y-%m-%d"
-FMT_TIME = "%H:%M:%S"
-FMT_DATETIME = "%Y-%m-%dT%H:%M:%S"
+FMT_TIME = "%H:%M:%S.%f"
+FMT_DATETIME = "%Y-%m-%dT%H:%M:%S.%f"
+
+# BBB: Will be removed in 2.0.
+FMT_TIME_BBB = "%H:%M:%S"
+FMT_DATETIME_BBB = "%Y-%m-%dT%H:%M:%S"
 
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
@@ -595,11 +600,29 @@ class ObjectReader(object):
                 return datetime.datetime.strptime(
                     state['value'], FMT_DATE).date()
             if state_py_type == 'datetime.time':
-                return datetime.datetime.strptime(
-                    state['value'], FMT_TIME).time()
+                try:
+                    return datetime.datetime.strptime(
+                        state['value'], FMT_TIME).time()
+                except ValueError:
+                    # BBB: We originally did not track sub-seconds.
+                    warnings.warn(
+                        "Data in old time format found. Support for the "
+                        "old format will be removed in pjpersist 2.0.",
+                        DeprecationWarning)
+                    return datetime.datetime.strptime(
+                        state['value'], FMT_TIME_BBB).time()
             if state_py_type == 'datetime.datetime':
-                return datetime.datetime.strptime(
-                    state['value'], FMT_DATETIME)
+                try:
+                    return datetime.datetime.strptime(
+                        state['value'], FMT_DATETIME)
+                except ValueError:
+                    # BBB: We originally did not track sub-seconds.
+                    warnings.warn(
+                        "Data in old date/time format found. Support for the "
+                        "old format will be removed in pjpersist 2.0.",
+                        DeprecationWarning)
+                    return datetime.datetime.strptime(
+                        state['value'], FMT_DATETIME_BBB)
 
         # Give the custom serializers a chance to weigh in.
         for serializer in SERIALIZERS:

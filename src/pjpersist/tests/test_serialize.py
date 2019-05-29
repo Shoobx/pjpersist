@@ -976,6 +976,57 @@ def doctest_ObjectReader_get_object_binary():
       True
     """
 
+def doctest_ObjectReader_get_object_datetime():
+    """ObjectReader: get_object(): datetime
+
+    Serialization of date/time related objects has a special handler.
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(
+      ...     {
+      ...         '_py_type': 'datetime.date',
+      ...         'value': u'2005-07-13',
+      ...     },
+      ...     None)
+      datetime.date(2005, 7, 13)
+      >>> reader.get_object(
+      ...     {
+      ...         '_py_type': 'datetime.time',
+      ...         'value': u'17:18:10.100000',
+      ...     },
+      ...     None)
+      datetime.time(17, 18, 10, 100000)
+      >>> reader.get_object(
+      ...     {
+      ...         '_py_type': 'datetime.datetime',
+      ...         'value': u'2005-07-13T17:18:10.100000',
+      ...     },
+      ...     None)
+      datetime.datetime(2005, 07, 13, 17, 18, 10, 100000)
+    """
+
+def doctest_ObjectReader_get_object_datetime_BBB():
+    """ObjectReader: get_object(): datetime (BBB)
+
+    Originally, we did not track sub-seconds.
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(
+      ...     {
+      ...         '_py_type': 'datetime.time',
+      ...         'value': u'17:18:10',
+      ...     },
+      ...     None)
+      datetime.time(17, 18, 10)
+      >>> reader.get_object(
+      ...     {
+      ...         '_py_type': 'datetime.datetime',
+      ...         'value': u'2005-07-13T17:18:10',
+      ...     },
+      ...     None)
+      datetime.datetime(2005, 7, 13, 17, 18, 10)
+    """
+
 def doctest_ObjectReader_get_object_dbref():
     """ObjectReader: get_object(): DBRef
 

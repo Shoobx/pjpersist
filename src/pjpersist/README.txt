@@ -79,7 +79,7 @@ Python path of the class:
              u'name': u'Stephan',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00'},
+                        u'value': u'2014-05-14T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -155,7 +155,7 @@ But once we commit the transaction, everything is available:
              u'name': u'Stephan Richter',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00'},
+                        u'value': u'2014-05-14T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -207,7 +207,7 @@ Let's now commit the transaction and look at the JSONB document again:
                         u'country': u'+1',
                         u'number': u'394-5124'},
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00'},
+                        u'value': u'2014-05-14T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0'}]
 
@@ -251,7 +251,7 @@ always maintained as lists, since JSON does not have two sequence types.
                        u'country': u'+1',
                        u'number': u'394-5124'},
             u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00'},
+                       u'value': u'2014-05-14T12:30:00.000000'},
             u'visited': [u'Germany', u'USA']},
    'id': u'0001020304050607080a0b0c0'}
 
@@ -515,7 +515,7 @@ extended to store the attribute and the person is added to the table:
              u'name': u'Anton',
              u'phone': None,
              u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00'},
+                        u'value': u'2014-05-14T12:30:00.000000'},
              u'visited': []},
     'id': u'0001020304050607080a0b0c0',
     'name': u'Anton'}]
