@@ -3,10 +3,14 @@ CHANGES
 =======
 
 
-1.5.1 (unreleased)
+1.6.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Make `id` and `data` column name configurable via `_pj_id_column` and
+  `_pj_data_column` attributes in `PJContainer`, respectively.
+
+- Auto-assign a name to objects when using `PJContainer`, not just
+  `IdNamesPJContainer`.
 
 
 1.5.0 (2018-10-10)
