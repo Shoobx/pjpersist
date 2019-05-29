@@ -142,7 +142,9 @@ class PJContainer(contained.Contained,
     _pj_mapping_key = 'key'
     _pj_parent_key = 'parent'
     _pj_remove_documents = True
-    _pj_column_fields = ('id', 'data')
+    _pj_id_column = 'id'
+    _pj_data_column = 'data'
+    _pj_column_fields = (_pj_id_column, _pj_data_column)
 
     def __init__(self, table=None,
                  mapping_key=None, parent_key=None):
@@ -175,13 +177,17 @@ class PJContainer(contained.Contained,
         else:
             return str('zodb-' + binascii.hexlify(self._p_oid).decode('ascii'))
 
+    def _pj_get_id_filter(self, id):
+        tbl = sb.Table(self._pj_table)
+        return (getattr(tbl, self._pj_id_column) == id)
+
     def _pj_get_resolve_filter(self):
         """return a filter that selects the rows of the current container"""
         queries = []
         # Make sure that we only look through objects that have the mapping
         # key. Objects not having the mapping key cannot be part of the
         # table.
-        datafld = sb.Field(self._pj_table, 'data')
+        datafld = sb.Field(self._pj_table, self._pj_data_column)
         if self._pj_mapping_key is not None:
             queries.append(
                 sb.JSONB_CONTAINS(datafld, self._pj_mapping_key))
@@ -291,7 +297,7 @@ class PJContainer(contained.Contained,
         if self._cache_complete:
             raise KeyError(key)
         # The cache cannot help, so the item is looked up in the database.
-        datafld = sb.Field(self._pj_table, 'data')
+        datafld = sb.Field(self._pj_table, self._pj_data_column)
         fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld == key)
         obj = self.find_one(qry)
@@ -390,7 +396,7 @@ class PJContainer(contained.Contained,
         if key in self._cache:
             return True
 
-        datafld = sb.Field(self._pj_table, 'data')
+        datafld = sb.Field(self._pj_table, self._pj_data_column)
         fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld == key)
 
@@ -401,7 +407,7 @@ class PJContainer(contained.Contained,
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
             return iter(self._cache)
-        datafld = sb.Field(self._pj_table, 'data')
+        datafld = sb.Field(self._pj_table, self._pj_data_column)
         fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld != None)
         result = self.raw_find(qry, fields=(self._pj_mapping_key,))
@@ -422,8 +428,9 @@ class PJContainer(contained.Contained,
         if self._cache_complete:
             return self._cache.items()
         result = self.raw_find()
-        items = [(row['data'][self._pj_mapping_key],
-                  self._load_one(row['id'], row['data']))
+        items = [(row[self._pj_data_column][self._pj_mapping_key],
+                  self._load_one(
+                      row[self._pj_id_column], row[self._pj_data_column]))
                  for row in result]
         # Signal the container that the cache is now complete.
         self._cache_mark_complete()
@@ -439,7 +446,7 @@ class PJContainer(contained.Contained,
         if not fields:
             res = sb.Field(self._pj_table, '*')
         else:
-            datafld = sb.Field(self._pj_table, 'data')
+            datafld = sb.Field(self._pj_table, self._pj_data_column)
             res = []
             # prefer sql columns over json fields
             for name in fields:
@@ -463,7 +470,7 @@ class PJContainer(contained.Contained,
     def convert_mongo_query(self, spec):
         warnings.warn("Using mongo queries is deprecated",
                       DeprecationWarning, stacklevel=3)
-        c = Converter(self._pj_table, 'data')
+        c = Converter(self._pj_table, self._pj_data_column)
         qry = c.convert(spec)
         return qry
 
@@ -489,7 +496,8 @@ class PJContainer(contained.Contained,
         # Search for matching objects.
         result = self.raw_find(qry, **kwargs)
         for row in result:
-            obj = self._load_one(row['id'], row['data'])
+            obj = self._load_one(
+                row[self._pj_id_column], row[self._pj_data_column])
             yield obj
 
     def raw_find_one(self, qry=None, id=None):
@@ -500,9 +508,8 @@ class PJContainer(contained.Contained,
             qry = self.convert_mongo_query(qry)
 
         if id is not None:
-            tbl = sb.Table(self._pj_table)
             qry = self._combine_filters(
-                self._pj_get_resolve_filter(), qry, (tbl.id == id))
+                self._pj_get_resolve_filter(), qry, self._pj_get_id_filter(id))
         else:
             qry = self._combine_filters(
                 self._pj_get_list_filter(), qry)
@@ -520,14 +527,15 @@ class PJContainer(contained.Contained,
         res = self.raw_find_one(qry, id)
         if res is None:
             return None
-        return self._load_one(res['id'], res['data'])
+        return self._load_one(
+            res[self._pj_id_column], res[self._pj_data_column])
 
     def count(self, qry=None):
         if isinstance(qry, dict):
             qry = self.convert_mongo_query(qry)
 
         where = self._combine_filters(self._pj_get_list_filter(), qry)
-        count = sb.func.COUNT(sb.Field(self._pj_table, 'id'))
+        count = sb.func.COUNT(sb.Field(self._pj_table, self._pj_id_column))
         if where is None:
             select = sb.Select(count)
         else:
@@ -550,8 +558,8 @@ class PJContainer(contained.Contained,
 
     def __nonzero__(self):
         where = self._pj_get_list_filter() or True
-        select = sb.Select(sb.func.COUNT(sb.Field(self._pj_table, 'id')),
-                           where=where)
+        select = sb.Select(sb.func.COUNT(
+            sb.Field(self._pj_table, self._pj_id_column)), where=where)
         with self._pj_jar.getCursor() as cur:
             cur.execute(select, flush_hint=[self._pj_table])
             return cur.fetchone()[0] > 0
@@ -603,9 +611,9 @@ class IdNamesPJContainer(PJContainer):
         if self._cache_complete:
             return iter(self._cache)
         # Look up all ids in PostGreSQL.
-        result = self.raw_find(None, fields=('id',))
+        result = self.raw_find(None, fields=(self._pj_id_column,))
 
-        return iter(row['id'] for row in result)
+        return iter(row[self._pj_id_column] for row in result)
 
     def iteritems(self):
         # If the cache contains all objects, we can just return the cache items
@@ -613,8 +621,9 @@ class IdNamesPJContainer(PJContainer):
             return viewitems(self._cache)
         # Load all objects from the database.
         result = self.raw_find()
-        items = [(row['id'],
-                  self._load_one(row['id'], row['data']))
+        items = [(row[self._pj_id_column],
+                  self._load_one(
+                      row[self._pj_id_column], row[self._pj_data_column]))
                  for row in result]
         # Signal the container that the cache is now complete.
         self._cache_mark_complete()
