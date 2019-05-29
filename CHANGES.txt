@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.6.0 (unreleased)
+1.6.0 (2019-05-29)
 ------------------
 
 - Make `id` and `data` column name configurable via `_pj_id_column` and
