@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.7.0 (unreleased)
+1.7.0 (2019-05-29)
 ------------------
 
 - Support for sub-second datetime and time resolution during serialization.
