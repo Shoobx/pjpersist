@@ -1610,7 +1610,7 @@ def doctest_firing_events_PJContainer():
     """Events need to be fired when _pj_mapping_key is already set on the object
     and the object gets added to the container
 
-      >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
+      >>> @zope.component.adapter(zope.interface.interfaces.IObjectEvent)
       ... def eventHandler(event):
       ...     print(event)
 
@@ -1664,7 +1664,7 @@ class PeopleWithIDKeys(container.IdNamesPJContainer):
 def doctest_firing_events_IdNamesPJContainer():
     """Events need to be fired when the object gets added to the container
 
-      >>> @zope.component.adapter(zope.component.interfaces.IObjectEvent)
+      >>> @zope.component.adapter(zope.interface.interfaces.IObjectEvent)
       ... def eventHandler(event):
       ...     print(event)
 
