@@ -14,7 +14,6 @@
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers Tests"""
 from __future__ import print_function
-import atexit
 import doctest
 import unittest
 
@@ -386,7 +385,6 @@ def doctest_PJContainer_basic():
 
     Let's add a container to the root:
 
-      >>> transaction.commit()
       >>> dm.root['c'] = container.PJContainer('person')
 
       >>> dumpTable('pjpersist_dot_zope_dot_container_dot_PJContainer')
@@ -483,7 +481,6 @@ def doctest_PJContainer_constructor():
     The constructor of the PJContainer class has several advanced arguments
     that allow customizing the storage options.
 
-      >>> transaction.commit()
       >>> c = container.PJContainer(
       ...     'person',
       ...     mapping_key = 'name',
@@ -539,7 +536,6 @@ def doctest_PJContainer_many_items():
 
     Let's create an interesting set of data:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer('person')
       >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
       >>> dm.root['people'][u'roy'] = Person(u'Roy')
@@ -547,10 +543,6 @@ def doctest_PJContainer_many_items():
       >>> dm.root['people'][u'adam'] = Person(u'Adam')
       >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
       >>> dm.root['people'][u'russ'] = Person(u'Russ')
-
-    In order for find to work, the data has to be committed:
-
-      >>> transaction.commit()
 
     Let's now search and receive documents as result:
 
@@ -567,7 +559,6 @@ def doctest_PJContainer_setitem_with_no_key_PJContainer():
 
     Whenever an item is added with no key, getattr(obj, _pj_mapping_key) is used.
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer(
       ...     'person', mapping_key='name')
       >>> dm.root['people'][None] = Person(u'Stephan')
@@ -586,7 +577,6 @@ def doctest_PJContainer_setitem_with_no_key_IdNamesPJContainer():
 
     Whenever an item is added with no key, the OID is used.
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.IdNamesPJContainer('person')
       >>> dm.root['people'][None] = Person(u'Stephan')
 
@@ -606,7 +596,6 @@ def doctest_PJContainer_add_PJContainer():
     the object to be added. This method makes this optional. The default
     implementation assigns getattr(obj, _pj_mapping_key) as name:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer(
       ...     'person', mapping_key='name')
       >>> dm.root['people'].add(Person(u'Stephan'))
@@ -627,7 +616,6 @@ def doctest_PJContainer_add_IdNamesPJContainer():
     the object to be added. This method makes this optional. The default
     implementation assigns the OID as name:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.IdNamesPJContainer('person')
       >>> dm.root['people'].add(Person(u'Stephan'))
 
@@ -762,7 +750,6 @@ def doctest_PJContainer_find():
 
     Let's create an interesting set of data:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer('person')
       >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
       >>> dm.root['people'][u'roy'] = Person(u'Roy')
@@ -770,10 +757,6 @@ def doctest_PJContainer_find():
       >>> dm.root['people'][u'adam'] = Person(u'Adam')
       >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
       >>> dm.root['people'][u'russ'] = Person(u'Russ')
-
-    In order for find to work, the data has to be committed:
-
-      >>> transaction.commit()
 
     Let's now search and receive documents as result:
 
@@ -940,7 +923,6 @@ def doctest_PJ_Container_count():
 
       >>> import pjpersist.sqlbuilder as sb
 
-      >>> transaction.commit()
       >>> dm.root['people'] = container.PJContainer('person')
       >>> int(dm.root['people'].count())
       0
@@ -968,7 +950,6 @@ def doctest_PJContainer_cache_complete():
 
     Let's add a bunch of objects:
 
-      >>> transaction.commit()
       >>> ppl = dm.root['people'] = container.PJContainer('person')
       >>> ppl[u'stephan'] = Person(u'Stephan')
       >>> ppl[u'roy'] = Person(u'Roy')
@@ -1037,7 +1018,6 @@ def doctest_PJContainer_cache_events():
     """PJContainer: _cache insert/delete with events
     (regression: events missed freshly inserted objects)
 
-      >>> transaction.commit()
       >>> ppl = dm.root['people'] = container.PJContainer('person')
 
     Set cache complete
@@ -1103,7 +1083,6 @@ def doctest_IdNamesPJContainer_cache_events():
     """IdNamesPJContainer: _cache insert/delete with events
     (regression: events missed freshly inserted objects)
 
-      >>> transaction.commit()
       >>> ppl = dm.root['people'] = container.IdNamesPJContainer('person')
 
     Set cache complete
@@ -1172,7 +1151,6 @@ def doctest_IdNamesPJContainer_basic():
 
     Let's add a container to the root:
 
-      >>> transaction.commit()
       >>> dm.root['c'] = container.IdNamesPJContainer('person')
 
     Let's now add a new person:
@@ -1255,7 +1233,6 @@ def doctest_load_one_ignore_cache():
 
     Let's add some objects:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = people = People()
       >>> people[None] = roy = Person(u'Roy')
 
@@ -1461,7 +1438,6 @@ def doctest_Realworldish():
 
     Let's add a container to the root:
 
-      >>> transaction.commit()
       >>> dm.root['c'] = Campaigns('foobar')
 
       >>> dumpTable(
@@ -1604,7 +1580,6 @@ def doctest_load_does_not_set_p_changed():
 
     Let's add some objects:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = people = People()
       >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
@@ -1643,7 +1618,6 @@ def doctest_firing_events_PJContainer():
 
     Let's add some objects:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = people = People()
       >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
@@ -1651,6 +1625,7 @@ def doctest_firing_events_PJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001']
@@ -1662,6 +1637,7 @@ def doctest_firing_events_PJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011']
@@ -1673,6 +1649,7 @@ def doctest_firing_events_PJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011',
@@ -1697,7 +1674,6 @@ def doctest_firing_events_IdNamesPJContainer():
 
     Let's add some objects:
 
-      >>> transaction.commit()
       >>> dm.root['people'] = people = PeopleWithIDKeys()
       >>> for idx in range(2):
       ...     people[None] = PeoplePerson('Mr Number %.5i' %idx, random.randint(0, 100))
@@ -1705,6 +1681,7 @@ def doctest_firing_events_IdNamesPJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
@@ -1716,6 +1693,7 @@ def doctest_firing_events_IdNamesPJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
@@ -1730,6 +1708,7 @@ def doctest_firing_events_IdNamesPJContainer():
       <zope.container.contained.ContainerModifiedEvent object at ...>
       <zope.lifecycleevent.ObjectAddedEvent object at ...>
       <zope.container.contained.ContainerModifiedEvent object at ...>
+
       >>> transaction.commit()
       >>> list(people.keys())
       [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000',

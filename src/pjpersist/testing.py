@@ -14,7 +14,6 @@
 """Mongo Persistence Testing Support"""
 from __future__ import absolute_import
 from __future__ import print_function
-import atexit
 import doctest
 import logging
 import psycopg2
