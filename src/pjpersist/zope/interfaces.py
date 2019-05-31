@@ -48,9 +48,14 @@ class IPJContainer(zope.interface.Interface):
 
     _pj_column_fields = zope.schema.Tuple(
         title=u'Column Fields',
-        description=(u'A list of fields that represent columns '
-                     u'in the storage table. the default values are `id` '
-                     u'and `data`, but more can be added.'),
+        description=(
+            u'A list of fields that represent columns '
+            u'in the storage table. the default values are `id` '
+            u'and `data`, but more can be added.'
+            u''
+            u'These fields are used to figure whether to take native SQL columns '
+            u'instead of JSONB fields in `raw_find` '
+            u'see also pjpersist.persistent.SimpleColumnSerialization._pj_column_fields'),
         default=('id', 'data'),
         required=True)
 

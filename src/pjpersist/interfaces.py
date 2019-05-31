@@ -223,9 +223,15 @@ class IColumnSerialization(zope.interface.Interface):
 
     _pj_column_fields = zope.schema.Tuple(
         title=u'Column Fields',
-        description=(u'A list of zope.schema fields that represent columns '
-                     u'in the storage table. Fields cannot be named `id` or '
-                     u'`data` as those attributes are reserved.'),
+        description=(
+            u'A list of zope.schema fields that represent columns '
+            u'in the storage table. Fields cannot be named `id` or '
+            u'`data` as those attributes are reserved.'
+            u''
+            u'The fields are used to '
+            u'- auto create the SQL table '
+            u'- populate native SQL column values by `_pj_get_column_fields` '
+            u'see also pjpersist.zope.container.PJContainer._pj_column_fields'),
         required=True)
 
     def _pj_get_column_fields():
