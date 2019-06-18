@@ -6,6 +6,18 @@ CHANGES
 1.7.1 (unreleased)
 ------------------
 
+- Fixed an edge case when the serializer gets a mapping with a key `dict_data`.
+  Reading such object failed.
+
+- Fixed an edge case with the serializer, when an object's state living
+  in a persistent object became 'empty'. Basically the state was just
+  `{'_py_persistent_type': 'SomeClass'}`
+  `SomeClass.__setstate__` was not called, thus the object could miss
+  attributes. Like a subclass of `UserDict` would miss the `data` attribute.
+
+- Removed checking for 0x00 chars in dict keys. Turns out PostGreSQL just
+  can not store 0x00.
+
 1.7.0 (2019-05-29)
 ------------------
 
@@ -88,7 +100,7 @@ CHANGES
 ------------------
 
 - Added a new helper function to link subobject to main doc object. This is
-  needed when a custom `__getstate__()` and `__setatate__()` is implemented. A
+  needed when a custom `__getstate__()` and `__setstate__()` is implemented. A
   detailed example is provided.
 
 - Implemented `flush_hint` argument for `IDataManager.execute()` to allow
