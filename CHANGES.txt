@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.7.1 (unreleased)
+1.7.1 (2019-06-19)
 ------------------
 
 - Fixed an edge case when the serializer gets a mapping with a key `dict_data`.
