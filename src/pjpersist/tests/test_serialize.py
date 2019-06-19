@@ -421,6 +421,15 @@ def doctest_ObjectWriter_get_state_mappings():
 
       >>> pprint.pprint(writer.get_state({1: 'one', 2: 'two', 3: 'three'}))
       {'dict_data': [(1, 'one'), (2, 'two'), (3, 'three')]}
+
+    Another edge case is when the input has a `dict_data` key
+
+      >>> writer = serialize.ObjectWriter(None)
+      >>> state = writer.get_state(
+      ...     {'1': 1, 'dict_data': 'works?'})
+      >>> pprint.pprint(sorted(state['dict_data']))
+      [('1', 1), ('dict_data', 'works?')]
+
     """
 
 def doctest_ObjectWriter_get_state_Persistent():
@@ -1074,7 +1083,7 @@ def doctest_ObjectReader_get_object_instance():
 def doctest_ObjectReader_get_object_sequence():
     """ObjectReader: get_object(): sequence
 
-    Sequences become persistent lists with all obejcts deserialized.
+    Sequences become persistent lists with all objects deserialized.
 
       >>> reader = serialize.ObjectReader(dm)
       >>> reader.get_object([1, '2', 3.0], None)
@@ -1084,7 +1093,7 @@ def doctest_ObjectReader_get_object_sequence():
 def doctest_ObjectReader_get_object_mapping():
     """ObjectReader: get_object(): mapping
 
-    Mappings become persistent dicts with all obejcts deserialized.
+    Mappings become persistent dicts with all objects deserialized.
 
       >>> reader = serialize.ObjectReader(dm)
       >>> pprint.pprint(dict(reader.get_object({'1': 1, '2': 2, '3': 3}, None)))
@@ -1327,6 +1336,64 @@ def doctest_table_decorator():
       Traceback (most recent call last):
       ...
       TypeError: ("Can't declare _p_pj_table", <object object at ...>)
+
+    """
+
+
+if six.PY3:
+    from collections import UserDict
+else:
+    from UserDict import UserDict
+
+
+class CustomDict(UserDict, object):
+    def __getstate__(self):
+        return self.data
+
+    def __setstate__(self, state):
+        self.data = state
+
+
+def doctest_non_persistent_object_empty_custom():
+    """ObjectReader: get_non_persistent_object(): _py_persistent_type edge case
+
+    When the state was empty __setstate__ did not get called.
+    The result is such custom objects as `CustomDict` got broken.
+    The `data` attribute was never set, thus `CustomDictInstance.items()`
+    or any method call failed with
+    `AttributeError: 'CustomDict' object has no attribute 'data'`
+
+      >>> top = Top()
+      >>> top2 = Top()
+
+    Set an 'empty' dict
+
+      >>> top2.sub = CustomDict()
+
+      >>> list(top2.sub.items())
+      []
+
+      >>> top2._p_pj_sub_object = True
+      >>> writer = serialize.ObjectWriter(dm)
+      >>> state = writer.get_state(top2, top)
+
+    Look at the state of `sub` here, it has just the class path, no data
+    Because some optimizations remove data.
+    
+      >>> pprint.pprint(state)
+      {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+       'sub': {'_py_type': 'pjpersist.tests.test_serialize.CustomDict'}}
+
+      >>> reader = serialize.ObjectReader(dm)
+      >>> newobj = reader.get_non_persistent_object(state, None)
+      >>> newobj.__class__
+      <class 'pjpersist.tests.test_serialize.Top'>
+
+    Make sure that the `CustomDict` object still works despite being 'empty'.
+    IOW `__setstate__` was called
+
+      >>> list(newobj.sub.items())
+      []
 
     """
 

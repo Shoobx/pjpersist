@@ -66,6 +66,32 @@ KNOWN_FACTORIES = {
     '__builtin__.set': set,
 }
 
+# we need to convert dicts and dict-ish values which have non-string keys
+# to a structure that can be stored with JSONB (which accepts only strings
+# as keys)
+# so we do:
+# A) happy day
+# {'1': 1, '2': '2', '3': Number(3)}
+# ->
+# {'1': 1, '2': '2', '3': {'_py_type': '__main__.Number', 'num': 3}}
+#
+# B) if there's a non string key:
+# {1: 'one', 2: 'two', 3: 'three'}
+# ->
+# {DICT_NON_STRING_KEY_MARKER: [(1, 'one'), (2, 'two'), (3, 'three')]}
+#
+# C) if there's `dict_data` in the input:
+# {'1': 1, 'dict_data': 'works?'}
+# ->
+# {DICT_NON_STRING_KEY_MARKER: [('1', 1), ('dict_data', 'works?')]}
+#
+# case C is required otherwise when converting back to a dict by
+# `ObjectReader.get_object` `get_object` would fail because it expects
+# our converted list-in-a-dict structure
+# basically we do not allow the DICT_NON_STRING_KEY_MARKER to pass through
+DICT_NON_STRING_KEY_MARKER = 'dict_data'
+
+
 def get_dotted_name(obj, escape=False):
     name = obj.__module__ + '.' + obj.__name__
     if not escape:
@@ -355,23 +381,24 @@ class ObjectWriter(object):
         if isinstance(obj, (dict, PersistentDict)):
             # Same as for sequences, make sure that the contained values are
             # properly serialized.
-            # Note: A big constraint in JSONB is that keys must be strings!
-            has_non_string_key = False
+            # Note: see comments at the definition of DICT_NON_STRING_KEY_MARKER
+            has_non_compliant_key = False
             data = []
             for key, value in obj.items():
                 data.append((key, self.get_state(value, pobj)))
-                has_non_string_key |= not isinstance(key, six.string_types)
-                if (not isinstance(key, six.string_types) or '\0' in key):
-                    has_non_string_key = True
-            if not has_non_string_key:
-                # The easy case: all keys are strings:
+                if (not isinstance(key, six.string_types) or  # non-string
+                        # a key with our special marker
+                        key==DICT_NON_STRING_KEY_MARKER):
+                    has_non_compliant_key = True
+            if not has_non_compliant_key:
+                # The easy case: all keys are complaint:
                 return dict(data)
             else:
                 # We first need to reduce the keys and then produce a data
                 # structure.
                 data = [(self.get_state(key, pobj), value)
                         for key, value in data]
-                return {'dict_data': data}
+                return {DICT_NON_STRING_KEY_MARKER: data}
 
         if isinstance(obj, persistent.Persistent):
             # Only create a persistent reference, if the object does not want
@@ -541,6 +568,17 @@ class ObjectReader(object):
             raise ImportError(dbref)
         return klass
 
+    def _set_object_state(self, state, sub_obj, obj):
+        sub_obj_state = self.get_object(state, obj)
+        if hasattr(sub_obj, '__setstate__'):
+            sub_obj.__setstate__(sub_obj_state)
+        else:
+            sub_obj.__dict__.update(sub_obj_state)
+        if isinstance(sub_obj, persistent.Persistent):
+            # This is a persistent sub-object -- mark it as such. Otherwise
+            # we risk to store this object in its own table next time.
+            setattr(sub_obj, interfaces.SUB_OBJECT_ATTR_NAME, True)
+
     def get_non_persistent_object(self, state, obj):
         if '_py_constant' in state:
             return self.simple_resolve(state['_py_constant'])
@@ -551,25 +589,23 @@ class ObjectReader(object):
             # Handle the simplified case.
             klass = self.simple_resolve(state.pop('_py_type'))
             sub_obj = six.moves.copyreg._reconstructor(klass, object, None)
+            self._set_object_state(state, sub_obj, obj)
         elif interfaces.PY_TYPE_ATTR_NAME in state:
             # Another simple case for persistent objects that do not want
             # their own document.
             klass = self.simple_resolve(state.pop(interfaces.PY_TYPE_ATTR_NAME))
             sub_obj = six.moves.copyreg.__newobj__(klass)
+            self._set_object_state(state, sub_obj, obj)
         else:
             factory = self.simple_resolve(state.pop('_py_factory'))
             factory_args = self.get_object(state.pop('_py_factory_args'), obj)
             sub_obj = factory(*factory_args)
-        if len(state):
-            sub_obj_state = self.get_object(state, obj)
-            if hasattr(sub_obj, '__setstate__'):
-                sub_obj.__setstate__(sub_obj_state)
-            else:
-                sub_obj.__dict__.update(sub_obj_state)
-            if isinstance(sub_obj, persistent.Persistent):
-                # This is a persistent sub-object -- mark it as such. Otherwise
-                # we risk to store this object in its own table next time.
-                setattr(sub_obj, interfaces.SUB_OBJECT_ATTR_NAME, True)
+            # if there is anything left over in `state`, set it below
+            # otherwise setting a {} state seems to clean out the object
+            # but this is such an edge case of an edge case....
+            if state:
+                self._set_object_state(state, sub_obj, obj)
+
         if getattr(sub_obj, interfaces.SUB_OBJECT_ATTR_NAME, False):
             setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
             sub_obj._p_jar = self._jar
@@ -651,8 +687,9 @@ class ObjectReader(object):
             # that state changes are detected. Also convert all value states
             # to objects.
             # Handle non-string key dicts.
-            if 'dict_data' in state:
-                items = state['dict_data']
+            # Note: see comments at the definition of DICT_NON_STRING_KEY_MARKER
+            if DICT_NON_STRING_KEY_MARKER in state:
+                items = state[DICT_NON_STRING_KEY_MARKER]
             else:
                 items = state.items()
             sub_obj = dict(
