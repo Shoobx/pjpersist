@@ -3,5 +3,7 @@ recursive-include src *
 include *
 
 exclude .coverage
+exclude coverage.xml
 exclude .tox
+exclude .installed.cfg
 global-exclude *.pyc
