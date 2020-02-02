@@ -87,7 +87,9 @@ def createDB():
     conn = getConnection()
     with conn.cursor() as cur:
         cur.execute('END')
+        cur.execute('DROP DATABASE IF EXISTS %s' % DBNAME)
         cur.execute('CREATE DATABASE %s' % DBNAME)
+        cur.execute('DROP DATABASE IF EXISTS %s' % DBNAME_OTHER)
         cur.execute('CREATE DATABASE %s' % DBNAME_OTHER)
     conn.commit()
     conn.close()
@@ -98,8 +100,8 @@ def dropDB():
     with conn.cursor() as cur:
         cur.execute('END')
         try:
-            cur.execute('DROP DATABASE %s' % DBNAME_OTHER)
-            cur.execute('DROP DATABASE %s' % DBNAME)
+            cur.execute('DROP DATABASE IF EXISTS %s' % DBNAME_OTHER)
+            cur.execute('DROP DATABASE IF EXISTS %s' % DBNAME)
         except psycopg2.ProgrammingError:
             pass
     conn.commit()
