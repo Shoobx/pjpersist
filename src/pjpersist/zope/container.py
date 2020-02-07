@@ -189,8 +189,9 @@ class PJContainer(contained.Contained,
         # table.
         datafld = sb.Field(self._pj_table, self._pj_data_column)
         if self._pj_mapping_key is not None:
-            queries.append(
-                sb.JSONB_CONTAINS(datafld, self._pj_mapping_key))
+            if self._pj_mapping_key not in self._pj_column_fields:
+                queries.append(
+                    sb.JSONB_CONTAINS(datafld, self._pj_mapping_key))
         # We also make want to make sure we separate the items properly by the
         # container.
         if self._pj_parent_key is not None:
@@ -299,8 +300,11 @@ class PJContainer(contained.Contained,
         if self._cache_complete:
             raise KeyError(key)
         # The cache cannot help, so the item is looked up in the database.
-        datafld = sb.Field(self._pj_table, self._pj_data_column)
-        fld = sb.JGET(datafld, self._pj_mapping_key)
+        if self._pj_mapping_key in self._pj_column_fields:
+            fld = sb.Field(self._pj_table, self._pj_mapping_key)
+        else:
+            datafld = sb.Field(self._pj_table, self._pj_data_column)
+            fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld == key)
         obj = self.find_one(qry)
         if obj is None:
@@ -401,8 +405,11 @@ class PJContainer(contained.Contained,
         if key in self._cache:
             return True
 
-        datafld = sb.Field(self._pj_table, self._pj_data_column)
-        fld = sb.JGET(datafld, self._pj_mapping_key)
+        if self._pj_mapping_key in self._pj_column_fields:
+            fld = sb.Field(self._pj_table, self._pj_mapping_key)
+        else:
+            datafld = sb.Field(self._pj_table, self._pj_data_column)
+            fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld == key)
 
         res = self.count(qry)
@@ -412,8 +419,11 @@ class PJContainer(contained.Contained,
         # If the cache contains all objects, we can just return the cache keys.
         if self._cache_complete:
             return iter(self._cache)
-        datafld = sb.Field(self._pj_table, self._pj_data_column)
-        fld = sb.JGET(datafld, self._pj_mapping_key)
+        if self._pj_mapping_key in self._pj_column_fields:
+            fld = sb.Field(self._pj_table, self._pj_mapping_key)
+        else:
+            datafld = sb.Field(self._pj_table, self._pj_data_column)
+            fld = sb.JGET(datafld, self._pj_mapping_key)
         qry = (fld != None)
         result = self.raw_find(qry, fields=(self._pj_mapping_key,))
         return iter(doc[self._pj_mapping_key] for doc in result)
