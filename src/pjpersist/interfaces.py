@@ -231,8 +231,9 @@ class IColumnSerialization(zope.interface.Interface):
             u'The fields are used to '
             u'- auto create the SQL table '
             u'- populate native SQL column values by `_pj_get_column_fields` '
-            u'see also pjpersist.zope.container.PJContainer._pj_column_fields'),
+            u'see also pjpersist.zope.container.PJContainer._pj_column_fields'
+            u'that list of field names should be in sync with this'),
         required=True)
 
     def _pj_get_column_fields():
-        """Get Column Fields as a mapping from name to value."""
+        """Get Column Fields values as a mapping from name to value."""

@@ -201,6 +201,10 @@ class PJContainer(contained.Contained,
         datafld = sb.Field(self._pj_table, self._pj_data_column)
         if self._pj_mapping_key is not None:
             if self._pj_mapping_key not in self._pj_column_fields:
+                # if `_pj_mapping_key` is a JSONB field make sure that it
+                # exists, JGET returns jsonb which is never NULL
+                # if `_pj_mapping_key` is a native column, you need to make
+                # sure that it exists
                 queries.append(
                     sb.JSONB_CONTAINS(datafld, self._pj_mapping_key))
         # We also make want to make sure we separate the items properly by the

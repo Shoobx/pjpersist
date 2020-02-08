@@ -87,8 +87,6 @@ def select(conn, query, print_sql=False, **kwargs):
 def doctest_datetime_range():
     """Test datetime serialization vs. SQL range query
 
-    >> dumpTable('ser')
-
     >>> datafld = sb.Field('ser', 'data')
     >>> select(conn, sb.JGET(datafld, 'dtime') == pjvalue(DTIMES[10]), True)
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) = ('{"_py_type": "datetime.datetime", "value": "1936-12-16T10:38:00.000000"}'::jsonb))
