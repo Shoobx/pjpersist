@@ -1721,12 +1721,6 @@ import zope.schema
 from pjpersist.persistent import SimpleColumnSerialization, select_fields
 
 
-class ColumnPeople(container.AllItemsPJContainer):
-    _pj_mapping_key = 'name'
-    _p_pj_table = 'people'
-    _pj_table = 'cperson'
-
-
 class IPerson(zope.interface.Interface):
     name = zope.schema.TextLine(title=u'Name')
     address = zope.schema.TextLine(title=u'Address')
@@ -1734,10 +1728,20 @@ class IPerson(zope.interface.Interface):
     phone = zope.schema.TextLine(title=u'Phone')
 
 
+class ColumnPeople(container.AllItemsPJContainer):
+    _pj_mapping_key = 'name'
+    _p_pj_table = 'people'
+    _pj_table = 'cperson'
+
+    _pj_column_fields = container.AllItemsPJContainer._pj_column_fields + (
+        'name',)
+
+
 @zope.interface.implementer(IPerson)
 class ColumnPerson(SimpleColumnSerialization, container.PJContained,
                    persistent.Persistent):
     _p_pj_table = 'cperson'
+
     _pj_column_fields = select_fields(IPerson, 'name')
 
     def __init__(self, name, phone=None, address=None, friends=None,
@@ -1868,16 +1872,26 @@ def doctest_PJContainer_get_sb_fields():
       ...     for r in res:
       ...           print(r.__sqlrepr__('postgres'))
 
+    Native column
+
       >>> printit(c._get_sb_fields(('name',)))
-      ((cperson.data) -> ('name')) AS name
+      cperson.name AS name
 
-      >>> printit(c._get_sb_fields(('id', 'name',)))
-      cperson.id AS id
-      ((cperson.data) -> ('name')) AS name
+    Simple first level JSONB field
 
-      >>> printit(c._get_sb_fields(('id', 'name', 'metadata.number')))
+      >>> printit(c._get_sb_fields(('visited',)))
+      ((cperson.data) -> ('visited')) AS visited
+
+    A combination
+
+      >>> printit(c._get_sb_fields(('id', 'visited',)))
       cperson.id AS id
-      ((cperson.data) -> ('name')) AS name
+      ((cperson.data) -> ('visited')) AS visited
+
+    Supports any depth of a JSONB structure
+
+      >>> printit(c._get_sb_fields(('id', 'metadata.number')))
+      cperson.id AS id
       ((cperson.data) #> (array['metadata', 'number'])) AS metadata_number
 
     """

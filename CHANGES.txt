@@ -6,7 +6,8 @@ CHANGES
 1.7.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Optimization: do not dig in `data` when we have a native field for
+  `_pj_mapping_key`, should allow creating indexes for lookup
 
 
 1.7.1 (2019-06-19)
