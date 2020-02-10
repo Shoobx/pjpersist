@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.7.2 (unreleased)
+1.7.2 (2020-02-10)
 ------------------
 
 - Optimization: do not dig in `data` when we have a native field for
