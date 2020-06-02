@@ -36,7 +36,7 @@ TESTS_REQUIRE = [
 
 setup(
     name='pjpersist',
-    version='1.7.3.dev0',
+    version='2.0.0.dev0',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',
@@ -44,7 +44,7 @@ setup(
     long_description=(
         read('src', 'pjpersist', 'README.txt')
         + '\n\n' +
-        read('CHANGES.txt')
+        read('CHANGES.rst')
     ),
     license="ZPL 2.1",
     keywords="postgres jsonb persistent",

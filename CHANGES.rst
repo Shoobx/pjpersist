@@ -3,10 +3,18 @@ CHANGES
 =======
 
 
-1.7.3 (unreleased)
+2.0.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Drop Python 2.7 and 3.6 support, add 3.8.
+
+- Remove buildout support.
+
+- Support for nested flushing. In complex use cases it can happen that during
+  serialization of an object, a query is made to look up another obejct. Taht
+  in turn causes a flush, resulting in a flush inside a flush. The `flush()`
+  method did not expect that behavior and fialed if the inner flush would
+  flush objects that the outer flush had already handled.
 
 
 1.7.2 (2020-02-10)
