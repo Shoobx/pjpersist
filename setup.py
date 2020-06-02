@@ -58,7 +58,8 @@ setup(
         'Framework :: ZODB',
         'License :: OSI Approved :: Zope Public License',
         'Natural Language :: English',
-        'Operating System :: OS Independent'],
+        'Operating System :: OS Independent',
+    ],
     packages=find_packages('src'),
     package_dir={'': 'src'},
     data_files=[('pjpersist', ['README.rst'])],  # in order to test it with tox
