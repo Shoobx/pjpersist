@@ -13,18 +13,15 @@
 #
 ##############################################################################
 """PG/JSONB Persistence Interfaces"""
-from __future__ import absolute_import
 import datetime
 import decimal
 import persistent.interfaces
-import six
 import transaction.interfaces
 import types
 import zope.interface
 import zope.schema
 
-PJ_NATIVE_TYPES = six.integer_types + (
-    bool, float, six.text_type, type(None))
+PJ_NATIVE_TYPES = (int, bool, float, str, type(None))
 
 REFERENCE_SAFE_TYPES = (
     datetime.datetime, datetime.date, datetime.time, decimal.Decimal)
@@ -222,17 +219,17 @@ class IColumnSerialization(zope.interface.Interface):
     """
 
     _pj_column_fields = zope.schema.Tuple(
-        title=u'Column Fields',
+        title='Column Fields',
         description=(
-            u'A list of zope.schema fields that represent columns '
-            u'in the storage table. Fields cannot be named `id` or '
-            u'`data` as those attributes are reserved.'
-            u''
-            u'The fields are used to '
-            u'- auto create the SQL table '
-            u'- populate native SQL column values by `_pj_get_column_fields` '
-            u'see also pjpersist.zope.container.PJContainer._pj_column_fields'
-            u'that list of field names should be in sync with this'),
+            'A list of zope.schema fields that represent columns '
+            'in the storage table. Fields cannot be named `id` or '
+            '`data` as those attributes are reserved.'
+            ''
+            'The fields are used to '
+            '- auto create the SQL table '
+            '- populate native SQL column values by `_pj_get_column_fields` '
+            'see also pjpersist.zope.container.PJContainer._pj_column_fields'
+            'that list of field names should be in sync with this'),
         required=True)
 
     def _pj_get_column_fields():

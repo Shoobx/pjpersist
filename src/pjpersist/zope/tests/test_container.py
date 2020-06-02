@@ -13,7 +13,6 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistence Zope Containers Tests"""
-from __future__ import print_function
 import doctest
 import unittest
 
@@ -275,63 +274,63 @@ def doctest_SimplePJContainer_basic():
       >>> dm.root['c'] = container.SimplePJContainer()
 
       >>> dumpTable(cn)
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.container.SimplePJContainer',
-                 u'data': {}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.container.SimplePJContainer',
+                 'data': {}},
+        'id': '0001020304050607080a0b0c0'}]
 
     As you can see, the serialization is very clean. Next we add a person.
 
-      >>> dm.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+      >>> dm.root['c']['stephan'] = SimplePerson('Stephan')
       ContainerModifiedEvent: <...SimplePJContainer ...>
       >>> list(dm.root['c'].keys())
-      [u'stephan']
-      >>> dm.root['c'][u'stephan']
+      ['stephan']
+      >>> dm.root['c']['stephan']
       <SimplePerson Stephan>
 
       >>> dm.root['c']['stephan'].__parent__.__class__
       <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> dm.root['c']['stephan'].__name__
-      u'stephan'
+      'stephan'
 
     You can also access objects using the ``get()`` method of course:
 
-      >>> stephan = dm.root['c'].get(u'stephan')
+      >>> stephan = dm.root['c'].get('stephan')
       >>> stephan.__parent__.__class__
       <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> stephan.__name__
-      u'stephan'
+      'stephan'
 
     Let's commit and access the data again:
 
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data': {u'__name__': u'stephan',
-                 u'__parent__': {u'_py_type': u'DBREF',
-                                 u'database': u'pjpersist_test',
-                                 u'id': u'0001020304050607080a0b0c0',
-                                 u'table': u'pjpersist_dot_zope_dot_container_dot_SimplePJContainer'},
-                 u'_py_persistent_type': u'pjpersist.zope.tests.test_container.SimplePerson',
-                 u'name': u'Stephan'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'__name__': 'stephan',
+                 '__parent__': {'_py_type': 'DBREF',
+                                 'database': 'pjpersist_test',
+                                 'id': '0001020304050607080a0b0c0',
+                                 'table': 'pjpersist_dot_zope_dot_container_dot_SimplePJContainer'},
+                 '_py_persistent_type': 'pjpersist.zope.tests.test_container.SimplePerson',
+                 'name': 'Stephan'},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> list(dm.root['c'].keys())
-      [u'stephan']
+      ['stephan']
       >>> dm.root['c']['stephan'].__parent__.__class__
       <class 'pjpersist.zope.container.SimplePJContainer'>
       >>> dm.root['c']['stephan'].__name__
-      u'stephan'
+      'stephan'
 
       >>> dumpTable(cn)
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.container.SimplePJContainer',
-                 u'data': {u'stephan': {u'_py_type': u'DBREF',
-                                        u'database': u'pjpersist_test',
-                                        u'id': u'0001020304050607080a0b0c0',
-                                        u'table': u'person'}}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.container.SimplePJContainer',
+                 'data': {'stephan': {'_py_type': 'DBREF',
+                                        'database': 'pjpersist_test',
+                                        'id': '0001020304050607080a0b0c0',
+                                        'table': 'person'}}},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> list(dm.root['c'].items())
-      [(u'stephan', <SimplePerson Stephan>)]
+      [('stephan', <SimplePerson Stephan>)]
 
       >>> list(dm.root['c'].values())
       [<SimplePerson Stephan>]
@@ -363,15 +362,15 @@ def doctest_SimplePJContainer_basic():
 
     Check adding of more objects:
 
-      >>> dm.root['c'][u'roy'] = SimplePerson(u'Roy')
+      >>> dm.root['c']['roy'] = SimplePerson('Roy')
       ContainerModifiedEvent: <...SimplePJContainer ...>
-      >>> dm.root['c'][u'adam'] = SimplePerson(u'Adam')
+      >>> dm.root['c']['adam'] = SimplePerson('Adam')
       ContainerModifiedEvent: <...SimplePJContainer ...>
-      >>> dm.root['c'][u'marius'] = SimplePerson(u'Marius')
+      >>> dm.root['c']['marius'] = SimplePerson('Marius')
       ContainerModifiedEvent: <...SimplePJContainer ...>
 
       >>> sorted(dm.root['c'].keys())
-      [u'adam', u'marius', u'roy']
+      ['adam', 'marius', 'roy']
 
     """
 
@@ -388,24 +387,24 @@ def doctest_PJContainer_basic():
       >>> dm.root['c'] = container.PJContainer('person')
 
       >>> dumpTable('pjpersist_dot_zope_dot_container_dot_PJContainer')
-      [{'data': {u'_pj_table': u'person',
-                 u'_py_persistent_type': u'pjpersist.zope.container.PJContainer'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_pj_table': 'person',
+                 '_py_persistent_type': 'pjpersist.zope.container.PJContainer'},
+        'id': '0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class.
 
-      >>> dm.root['c'][u'stephan'] = Person(u'Stephan')
+      >>> dm.root['c']['stephan'] = Person('Stephan')
       ContainerModifiedEvent: <...PJContainer ...>
       >>> list(dm.root['c'].keys())
-      [u'stephan']
-      >>> dm.root['c'][u'stephan']
+      ['stephan']
+      >>> dm.root['c']['stephan']
       <Person Stephan>
 
       >>> dm.root['c']['stephan'].__parent__.__class__
       <class 'pjpersist.zope.container.PJContainer'>
       >>> dm.root['c']['stephan'].__name__
-      u'stephan'
+      'stephan'
 
     It is a feature of the container that the item is immediately available
     after assignment, but before the data is stored in the database. Let's
@@ -414,23 +413,23 @@ def doctest_PJContainer_basic():
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-                 u'key': u'stephan',
-                 u'name': u'Stephan',
-                 u'parent': {u'_py_type': u'DBREF',
-                             u'database': u'pjpersist_test',
-                             u'id': u'0001020304050607080a0b0c0',
-                             u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+                 'key': 'stephan',
+                 'name': 'Stephan',
+                 'parent': {'_py_type': 'DBREF',
+                             'database': 'pjpersist_test',
+                             'id': '0001020304050607080a0b0c0',
+                             'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> 'stephan' in dm.root['c']
       True
       >>> list(dm.root['c'].keys())
-      [u'stephan']
+      ['stephan']
       >>> dm.root['c']['stephan'].__parent__.__class__
       <class 'pjpersist.zope.container.PJContainer'>
       >>> dm.root['c']['stephan'].__name__
-      u'stephan'
+      'stephan'
 
     We get a usual key error, if an object does not exist:
 
@@ -464,15 +463,15 @@ def doctest_PJContainer_basic():
 
     Check adding of more objects:
 
-      >>> dm.root['c'][u'roy'] = SimplePerson(u'Roy')
+      >>> dm.root['c']['roy'] = SimplePerson('Roy')
       ContainerModifiedEvent: <...PJContainer ...>
-      >>> dm.root['c'][u'adam'] = SimplePerson(u'Adam')
+      >>> dm.root['c']['adam'] = SimplePerson('Adam')
       ContainerModifiedEvent: <...PJContainer ...>
-      >>> dm.root['c'][u'marius'] = SimplePerson(u'Marius')
+      >>> dm.root['c']['marius'] = SimplePerson('Marius')
       ContainerModifiedEvent: <...PJContainer ...>
 
       >>> sorted(dm.root['c'].keys())
-      [u'adam', u'marius', u'roy']
+      ['adam', 'marius', 'roy']
     """
 
 def doctest_PJContainer_constructor():
@@ -537,20 +536,20 @@ def doctest_PJContainer_many_items():
     Let's create an interesting set of data:
 
       >>> dm.root['people'] = container.PJContainer('person')
-      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
-      >>> dm.root['people'][u'roy'] = Person(u'Roy')
-      >>> dm.root['people'][u'roger'] = Person(u'Roger')
-      >>> dm.root['people'][u'adam'] = Person(u'Adam')
-      >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
-      >>> dm.root['people'][u'russ'] = Person(u'Russ')
+      >>> dm.root['people']['stephan'] = Person('Stephan')
+      >>> dm.root['people']['roy'] = Person('Roy')
+      >>> dm.root['people']['roger'] = Person('Roger')
+      >>> dm.root['people']['adam'] = Person('Adam')
+      >>> dm.root['people']['albertas'] = Person('Albertas')
+      >>> dm.root['people']['russ'] = Person('Russ')
 
     Let's now search and receive documents as result:
 
       >>> sorted(dm.root['people'].keys())
-      [u'adam', u'albertas', u'roger', u'roy', u'russ', u'stephan']
-      >>> dm.root['people'][u'stephan']
+      ['adam', 'albertas', 'roger', 'roy', 'russ', 'stephan']
+      >>> dm.root['people']['stephan']
       <Person Stephan>
-      >>> dm.root['people'][u'adam']
+      >>> dm.root['people']['adam']
       <Person Adam>
 """
 
@@ -561,12 +560,12 @@ def doctest_PJContainer_setitem_with_no_key_PJContainer():
 
       >>> dm.root['people'] = container.PJContainer(
       ...     'person', mapping_key='name')
-      >>> dm.root['people'][None] = Person(u'Stephan')
+      >>> dm.root['people'][None] = Person('Stephan')
 
     Let's now search and receive documents as result:
 
       >>> sorted(dm.root['people'].keys())
-      [u'...']
+      ['...']
       >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
@@ -578,12 +577,12 @@ def doctest_PJContainer_setitem_with_no_key_IdNamesPJContainer():
     Whenever an item is added with no key, the OID is used.
 
       >>> dm.root['people'] = container.IdNamesPJContainer('person')
-      >>> dm.root['people'][None] = Person(u'Stephan')
+      >>> dm.root['people'][None] = Person('Stephan')
 
     Let's now search and receive documents as result:
 
       >>> sorted(dm.root['people'].keys())
-      [u'...']
+      ['...']
       >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
@@ -598,12 +597,12 @@ def doctest_PJContainer_add_PJContainer():
 
       >>> dm.root['people'] = container.PJContainer(
       ...     'person', mapping_key='name')
-      >>> dm.root['people'].add(Person(u'Stephan'))
+      >>> dm.root['people'].add(Person('Stephan'))
 
     Let's now search and receive documents as result:
 
       >>> sorted(dm.root['people'].keys())
-      [u'...']
+      ['...']
       >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan.name)
       True
@@ -617,12 +616,12 @@ def doctest_PJContainer_add_IdNamesPJContainer():
     implementation assigns the OID as name:
 
       >>> dm.root['people'] = container.IdNamesPJContainer('person')
-      >>> dm.root['people'].add(Person(u'Stephan'))
+      >>> dm.root['people'].add(Person('Stephan'))
 
     Let's now search and receive documents as result:
 
       >>> sorted(dm.root['people'].keys())
-      [u'...']
+      ['...']
       >>> stephan = list(dm.root['people'].values())[0]
       >>> stephan.__name__ == str(stephan._p_oid.id)
       True
@@ -694,8 +693,8 @@ def doctest_PJContainer_bool():
       >>> bool(dm.root['people'])
       False
 
-      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
-      >>> dm.root['people'][u'roy'] = Person(u'Roy')
+      >>> dm.root['people']['stephan'] = Person('Stephan')
+      >>> dm.root['people']['roy'] = Person('Roy')
 
   Enable query statistics and make sure we issue COUNT(*) query instead of
   fetching all the data from the table.
@@ -717,8 +716,8 @@ def doctest_PJContainer_values():
     We have a container with several items in it
 
       >>> dm.root['people'] = container.PJContainer('person')
-      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
-      >>> dm.root['people'][u'roy'] = Person(u'Roy')
+      >>> dm.root['people']['stephan'] = Person('Stephan')
+      >>> dm.root['people']['roy'] = Person('Roy')
 
     To count the queries, enable query statistics
 
@@ -751,12 +750,12 @@ def doctest_PJContainer_find():
     Let's create an interesting set of data:
 
       >>> dm.root['people'] = container.PJContainer('person')
-      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
-      >>> dm.root['people'][u'roy'] = Person(u'Roy')
-      >>> dm.root['people'][u'roger'] = Person(u'Roger')
-      >>> dm.root['people'][u'adam'] = Person(u'Adam')
-      >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
-      >>> dm.root['people'][u'russ'] = Person(u'Russ')
+      >>> dm.root['people']['stephan'] = Person('Stephan')
+      >>> dm.root['people']['roy'] = Person('Roy')
+      >>> dm.root['people']['roger'] = Person('Roger')
+      >>> dm.root['people']['adam'] = Person('Adam')
+      >>> dm.root['people']['albertas'] = Person('Albertas')
+      >>> dm.root['people']['russ'] = Person('Russ')
 
     Let's now search and receive documents as result:
 
@@ -771,22 +770,22 @@ def doctest_PJContainer_find():
 
       >>> res = dm.root['people'].raw_find(qry)
       >>> pprint(list(res))
-      [[u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'roy',
-         u'name': u'Roy',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'roger',
-         u'name': u'Roger',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
+      [['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'roy',
+         'name': 'Roy',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'roger',
+         'name': 'Roger',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
 
     And now the same query, but this time with object results:
 
@@ -806,65 +805,65 @@ def doctest_PJContainer_find():
 
       >>> res = dm.root['people'].raw_find(orderBy=["(data->'name')"])
       >>> pprint(list(res))
-      [[u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'adam',
-         u'name': u'Adam',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'albertas',
-         u'name': u'Albertas',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'roger',
-         u'name': u'Roger',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'roy',
-         u'name': u'Roy',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'russ',
-         u'name': u'Russ',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
-       [u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'stephan',
-         u'name': u'Stephan',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
+      [['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'adam',
+         'name': 'Adam',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'albertas',
+         'name': 'Albertas',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'roger',
+         'name': 'Roger',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'roy',
+         'name': 'Roy',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'russ',
+         'name': 'Russ',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}],
+       ['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'stephan',
+         'name': 'Stephan',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
 
       >>> res = dm.root['people'].raw_find(orderBy=["(data->'name') DESC"], limit=1)
       >>> pprint(list(res))
-      [[u'0001020304050607080a0b0c0',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-         u'key': u'stephan',
-         u'name': u'Stephan',
-         u'parent': {u'_py_type': u'DBREF',
-                     u'database': u'pjpersist_test',
-                     u'id': u'0001020304050607080a0b0c0',
-                     u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
+      [['0001020304050607080a0b0c0',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+         'key': 'stephan',
+         'name': 'Stephan',
+         'parent': {'_py_type': 'DBREF',
+                     'database': 'pjpersist_test',
+                     'id': '0001020304050607080a0b0c0',
+                     'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]]
 
 
       >>> res = dm.root['people'].find(orderBy=["(data->'name')"])
@@ -886,14 +885,14 @@ def doctest_PJContainer_find():
       >>> qry2 = fld.startswith('St')
       >>> res = dm.root['people'].raw_find_one(qry2)
       >>> pprint(res)
-      [u'0001020304050607080a0b0c0',
-       {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-        u'key': u'stephan',
-        u'name': u'Stephan',
-        u'parent': {u'_py_type': u'DBREF',
-                    u'database': u'pjpersist_test',
-                    u'id': u'0001020304050607080a0b0c0',
-                    u'table': u'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]
+      ['0001020304050607080a0b0c0',
+       {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+        'key': 'stephan',
+        'name': 'Stephan',
+        'parent': {'_py_type': 'DBREF',
+                    'database': 'pjpersist_test',
+                    'id': '0001020304050607080a0b0c0',
+                    'table': 'pjpersist_dot_zope_dot_container_dot_PJContainer'}}]
 
       >>> stephan = dm.root['people'].find_one(qry2)
       >>> pprint(stephan)
@@ -927,12 +926,12 @@ def doctest_PJ_Container_count():
       >>> int(dm.root['people'].count())
       0
 
-      >>> dm.root['people'][u'stephan'] = Person(u'Stephan')
-      >>> dm.root['people'][u'roy'] = Person(u'Roy')
-      >>> dm.root['people'][u'roger'] = Person(u'Roger')
-      >>> dm.root['people'][u'adam'] = Person(u'Adam')
-      >>> dm.root['people'][u'albertas'] = Person(u'Albertas')
-      >>> dm.root['people'][u'russ'] = Person(u'Russ')
+      >>> dm.root['people']['stephan'] = Person('Stephan')
+      >>> dm.root['people']['roy'] = Person('Roy')
+      >>> dm.root['people']['roger'] = Person('Roger')
+      >>> dm.root['people']['adam'] = Person('Adam')
+      >>> dm.root['people']['albertas'] = Person('Albertas')
+      >>> dm.root['people']['russ'] = Person('Russ')
       >>> int(dm.root['people'].count())
       6
 
@@ -951,12 +950,12 @@ def doctest_PJContainer_cache_complete():
     Let's add a bunch of objects:
 
       >>> ppl = dm.root['people'] = container.PJContainer('person')
-      >>> ppl[u'stephan'] = Person(u'Stephan')
-      >>> ppl[u'roy'] = Person(u'Roy')
-      >>> ppl[u'roger'] = Person(u'Roger')
-      >>> ppl[u'adam'] = Person(u'Adam')
-      >>> ppl[u'albertas'] = Person(u'Albertas')
-      >>> ppl[u'russ'] = Person(u'Russ')
+      >>> ppl['stephan'] = Person('Stephan')
+      >>> ppl['roy'] = Person('Roy')
+      >>> ppl['roger'] = Person('Roger')
+      >>> ppl['adam'] = Person('Adam')
+      >>> ppl['albertas'] = Person('Albertas')
+      >>> ppl['russ'] = Person('Russ')
 
     Clean the cache on the transaction:
 
@@ -1050,7 +1049,7 @@ def doctest_PJContainer_cache_events():
 
     Add a single object
 
-      >>> ppl[u'stephan'] = Person(u'Stephan')
+      >>> ppl['stephan'] = Person('Stephan')
       container length: 1
 
     DELETE
@@ -1113,7 +1112,7 @@ def doctest_IdNamesPJContainer_cache_events():
       >>> len(ppl)
       0
 
-      >>> ppl.add(Person(u'Stephan'))
+      >>> ppl.add(Person('Stephan'))
       container length: 1
 
     DELETE
@@ -1155,10 +1154,10 @@ def doctest_IdNamesPJContainer_basic():
 
     Let's now add a new person:
 
-      >>> dm.root['c'].add(Person(u'Stephan'))
+      >>> dm.root['c'].add(Person('Stephan'))
       >>> keys = list(dm.root['c'].keys())
       >>> keys
-      [u'0001020304050607080a0b0c0']
+      ['0001020304050607080a0b0c0']
       >>> name = keys[0]
       >>> dm.root['c'][name]
       <Person Stephan>
@@ -1169,7 +1168,7 @@ def doctest_IdNamesPJContainer_basic():
       >>> dm.root['c'][name].__parent__.__class__
       <class 'pjpersist.zope.container.IdNamesPJContainer'>
       >>> dm.root['c'][name].__name__
-      u'0001020304050607080a0b0c0'
+      '0001020304050607080a0b0c0'
 
     It is a feature of the container that the item is immediately available
     after assignment, but before the data is stored in the database. Let's
@@ -1178,13 +1177,13 @@ def doctest_IdNamesPJContainer_basic():
       >>> transaction.commit()
 
       >>> dumpTable('person')
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-                 u'name': u'Stephan',
-                 u'parent': {u'_py_type': u'DBREF',
-                             u'database': u'pjpersist_test',
-                             u'id': u'0001020304050607080a0b0c0',
-                             u'table': u'pjpersist_dot_zope_dot_container_dot_IdNamesPJContainer'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+                 'name': 'Stephan',
+                 'parent': {'_py_type': 'DBREF',
+                             'database': 'pjpersist_test',
+                             'id': '0001020304050607080a0b0c0',
+                             'table': 'pjpersist_dot_zope_dot_container_dot_IdNamesPJContainer'}},
+        'id': '0001020304050607080a0b0c0'}]
 
     Notice how there is no "key" entry in the document. We get a usual key
     error, if an object does not exist:
@@ -1219,7 +1218,7 @@ def doctest_IdNamesPJContainer_basic():
       >>> dm.root['c'][name]
       Traceback (most recent call last):
       ...
-      KeyError: u'0001020304050607080a0b0c0'
+      KeyError: '0001020304050607080a0b0c0'
 
     Make sure it is really gone after committing:
 
@@ -1234,22 +1233,22 @@ def doctest_load_one_ignore_cache():
     Let's add some objects:
 
       >>> dm.root['people'] = people = People()
-      >>> people[None] = roy = Person(u'Roy')
+      >>> people[None] = roy = Person('Roy')
 
       >>> people[roy.__name__] == roy
       True
 
-      >>> people._load_one(roy.__name__, {'name': u'Roy'}) is roy
+      >>> people._load_one(roy.__name__, {'name': 'Roy'}) is roy
       True
 
       >>> stephan = people._load_one(
       ...     roy.__name__,
       ...     {'_py_persistent_type':
       ...          'pjpersist.zope.tests.test_container.Person',
-      ...      'name': u'Stephan'},
+      ...      'name': 'Stephan'},
       ...     use_cache=False)
       >>> stephan.name
-      u'Stephan'
+      'Stephan'
     """
 
 def doctest_AllItemsPJContainer_basic():
@@ -1262,25 +1261,25 @@ def doctest_AllItemsPJContainer_basic():
     purposes:
 
       >>> dm.root['friends'] = container.PJContainer('person')
-      >>> dm.root['friends'][u'roy'] = Person(u'Roy')
-      >>> dm.root['friends'][u'roger'] = Person(u'Roger')
+      >>> dm.root['friends']['roy'] = Person('Roy')
+      >>> dm.root['friends']['roger'] = Person('Roger')
 
       >>> dm.root['family'] = container.PJContainer('person')
-      >>> dm.root['family'][u'anton'] = Person(u'Anton')
-      >>> dm.root['family'][u'konrad'] = Person(u'Konrad')
+      >>> dm.root['family']['anton'] = Person('Anton')
+      >>> dm.root['family']['konrad'] = Person('Konrad')
 
       >>> transaction.commit()
       >>> sorted(dm.root['friends'].keys())
-      [u'roger', u'roy']
+      ['roger', 'roy']
       >>> sorted(dm.root['family'].keys())
-      [u'anton', u'konrad']
+      ['anton', 'konrad']
 
     Now we can create an all-items-container that allows us to view all
     people.
 
       >>> dm.root['all-people'] = container.AllItemsPJContainer('person')
       >>> sorted(dm.root['all-people'].keys())
-      [u'anton', u'konrad', u'roger', u'roy']
+      ['anton', 'konrad', 'roger', 'roy']
     """
 
 def doctest_SubDocumentPJContainer_basic():
@@ -1305,11 +1304,11 @@ def doctest_SubDocumentPJContainer_basic():
       >>> transaction.commit()
       >>> dumpTable('root')
       [{'data':
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ApplicationRoot',
-         u'data':
-           {u'people': {u'_pj_table': u'person',
-                        u'_py_persistent_type': u'pjpersist.zope.container.SubDocumentPJContainer'}}},
-        'id': u'0001020304050607080a0b0c0'}]
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.ApplicationRoot',
+         'data':
+           {'people': {'_pj_table': 'person',
+                        '_py_persistent_type': 'pjpersist.zope.container.SubDocumentPJContainer'}}},
+        'id': '0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class. Let's make sure the container can be loaded
@@ -1324,16 +1323,16 @@ def doctest_SubDocumentPJContainer_basic():
 
     Let's add an item to the container:
 
-      >>> dm.root['app_root']['people'][u'stephan'] = Person(u'Stephan')
+      >>> dm.root['app_root']['people']['stephan'] = Person('Stephan')
       ContainerModifiedEvent: <...SubDocumentPJContainer ...>
       >>> list(dm.root['app_root']['people'].keys())
-      [u'stephan']
-      >>> dm.root['app_root']['people'][u'stephan']
+      ['stephan']
+      >>> dm.root['app_root']['people']['stephan']
       <Person Stephan>
 
       >>> transaction.commit()
       >>> list(dm.root['app_root']['people'].keys())
-      [u'stephan']
+      ['stephan']
     """
 
 def doctest_PJContainer_with_ZODB():
@@ -1362,24 +1361,24 @@ def doctest_PJContainer_with_ZODB():
 
     Next we create a person object and make sure it gets properly persisted.
 
-      >>> root['app']['people']['stephan'] = Person(u'Stephan')
+      >>> root['app']['people']['stephan'] = Person('Stephan')
       >>> transaction.commit()
       >>> root = zodb.open().root()
       >>> list(root['app']['people'].keys())
-      [u'stephan']
+      ['stephan']
 
       >>> stephan = root['app']['people']['stephan']
       >>> stephan.__name__
-      u'stephan'
+      'stephan'
       >>> stephan.__parent__.__class__
       <class 'pjpersist.zope.container.PJContainer'>
 
       >>> dumpTable('person')
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Person',
-                 u'key': u'stephan',
-                 u'name': u'Stephan',
-                 u'parent': u'zodb-01af3b00c5'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Person',
+                 'key': 'stephan',
+                 'name': 'Stephan',
+                 'parent': 'zodb-01af3b00c5'},
+        'id': '0001020304050607080a0b0c0'}]
 
     Note that we produced a nice hex-presentation of the ZODB's OID.
     """
@@ -1442,24 +1441,24 @@ def doctest_Realworldish():
 
       >>> dumpTable(
       ...     'pjpersist_dot_zope_dot_tests_dot_test_container_dot_Campaigns')
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Campaigns',
-                 u'name': u'foobar'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Campaigns',
+                 'name': 'foobar'},
+        'id': '0001020304050607080a0b0c0'}]
 
     It is unfortunate that the '_pj_table' attribute is set. This is
     avoidable using a sub-class.
 
-      >>> dm.root['c'][u'one'] = Campaign(u'one')
+      >>> dm.root['c']['one'] = Campaign('one')
       ContainerModifiedEvent: <...Campaigns ...>
       >>> list(dm.root['c'].keys())
-      [u'one']
-      >>> dm.root['c'][u'one']
+      ['one']
+      >>> dm.root['c']['one']
       <Campaign one>
 
       >>> dm.root['c']['one'].__parent__
       <Campaigns foobar>
       >>> dm.root['c']['one'].__name__
-      u'one'
+      'one'
 
     It is a feature of the container that the item is immediately available
     after assignment, but before the data is stored in the database. Let's
@@ -1468,23 +1467,23 @@ def doctest_Realworldish():
       >>> transaction.commit()
 
       >>> dumpTable(Campaigns._pj_table)
-      [{'data': {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.Campaign',
-                 u'key': u'one',
-                 u'name': u'one',
-                 u'parent': {u'_py_type': u'DBREF',
-                             u'database': u'pjpersist_test',
-                             u'id': u'0001020304050607080a0b0c0',
-                             u'table': u'pjpersist_dot_zope_dot_tests_dot_test_container_dot_Campaigns'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.zope.tests.test_container.Campaign',
+                 'key': 'one',
+                 'name': 'one',
+                 'parent': {'_py_type': 'DBREF',
+                             'database': 'pjpersist_test',
+                             'id': '0001020304050607080a0b0c0',
+                             'table': 'pjpersist_dot_zope_dot_tests_dot_test_container_dot_Campaigns'}},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> 'one' in dm.root['c']
       True
       >>> list(dm.root['c'].keys())
-      [u'one']
+      ['one']
       >>> dm.root['c']['one'].__parent__
       <Campaigns foobar>
       >>> dm.root['c']['one'].__name__
-      u'one'
+      'one'
 
     We get a usual key error, if an object does not exist:
 
@@ -1518,15 +1517,15 @@ def doctest_Realworldish():
 
     Check adding of more objects:
 
-      >>> dm.root['c'][u'1'] = c1 = Campaign(u'One')
+      >>> dm.root['c']['1'] = c1 = Campaign('One')
       ContainerModifiedEvent: <...Campaigns ...>
-      >>> dm.root['c'][u'2'] = c2 = Campaign(u'Two')
+      >>> dm.root['c']['2'] = c2 = Campaign('Two')
       ContainerModifiedEvent: <...Campaigns ...>
-      >>> dm.root['c'][u'3'] = Campaign(u'Three')
+      >>> dm.root['c']['3'] = Campaign('Three')
       ContainerModifiedEvent: <...Campaigns ...>
 
       >>> sorted(dm.root['c'].keys())
-      [u'1', u'2', u'3']
+      ['1', '2', '3']
 
     Check adding of more subitems:
 
@@ -1536,15 +1535,15 @@ def doctest_Realworldish():
       ContainerModifiedEvent: <Campaign One>
 
       >>> sorted(c1.keys())
-      [u'roy', u'stephan']
+      ['roy', 'stephan']
 
       >>> adam = c2['adam'] = PersonItem('Adam')
       ContainerModifiedEvent: <Campaign Two>
 
       >>> sorted(c1.keys())
-      [u'roy', u'stephan']
+      ['roy', 'stephan']
       >>> sorted(c2.keys())
-      [u'adam']
+      ['adam']
 
     """
 
@@ -1628,7 +1627,7 @@ def doctest_firing_events_PJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'Mr Number 00000', u'Mr Number 00001']
+      ['Mr Number 00000', 'Mr Number 00001']
 
       >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
@@ -1640,7 +1639,7 @@ def doctest_firing_events_PJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011']
+      ['Mr Number 00000', 'Mr Number 00001', 'Mr Number 00010', 'Mr Number 00011']
 
       >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+20, )
@@ -1652,8 +1651,8 @@ def doctest_firing_events_PJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'Mr Number 00000', u'Mr Number 00001', u'Mr Number 00010', u'Mr Number 00011',
-       u'Mr Number 00020', u'Mr Number 00021']
+      ['Mr Number 00000', 'Mr Number 00001', 'Mr Number 00010', 'Mr Number 00011',
+       'Mr Number 00020', 'Mr Number 00021']
 
     """
 
@@ -1684,7 +1683,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
+      ['4e7ddf12e138237403000000', '4e7ddf12e138237403000000']
 
       >>> for idx in range(2):
       ...     name = 'Mr Number %.5i' % (idx+10, )
@@ -1696,7 +1695,7 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
+      ['4e7ddf12e138237403000000', '4e7ddf12e138237403000000', '4e7ddf12e138237403000000', '4e7ddf12e138237403000000']
 
     We can set custom keys as well, they will end up in mongo documents as _id
     attributes.
@@ -1711,9 +1710,9 @@ def doctest_firing_events_IdNamesPJContainer():
 
       >>> transaction.commit()
       >>> list(people.keys())
-      [u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000',
-      u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000',
-      u'4e7ddf12e138237403000000', u'4e7ddf12e138237403000000']
+      ['4e7ddf12e138237403000000', '4e7ddf12e138237403000000',
+      '4e7ddf12e138237403000000', '4e7ddf12e138237403000000',
+      '4e7ddf12e138237403000000', '4e7ddf12e138237403000000']
 
     """
 
@@ -1722,10 +1721,10 @@ from pjpersist.persistent import SimpleColumnSerialization, select_fields
 
 
 class IPerson(zope.interface.Interface):
-    name = zope.schema.TextLine(title=u'Name')
-    address = zope.schema.TextLine(title=u'Address')
-    visited = zope.schema.Datetime(title=u'Visited')
-    phone = zope.schema.TextLine(title=u'Phone')
+    name = zope.schema.TextLine(title='Name')
+    address = zope.schema.TextLine(title='Address')
+    visited = zope.schema.Datetime(title='Visited')
+    phone = zope.schema.TextLine(title='Phone')
 
 
 class ColumnPeople(container.AllItemsPJContainer):
@@ -1767,93 +1766,93 @@ def doctest_PJContainer_SimpleColumnSerialization():
       >>> import pjpersist.sqlbuilder as sb
 
       >>> table = ColumnPerson._p_pj_table
-      >>> dm._ensure_sql_columns(ColumnPerson(u'foo'), table)
+      >>> dm._ensure_sql_columns(ColumnPerson('foo'), table)
 
       >>> dm.root['people'] = people = ColumnPeople()
       >>> for idx in range(20):
-      ...     people[None] = ColumnPerson(u'Mr Number %.5i' %idx)
+      ...     people[None] = ColumnPerson('Mr Number %.5i' %idx)
 
       >> dumpTable('cperson')
 
-      >>> qry = sb.Field(table, 'name') == u'Mr Number 00010'
+      >>> qry = sb.Field(table, 'name') == 'Mr Number 00010'
       >>> list(people.find(qry))
       [<ColumnPerson Mr Number 00010>]
 
       >>> pprint(list(people.raw_find(qry)))
-      [[u'54894d3fb25d2b232e0046d6',
-        u'Mr Number 00010',
-        {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ColumnPerson',
-         u'address': None,
-         u'birthday': None,
-         u'friends': {},
-         u'name': u'Mr Number 00010',
-         u'phone': None,
-         u'visited': []}]]
+      [['54894d3fb25d2b232e0046d6',
+        'Mr Number 00010',
+        {'_py_persistent_type': 'pjpersist.zope.tests.test_container.ColumnPerson',
+         'address': None,
+         'birthday': None,
+         'friends': {},
+         'name': 'Mr Number 00010',
+         'phone': None,
+         'visited': []}]]
 
       >>> people.find_one(qry)
       <ColumnPerson Mr Number 00010>
 
       >>> pprint(people.raw_find_one(qry))
-      [u'54894d80b25d2b240f00bbf6',
-       u'Mr Number 00010',
-       {u'_py_persistent_type': u'pjpersist.zope.tests.test_container.ColumnPerson',
-        u'address': None,
-        u'birthday': None,
-        u'friends': {},
-        u'name': u'Mr Number 00010',
-        u'phone': None,
-        u'visited': []}]
+      ['54894d80b25d2b240f00bbf6',
+       'Mr Number 00010',
+       {'_py_persistent_type': 'pjpersist.zope.tests.test_container.ColumnPerson',
+        'address': None,
+        'birthday': None,
+        'friends': {},
+        'name': 'Mr Number 00010',
+        'phone': None,
+        'visited': []}]
 
-      >>> people[u'Mr Number 00007']
+      >>> people['Mr Number 00007']
       <ColumnPerson Mr Number 00007>
 
-      >>> del people[u'Mr Number 00007']
-      >>> people[u'Mr Number 00007']
+      >>> del people['Mr Number 00007']
+      >>> people['Mr Number 00007']
       Traceback (most recent call last):
       ...
-      KeyError: u'Mr Number 00007'
+      KeyError: 'Mr Number 00007'
 
       >>> pprint(list(people))
-      [u'Mr Number 00000',
-       u'Mr Number 00001',
-       u'Mr Number 00002',
-       u'Mr Number 00003',
-       u'Mr Number 00004',
-       u'Mr Number 00005',
-       u'Mr Number 00006',
-       u'Mr Number 00008',
-       u'Mr Number 00009',
-       u'Mr Number 00010',
-       u'Mr Number 00011',
-       u'Mr Number 00012',
-       u'Mr Number 00013',
-       u'Mr Number 00014',
-       u'Mr Number 00015',
-       u'Mr Number 00016',
-       u'Mr Number 00017',
-       u'Mr Number 00018',
-       u'Mr Number 00019']
+      ['Mr Number 00000',
+       'Mr Number 00001',
+       'Mr Number 00002',
+       'Mr Number 00003',
+       'Mr Number 00004',
+       'Mr Number 00005',
+       'Mr Number 00006',
+       'Mr Number 00008',
+       'Mr Number 00009',
+       'Mr Number 00010',
+       'Mr Number 00011',
+       'Mr Number 00012',
+       'Mr Number 00013',
+       'Mr Number 00014',
+       'Mr Number 00015',
+       'Mr Number 00016',
+       'Mr Number 00017',
+       'Mr Number 00018',
+       'Mr Number 00019']
 
       >>> pprint(list(people.keys()))
-      [u'Mr Number 00000',
-       u'Mr Number 00001',
-       u'Mr Number 00002',
-       u'Mr Number 00003',
-       u'Mr Number 00004',
-       u'Mr Number 00005',
-       u'Mr Number 00006',
-       u'Mr Number 00008',
-       u'Mr Number 00009',
-       u'Mr Number 00010',
-       u'Mr Number 00011',
-       u'Mr Number 00012',
-       u'Mr Number 00013',
-       u'Mr Number 00014',
-       u'Mr Number 00015',
-       u'Mr Number 00016',
-       u'Mr Number 00017',
-       u'Mr Number 00018',
-       u'Mr Number 00019']
+      ['Mr Number 00000',
+       'Mr Number 00001',
+       'Mr Number 00002',
+       'Mr Number 00003',
+       'Mr Number 00004',
+       'Mr Number 00005',
+       'Mr Number 00006',
+       'Mr Number 00008',
+       'Mr Number 00009',
+       'Mr Number 00010',
+       'Mr Number 00011',
+       'Mr Number 00012',
+       'Mr Number 00013',
+       'Mr Number 00014',
+       'Mr Number 00015',
+       'Mr Number 00016',
+       'Mr Number 00017',
+       'Mr Number 00018',
+       'Mr Number 00019']
     """
 
 
@@ -1909,12 +1908,12 @@ class ContainerConflictTest(testing.PJTestCase):
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
-        dm2.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+        dm2.root['c']['stephan'] = SimplePerson('Stephan')
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
 
-        dm1.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+        dm1.root['c']['stephan'] = SimplePerson('Stephan')
 
         #Finish in order 2 - 1
 
@@ -1936,12 +1935,12 @@ class ContainerConflictTest(testing.PJTestCase):
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
 
-        dm1.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+        dm1.root['c']['stephan'] = SimplePerson('Stephan')
 
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
-        dm2.root['c'][u'stephan'] = SimplePerson(u'Stephan')
+        dm2.root['c']['stephan'] = SimplePerson('Stephan')
 
         #Finish in order 1 - 2
         with self.assertRaises(interfaces.ConflictError):
@@ -1958,18 +1957,18 @@ class ContainerConflictTest(testing.PJTestCase):
 
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
-        self.dm.root['c'][u'roy'] = Person(u'Roy')
+        self.dm.root['c']['roy'] = Person('Roy')
         transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
-        dm2.root['c'][u'stephan'] = Person(u'Stephan')
+        dm2.root['c']['stephan'] = Person('Stephan')
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
 
-        dm1.root['c'][u'stephan'] = Person(u'Stephan')
+        dm1.root['c']['stephan'] = Person('Stephan')
 
         #Finish in order 2 - 1
         with self.assertRaises(interfaces.ConflictError):
@@ -1986,18 +1985,18 @@ class ContainerConflictTest(testing.PJTestCase):
 
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
-        self.dm.root['c'][u'roy'] = Person(u'Roy')
+        self.dm.root['c']['roy'] = Person('Roy')
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
         dm1 = datamanager.PJDataManager(conn1)
 
-        dm1.root['c'][u'stephan'] = Person(u'Stephan')
+        dm1.root['c']['stephan'] = Person('Stephan')
 
         conn2 = testing.getConnection(testing.DBNAME)
         dm2 = datamanager.PJDataManager(conn2)
 
-        dm2.root['c'][u'stephan'] = Person(u'Stephan')
+        dm2.root['c']['stephan'] = Person('Stephan')
 
         #Finish in order 1 - 2
         with self.assertRaises(interfaces.ConflictError):
@@ -2014,7 +2013,7 @@ class ContainerConflictTest(testing.PJTestCase):
 
         self.dm.root['c'] = container.PJContainer('person')
         # (auto-create the table)
-        self.dm.root['c'][u'roy'] = Person(u'Roy')
+        self.dm.root['c']['roy'] = Person('Roy')
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
@@ -2024,7 +2023,7 @@ class ContainerConflictTest(testing.PJTestCase):
         dm2 = datamanager.PJDataManager(conn2)
         dm2.createId = lambda: 'abcd'
 
-        dm1.root['c'][u'stephan1'] = Person(u'Stephan1')
+        dm1.root['c']['stephan1'] = Person('Stephan1')
 
         # pain: isolation would block inserting stephan2
         #       we have to commit dm1 first
@@ -2032,7 +2031,7 @@ class ContainerConflictTest(testing.PJTestCase):
 
         with self.assertRaises(psycopg2.IntegrityError):
             # XXX: this might need to be translated to ConflictError
-            dm2.root['c'][u'stephan2'] = Person(u'Stephan2')
+            dm2.root['c']['stephan2'] = Person('Stephan2')
 
         transaction.abort()
 
@@ -2127,7 +2126,7 @@ checker = renormalizing.RENormalizing([
      "'0001020304050607080a0b0c0'"),
     (re.compile(r"object at 0x[0-9a-f]*>"),
      "object at 0x001122>"),
-    (re.compile(r"u'zodb-[0-9a-f]+'"),
+    (re.compile(r"'zodb-[0-9a-f]+'"),
      "'zodb-01af3b00c5'"),
     (re.compile(r"zodb-[0-9a-f]+"),
      "zodb-01af3b00c5"),

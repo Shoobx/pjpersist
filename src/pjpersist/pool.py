@@ -12,7 +12,6 @@
 #
 ##############################################################################
 """Thread-aware PG/JSONB Connection Pool"""
-from __future__ import absolute_import
 import logging
 import threading
 import psycopg2

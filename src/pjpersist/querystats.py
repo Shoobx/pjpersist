@@ -13,8 +13,6 @@
 #
 ##############################################################################
 """Statistics on executed queries"""
-from __future__ import absolute_import
-
 import sys
 from collections import namedtuple
 

@@ -47,7 +47,7 @@ Let's now define a simple persistent object:
 We will fill out the other objects later. But for now, let's create a new
 person and store it in PJ:
 
-  >>> stephan = Person(u'Stephan')
+  >>> stephan = Person('Stephan')
   >>> stephan
   <Person Stephan>
 
@@ -72,30 +72,30 @@ Python path of the class:
 
   >>> transaction.commit()
   >>> dumpTable(person_cn)
-  [{'data': {u'_py_persistent_type': u'__main__.Person',
-             u'address': None,
-             u'birthday': None,
-             u'friends': {},
-             u'name': u'Stephan',
-             u'phone': None,
-             u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00.000000'},
-             u'visited': []},
-    'id': u'0001020304050607080a0b0c0'}]
+  [{'data': {'_py_persistent_type': '__main__.Person',
+             'address': None,
+             'birthday': None,
+             'friends': {},
+             'name': 'Stephan',
+             'phone': None,
+             'today': {'_py_type': 'datetime.datetime',
+                        'value': '2014-05-14T12:30:00.000000'},
+             'visited': []},
+    'id': '0001020304050607080a0b0c0'}]
 
 
 As you can see, the stored document for the person looks very much like a
 natural JSON document. But oh no, I forgot to specify the full name for
 Stephan. Let's do that:
 
-  >>> dm.root['stephan'].name = u'Stephan Richter'
+  >>> dm.root['stephan'].name = 'Stephan Richter'
   >>> dm.root['stephan']._p_changed
   True
 
 This time, the data is not automatically saved:
 
   >>> fetchone(person_cn)['data']['name']
-  u'Stephan'
+  'Stephan'
 
 So we have to commit the transaction first:
 
@@ -104,7 +104,7 @@ So we have to commit the transaction first:
   >>> transaction.commit()
   >>> dm.root['stephan']._p_changed
   >>> fetchone(person_cn)['data']['name']
-  u'Stephan Richter'
+  'Stephan Richter'
 
 Let's now add an address for Stephan. Addresses are also persistent objects:
 
@@ -139,25 +139,25 @@ But once we commit the transaction, everything is available:
 
   >>> transaction.commit()
   >>> dumpTable('address')
-  [{'data': {u'_py_persistent_type': u'__main__.Address',
-             u'city': u'Maynard',
-             u'zip': u'01754'},
-    'id': u'0001020304050607080a0b0c0'}]
+  [{'data': {'_py_persistent_type': '__main__.Address',
+             'city': 'Maynard',
+             'zip': '01754'},
+    'id': '0001020304050607080a0b0c0'}]
 
   >>> dumpTable(person_cn)
-  [{'data': {u'_py_persistent_type': u'__main__.Person',
-             u'address': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'address'},
-             u'birthday': None,
-             u'friends': {},
-             u'name': u'Stephan Richter',
-             u'phone': None,
-             u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00.000000'},
-             u'visited': []},
-    'id': u'0001020304050607080a0b0c0'}]
+  [{'data': {'_py_persistent_type': '__main__.Person',
+             'address': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'address'},
+             'birthday': None,
+             'friends': {},
+             'name': 'Stephan Richter',
+             'phone': None,
+             'today': {'_py_type': 'datetime.datetime',
+                        'value': '2014-05-14T12:30:00.000000'},
+             'visited': []},
+    'id': '0001020304050607080a0b0c0'}]
 
   >>> dm.root['stephan'].address
   <Address Maynard (01754)>
@@ -194,37 +194,37 @@ Let's now commit the transaction and look at the JSONB document again:
   <Phone +1-978-394-5124>
 
   >>> dumpTable(person_cn)
-  [{'data': {u'_py_persistent_type': u'__main__.Person',
-             u'address': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'address'},
-             u'birthday': None,
-             u'friends': {},
-             u'name': u'Stephan Richter',
-             u'phone': {u'_py_type': u'__main__.Phone',
-                        u'area': u'978',
-                        u'country': u'+1',
-                        u'number': u'394-5124'},
-             u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00.000000'},
-             u'visited': []},
-    'id': u'0001020304050607080a0b0c0'}]
+  [{'data': {'_py_persistent_type': '__main__.Person',
+             'address': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'address'},
+             'birthday': None,
+             'friends': {},
+             'name': 'Stephan Richter',
+             'phone': {'_py_type': '__main__.Phone',
+                        'area': '978',
+                        'country': '+1',
+                        'number': '394-5124'},
+             'today': {'_py_type': 'datetime.datetime',
+                        'value': '2014-05-14T12:30:00.000000'},
+             'visited': []},
+    'id': '0001020304050607080a0b0c0'}]
 
 As you can see, for arbitrary non-persistent objects we need a small hint in
 the sub-document, but it is very minimal. If the ``__reduce__`` method returns
 a more complex construct, more meta-data is written. We will see that next
 when storing a date and other arbitrary data:
 
-  >>> dm.root['stephan'].friends = {'roy': Person(u'Roy Mathew')}
-  >>> dm.root['stephan'].visited = (u'Germany', u'USA')
+  >>> dm.root['stephan'].friends = {'roy': Person('Roy Mathew')}
+  >>> dm.root['stephan'].visited = ('Germany', 'USA')
   >>> dm.root['stephan'].birthday = datetime.date(1980, 1, 25)
 
   >>> transaction.commit()
   >>> dm.root['stephan'].friends
-  {u'roy': <Person Roy Mathew>}
+  {'roy': <Person Roy Mathew>}
   >>> dm.root['stephan'].visited
-  [u'Germany', u'USA']
+  ['Germany', 'USA']
   >>> dm.root['stephan'].birthday
   datetime.date(1980, 1, 25)
 
@@ -234,26 +234,26 @@ always maintained as lists, since JSON does not have two sequence types.
   >>> import pprint
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'_py_persistent_type': u'__main__.Person',
-            u'address': {u'_py_type': u'DBREF',
-                         u'database': u'pjpersist_test',
-                         u'id': u'0001020304050607080a0b0c0',
-                         u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date',
-                          u'value': u'1980-01-25'},
-            u'friends': {u'roy': {u'_py_type': u'DBREF',
-                                  u'database': u'pjpersist_test',
-                                  u'id': u'0001020304050607080a0b0c0',
-                                  u'table': u'u__main___dot_Person'}},
-            u'name': u'Stephan Richter',
-            u'phone': {u'_py_type': u'__main__.Phone',
-                       u'area': u'978',
-                       u'country': u'+1',
-                       u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.datetime',
-                       u'value': u'2014-05-14T12:30:00.000000'},
-            u'visited': [u'Germany', u'USA']},
-   'id': u'0001020304050607080a0b0c0'}
+  {'data': {'_py_persistent_type': '__main__.Person',
+            'address': {'_py_type': 'DBREF',
+                         'database': 'pjpersist_test',
+                         'id': '0001020304050607080a0b0c0',
+                         'table': 'address'},
+            'birthday': {'_py_type': 'datetime.date',
+                          'value': '1980-01-25'},
+            'friends': {'roy': {'_py_type': 'DBREF',
+                                  'database': 'pjpersist_test',
+                                  'id': '0001020304050607080a0b0c0',
+                                  'table': 'u__main___dot_Person'}},
+            'name': 'Stephan Richter',
+            'phone': {'_py_type': '__main__.Phone',
+                       'area': '978',
+                       'country': '+1',
+                       'number': '394-5124'},
+            'today': {'_py_type': 'datetime.datetime',
+                       'value': '2014-05-14T12:30:00.000000'},
+            'visited': ['Germany', 'USA']},
+   'id': '0001020304050607080a0b0c0'}
 
 
 Custom Serializers
@@ -267,7 +267,7 @@ Custom Serializers
   >>> pprint.pprint(
   ...     fetchone(person_cn,
   ...         """data @> '{"name": "Stephan Richter"}'""")['data']['birthday'])
-  {u'_py_type': u'datetime.date', u'value': u'1981-01-25'}
+  {'_py_type': 'datetime.date', 'value': '1981-01-25'}
 
 As you can see, the serialization of the birthay is an ISO string. We can,
 however, provide a custom serializer that uses the ordinal to store the data.
@@ -299,24 +299,24 @@ Let's have a look again:
 
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'_py_persistent_type': u'__main__.Person',
-            u'address': {u'_py_type': u'DBREF',
-                         u'database': u'pjpersist_test',
-                         u'id': u'0001020304050607080a0b0c0',
-                         u'table': u'address'},
-            u'birthday': {u'_py_type': u'custom_date', u'ordinal': 723205},
-            u'friends': {u'roy': {u'_py_type': u'DBREF',
-                                  u'database': u'pjpersist_test',
-                                  u'id': u'0001020304050607080a0b0c0',
-                                  u'table': u'u__main___dot_Person'}},
-            u'name': u'Stephan Richter',
-            u'phone': {u'_py_type': u'__main__.Phone',
-                       u'area': u'978',
-                       u'country': u'+1',
-                       u'number': u'394-5124'},
-            u'today': {u'_py_type': u'custom_date', u'ordinal': 735367},
-            u'visited': [u'Germany', u'USA']},
-   'id': u'0001020304050607080a0b0c0'}
+  {'data': {'_py_persistent_type': '__main__.Person',
+            'address': {'_py_type': 'DBREF',
+                         'database': 'pjpersist_test',
+                         'id': '0001020304050607080a0b0c0',
+                         'table': 'address'},
+            'birthday': {'_py_type': 'custom_date', 'ordinal': 723205},
+            'friends': {'roy': {'_py_type': 'DBREF',
+                                  'database': 'pjpersist_test',
+                                  'id': '0001020304050607080a0b0c0',
+                                  'table': 'u__main___dot_Person'}},
+            'name': 'Stephan Richter',
+            'phone': {'_py_type': '__main__.Phone',
+                       'area': '978',
+                       'country': '+1',
+                       'number': '394-5124'},
+            'today': {'_py_type': 'custom_date', 'ordinal': 735367},
+            'visited': ['Germany', 'USA']},
+   'id': '0001020304050607080a0b0c0'}
 
 Much better!
 
@@ -355,29 +355,29 @@ of another document:
 
   >>> pprint.pprint(dict(
   ...     fetchone(person_cn, """data @> '{"name": "Stephan Richter"}'""")))
-  {'data': {u'_py_persistent_type': u'__main__.Person',
-            u'address': {u'_py_type': u'DBREF',
-                         u'database': u'pjpersist_test',
-                         u'id': u'0001020304050607080a0b0c0',
-                         u'table': u'address'},
-            u'birthday': {u'_py_type': u'datetime.date',
-                          u'value': u'1981-01-25'},
-            u'car': {u'_py_persistent_type': u'__main__.Car',
-                     u'make': u'Ford',
-                     u'model': u'Explorer',
-                     u'year': u'2005'},
-            u'friends': {u'roy': {u'_py_type': u'DBREF',
-                                  u'database': u'pjpersist_test',
-                                  u'id': u'0001020304050607080a0b0c0',
-                                  u'table': u'u__main___dot_Person'}},
-            u'name': u'Stephan Richter',
-            u'phone': {u'_py_type': u'__main__.Phone',
-                       u'area': u'978',
-                       u'country': u'+1',
-                       u'number': u'394-5124'},
-            u'today': {u'_py_type': u'datetime.date', u'value': u'2014-05-14'},
-            u'visited': [u'Germany', u'USA']},
-   'id': u'0001020304050607080a0b0c0'}
+  {'data': {'_py_persistent_type': '__main__.Person',
+            'address': {'_py_type': 'DBREF',
+                         'database': 'pjpersist_test',
+                         'id': '0001020304050607080a0b0c0',
+                         'table': 'address'},
+            'birthday': {'_py_type': 'datetime.date',
+                          'value': '1981-01-25'},
+            'car': {'_py_persistent_type': '__main__.Car',
+                     'make': 'Ford',
+                     'model': 'Explorer',
+                     'year': '2005'},
+            'friends': {'roy': {'_py_type': 'DBREF',
+                                  'database': 'pjpersist_test',
+                                  'id': '0001020304050607080a0b0c0',
+                                  'table': 'u__main___dot_Person'}},
+            'name': 'Stephan Richter',
+            'phone': {'_py_type': '__main__.Phone',
+                       'area': '978',
+                       'country': '+1',
+                       'number': '394-5124'},
+            'today': {'_py_type': 'datetime.date', 'value': '2014-05-14'},
+            'visited': ['Germany', 'USA']},
+   'id': '0001020304050607080a0b0c0'}
 
 
 The reason we want objects to be persistent is so that they pick up changes
@@ -488,10 +488,10 @@ will be always deserialized from the ``data`` jsonb field.
   >>> import zope.schema
   >>> class IPerson(zope.interface.Interface):
   ...
-  ...     name = zope.schema.TextLine(title=u'Name')
-  ...     address = zope.schema.TextLine(title=u'Address')
-  ...     visited = zope.schema.Datetime(title=u'Visited')
-  ...     phone = zope.schema.TextLine(title=u'Phone')
+  ...     name = zope.schema.TextLine(title='Name')
+  ...     address = zope.schema.TextLine(title='Address')
+  ...     visited = zope.schema.Datetime(title='Visited')
+  ...     phone = zope.schema.TextLine(title='Phone')
 
 Initially, we are storing only the name in a column:
 
@@ -504,21 +504,21 @@ Initially, we are storing only the name in a column:
 So once I create such a person and commit the transaction, the person table is
 extended to store the attribute and the person is added to the table:
 
-  >>> dm.root['anton'] = anton = ColumnPerson(u'Anton')
+  >>> dm.root['anton'] = anton = ColumnPerson('Anton')
   >>> transaction.commit()
 
   >>> dumpTable('cperson')
-  [{'data': {u'_py_persistent_type': u'__main__.ColumnPerson',
-             u'address': None,
-             u'birthday': None,
-             u'friends': {},
-             u'name': u'Anton',
-             u'phone': None,
-             u'today': {u'_py_type': u'datetime.datetime',
-                        u'value': u'2014-05-14T12:30:00.000000'},
-             u'visited': []},
-    'id': u'0001020304050607080a0b0c0',
-    'name': u'Anton'}]
+  [{'data': {'_py_persistent_type': '__main__.ColumnPerson',
+             'address': None,
+             'birthday': None,
+             'friends': {},
+             'name': 'Anton',
+             'phone': None,
+             'today': {'_py_type': 'datetime.datetime',
+                        'value': '2014-05-14T12:30:00.000000'},
+             'visited': []},
+    'id': '0001020304050607080a0b0c0',
+    'name': 'Anton'}]
 
 
 Tricky Cases
@@ -534,10 +534,10 @@ persistent object they belong to and provide persistent implementations.
   >>> type(dm.root['stephan'].friends)
    <class 'pjpersist.serialize.PersistentDict'>
 
-  >>> dm.root['stephan'].friends[u'roger'] = Person(u'Roger')
+  >>> dm.root['stephan'].friends['roger'] = Person('Roger')
   >>> transaction.commit()
   >>> sorted(dm.root['stephan'].friends.keys())
-  [u'roger', u'roy']
+  ['roger', 'roy']
 
 The same is true for lists:
 
@@ -547,7 +547,7 @@ The same is true for lists:
   >>> dm.root['stephan'].visited.append('France')
   >>> transaction.commit()
   >>> dm.root['stephan'].visited
-  [u'Germany', u'USA', u'France']
+  ['Germany', 'USA', 'France']
 
 
 Circular Non-Persistent References
@@ -637,7 +637,7 @@ yet or the key is null. Let's change that:
   >>> transaction.commit()
 
   >>> People(dm).keys()
-  [u'stephan']
+  ['stephan']
   >>> People(dm)['stephan']
   <Person Stephan Richter>
 
@@ -647,4 +647,4 @@ it to the mapping:
   >>> dm.root['stephan'].friends['roy'].short_name = 'roy'
   >>> transaction.commit()
   >>> sorted(People(dm).keys())
-  [u'roy', u'stephan']
+  ['roy', 'stephan']

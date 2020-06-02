@@ -13,7 +13,6 @@
 #
 ##############################################################################
 """PostGreSQL/JSONB Persistent Data Manager"""
-from __future__ import absolute_import
 import binascii
 import hashlib
 import logging
@@ -25,7 +24,6 @@ import psycopg2.errorcodes
 import pjpersist.sqlbuilder as sb
 import random
 import re
-import six
 import socket
 import struct
 import threading
@@ -34,11 +32,7 @@ import traceback
 import transaction
 import uuid
 import zope.interface
-
-if six.PY2:
-    from collections import MutableMapping
-else:
-    from collections.abc import MutableMapping
+from collections.abc import MutableMapping
 
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
@@ -233,7 +227,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                      or None to flush all
         """
         # Convert SQLBuilder object to string
-        if not isinstance(sql, six.string_types):
+        if not isinstance(sql, str):
             sql = sql.__sqlrepr__('postgres')
 
         # Determine SQL command type (read/write), well sort of
@@ -481,7 +475,7 @@ class PJDataManager(object):
         return createId()
 
     def create_tables(self, tables):
-        if isinstance(tables, six.string_types):
+        if isinstance(tables, str):
             tables = [tables]
 
         for tbl in tables:

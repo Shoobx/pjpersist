@@ -12,7 +12,6 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-from __future__ import print_function
 import datetime
 import doctest
 import json
@@ -90,34 +89,34 @@ def doctest_datetime_range():
     >>> datafld = sb.Field('ser', 'data')
     >>> select(conn, sb.JGET(datafld, 'dtime') == pjvalue(DTIMES[10]), True)
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) = ('{"_py_type": "datetime.datetime", "value": "1936-12-16T10:38:00.000000"}'::jsonb))
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1936-12-16T10:38:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1936-12-16T10:38:00.000000'}}
 
     >>> select(conn, sb.JGET(datafld, 'dtime') > pjvalue(DTIMES[10]),
     ...     print_sql=True, orderBy="(data->'dtime')")
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) > ('{"_py_type": "datetime.datetime", "value": "1936-12-16T10:38:00.000000"}'::jsonb)) ORDER BY (data->'dtime')
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1949-06-25T23:50:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1966-07-22T17:30:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1967-03-01T13:42:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1975-07-22T04:44:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1980-07-23T08:06:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1983-06-27T03:56:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1987-02-02T08:31:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1995-01-23T09:59:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2005-07-13T17:18:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2011-11-01T16:26:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2013-01-22T18:59:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1949-06-25T23:50:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1966-07-22T17:30:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1967-03-01T13:42:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1975-07-22T04:44:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1980-07-23T08:06:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1983-06-27T03:56:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1987-02-02T08:31:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1995-01-23T09:59:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2005-07-13T17:18:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2011-11-01T16:26:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2013-01-22T18:59:00.000000'}}
 
     >>> sorted([dt for dt in DTIMES if dt > DTIMES[10]])
     Traceback (most recent call last):
@@ -127,66 +126,66 @@ def doctest_datetime_range():
     >>> select(conn, sb.JGET(datafld, 'dtime') < pjvalue(DTIMES[10]),
     ...     print_sql=True, orderBy="(data->'dtime')")
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) < ('{"_py_type": "datetime.datetime", "value": "1936-12-16T10:38:00.000000"}'::jsonb)) ORDER BY (data->'dtime')
-    {u'dtime': None}
-    {u'dtime': None}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1911-01-17T04:24:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1912-01-09T15:04:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1914-05-17T09:37:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1918-03-03T08:35:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1923-06-02T15:05:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1930-12-12T03:58:00.000000'}}
+    {'dtime': None}
+    {'dtime': None}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1911-01-17T04:24:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1912-01-09T15:04:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1914-05-17T09:37:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1918-03-03T08:35:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1923-06-02T15:05:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1930-12-12T03:58:00.000000'}}
 
     >>> select(conn, sb.JGET(datafld, 'dtime') == None,
     ...     print_sql=True, orderBy="(data->'dtime')")
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) = ('null'::jsonb)) ORDER BY (data->'dtime')
-    {u'dtime': None}
-    {u'dtime': None}
+    {'dtime': None}
+    {'dtime': None}
 
     >>> select(conn, sb.JGET(datafld, 'dtime') != None,
     ...     print_sql=True, orderBy="(data->'dtime')")
     SQL>  SELECT ser.data FROM ser WHERE (((ser.data) -> ('dtime')) <> ('null'::jsonb)) ORDER BY (data->'dtime')
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1911-01-17T04:24:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1912-01-09T15:04:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1914-05-17T09:37:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1918-03-03T08:35:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1923-06-02T15:05:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1930-12-12T03:58:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1936-12-16T10:38:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1949-06-25T23:50:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1966-07-22T17:30:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1967-03-01T13:42:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1975-07-22T04:44:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1980-07-23T08:06:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1983-06-27T03:56:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1987-02-02T08:31:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'1995-01-23T09:59:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2005-07-13T17:18:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2011-11-01T16:26:00.000000'}}
-    {u'dtime': {u'_py_type': u'datetime.datetime',
-                u'value': u'2013-01-22T18:59:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1911-01-17T04:24:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1912-01-09T15:04:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1914-05-17T09:37:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1918-03-03T08:35:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1923-06-02T15:05:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1930-12-12T03:58:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1936-12-16T10:38:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1949-06-25T23:50:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1966-07-22T17:30:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1967-03-01T13:42:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1975-07-22T04:44:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1980-07-23T08:06:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1983-06-27T03:56:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1987-02-02T08:31:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '1995-01-23T09:59:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2005-07-13T17:18:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2011-11-01T16:26:00.000000'}}
+    {'dtime': {'_py_type': 'datetime.datetime',
+                'value': '2013-01-22T18:59:00.000000'}}
 
     """
 

@@ -12,7 +12,6 @@
 #
 ##############################################################################
 """Persistent Object Support"""
-from __future__ import absolute_import
 import persistent
 import zope.interface
 

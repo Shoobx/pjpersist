@@ -49,9 +49,9 @@ def doctest_PJTableMapping_simple():
     After the transaction is committed, we can access the item:
 
       >>> container.keys()
-      [u'one']
+      ['one']
       >>> container['one'].name
-      u'one'
+      'one'
 
       >>> container['two']
       Traceback (most recent call last):
@@ -98,16 +98,16 @@ def doctest_PJTableMapping_filter():
       >>> dm.commit(None)
 
       >>> container1.keys()
-      [u'1-1', u'1-2', u'1-3']
+      ['1-1', '1-2', '1-3']
       >>> container1['1-1'].name
-      u'1-1'
+      '1-1'
       >>> container1['2-1']
       Traceback (most recent call last):
       ...
       KeyError: '2-1'
 
       >>> container2.keys()
-      [u'2-1']
+      ['2-1']
 
     Note: The mutator methods (``__setitem__`` and ``__delitem__``) do nto
     take the filter into account by default. They need to be extended to

@@ -12,8 +12,6 @@
 #
 ##############################################################################
 """PJ Persistence Performance Test"""
-from __future__ import absolute_import
-from __future__ import print_function
 import logging
 import optparse
 import os
@@ -24,7 +22,6 @@ import sys
 import tempfile
 import time
 import transaction
-import six.moves.cPickle
 import cProfile
 
 from pjpersist import datamanager

@@ -2,7 +2,6 @@
 taken from: http://justinfx.com/2012/07/25/python-2-7-3-serializer-speed-comparisons/
 """
 
-from __future__ import print_function
 import json
 import pprint
 from timeit import timeit

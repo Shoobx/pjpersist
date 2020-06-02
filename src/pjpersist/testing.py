@@ -12,21 +12,18 @@
 #
 ##############################################################################
 """Mongo Persistence Testing Support"""
-from __future__ import absolute_import
-from __future__ import print_function
 import doctest
+import io
 import logging
+import os
 import psycopg2
 import psycopg2.extras
-import os
 import re
 import sys
 import threading
 import transaction
 import unittest
-import six
 from pprint import pprint
-from six import StringIO
 
 import zope.component
 from zope.testing import module, renormalizing
@@ -264,7 +261,7 @@ def setUpLogging(logger, level=logging.DEBUG, format='%(message)s',
                  copy_to_stdout=False):
     if isinstance(logger, str):
         logger = logging.getLogger(logger)
-    buf = StringIO()
+    buf = io.StringIO()
     handler = logging.StreamHandler(buf)
     handler._added_by_tests_ = True
     handler._old_propagate_ = logger.propagate

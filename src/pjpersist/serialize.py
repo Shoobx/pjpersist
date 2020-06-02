@@ -13,15 +13,14 @@
 #
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
-from __future__ import absolute_import
 import base64
+import copyreg
 import datetime
 import warnings
 
 import persistent.interfaces
 import persistent.dict
 import persistent.list
-import six
 import zope.interface
 from zope.dottedname.resolve import resolve
 from decimal import Decimal
@@ -45,7 +44,7 @@ FMT_DATETIME_BBB = "%Y-%m-%dT%H:%M:%S"
 
 # actually we should extract this somehow from psycopg2
 PYTHON_TO_PG_TYPES = {
-    six.text_type: "text",
+    str: "text",
     bytes: "text",
     bool: "bool",
     float: "double",
@@ -57,9 +56,6 @@ PYTHON_TO_PG_TYPES = {
     datetime.timedelta: "interval",
     list: "array",
 }
-
-if six.PY2:
-    PYTHON_TO_PG_TYPES[long] = "bigint"
 
 
 KNOWN_FACTORIES = {
@@ -258,7 +254,7 @@ class ObjectWriter(object):
         # old-style classes with all of the possible pickle extensions.
 
         # Get the state of the object. Only pickable objects can be reduced.
-        reduce_fn = six.moves.copyreg.dispatch_table.get(objectType)
+        reduce_fn = copyreg.dispatch_table.get(objectType)
         if reduce_fn is not None:
             reduced = reduce_fn(obj)
         else:
@@ -279,12 +275,12 @@ class ObjectWriter(object):
                 obj_state = {}
         # We are trying very hard to create a clean JSONB (sub-)document. But
         # we need a little bit of meta-data to help us out later.
-        if factory == six.moves.copyreg._reconstructor and \
+        if factory == copyreg._reconstructor and \
                args == (obj.__class__, object, None):
             # This is the simple case, which means we can produce a nicer
             # JSONB output.
             state = {'_py_type': get_dotted_name(args[0])}
-        elif factory == six.moves.copyreg.__newobj__ and args == (obj.__class__,):
+        elif factory == copyreg.__newobj__ and args == (obj.__class__,):
             # Another simple case for persistent objects that do not want
             # their own document.
             state = {interfaces.PY_TYPE_ATTR_NAME: get_dotted_name(args[0])}
@@ -321,25 +317,12 @@ class ObjectWriter(object):
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
             return obj
-        if six.PY2 and type(obj) == str:
-            # In Python 2, strings can be ASCII, encoded unicode or binary
-            # data. Unfortunately, BSON cannot handle that. So, if we have a
-            # string that cannot be UTF-8 decoded (luckily ASCII is a valid
-            # subset of UTF-8), then we use the BSON binary type.
-            try:
-                obj.decode('utf-8')
-                return obj
-            except UnicodeError:
-                return {
-                    '_py_type': 'BINARY',
-                    'data': obj.encode('base64').strip()
-                }
-        if six.PY3 and type(obj) == bytes:
+        if type(obj) == bytes:
             return {
                 '_py_type': 'BINARY',
                 'data': base64.b64encode(obj).decode('ascii')
             }
-        if six.PY3 and type(obj) == str:
+        if type(obj) == str:
             return obj
         # Some objects might not naturally serialize well and create a very
         # ugly JSONB entry. Thus, we allow custom serializers to be
@@ -358,7 +341,7 @@ class ObjectWriter(object):
             return {'_py_type': 'datetime.datetime',
                     'value': obj.strftime(FMT_DATETIME)}
 
-        if isinstance(obj, six.class_types):
+        if isinstance(obj, type):
             # We frequently store class and function paths as meta-data, so we
             # need to be able to properly encode those.
             return {'_py_type': 'type',
@@ -386,7 +369,7 @@ class ObjectWriter(object):
             data = []
             for key, value in obj.items():
                 data.append((key, self.get_state(value, pobj)))
-                if (not isinstance(key, six.string_types) or  # non-string
+                if (not isinstance(key, str) or  # non-string
                         # a key with our special marker
                         key==DICT_NON_STRING_KEY_MARKER):
                     has_non_compliant_key = True
@@ -588,13 +571,13 @@ class ObjectReader(object):
         if '_py_type' in state:
             # Handle the simplified case.
             klass = self.simple_resolve(state.pop('_py_type'))
-            sub_obj = six.moves.copyreg._reconstructor(klass, object, None)
+            sub_obj = copyreg._reconstructor(klass, object, None)
             self._set_object_state(state, sub_obj, obj)
         elif interfaces.PY_TYPE_ATTR_NAME in state:
             # Another simple case for persistent objects that do not want
             # their own document.
             klass = self.simple_resolve(state.pop(interfaces.PY_TYPE_ATTR_NAME))
-            sub_obj = six.moves.copyreg.__newobj__(klass)
+            sub_obj = copyreg.__newobj__(klass)
             self._set_object_state(state, sub_obj, obj)
         else:
             factory = self.simple_resolve(state.pop('_py_factory'))

@@ -20,45 +20,45 @@ import zope.schema
 class IPJContainer(zope.interface.Interface):
 
     _pj_table = zope.schema.ASCIILine(
-        title=u'PostGreSQL Table',
+        title='PostGreSQL Table',
         description=(
-            u'Specifies the PostGreSQL table in which to store items.')
+            'Specifies the PostGreSQL table in which to store items.')
         )
 
     _pj_mapping_key = zope.schema.ASCIILine(
-        title=u'Mapping Key',
+        title='Mapping Key',
         description=(
-            u'Specifies the attribute name of the item that is used as the '
-            u'mapping/dictionary/container key.'),
+            'Specifies the attribute name of the item that is used as the '
+            'mapping/dictionary/container key.'),
         default='key')
 
     _pj_parent_key = zope.schema.ASCIILine(
-        title=u'Parent Key',
+        title='Parent Key',
         description=(
-            u'Specifies the attribute name of the item that is used to store '
-            u'the parent/container reference.'),
+            'Specifies the attribute name of the item that is used to store '
+            'the parent/container reference.'),
         default='parent')
 
     _pj_remove_documents = zope.schema.Bool(
-        title=u'Remove Documents',
+        title='Remove Documents',
         description=(
-            u'A flag when set causes documents to be removed from the DB when '
-            u'they are removed from the container.'),
+            'A flag when set causes documents to be removed from the DB when '
+            'they are removed from the container.'),
         default=True)
 
     _pj_column_fields = zope.schema.Tuple(
-        title=u'Column Fields',
+        title='Column Fields',
         description=(
-            u'A list of field NAMES that represent columns '
-            u'in the storage table. the default values are `id` and `data`, '
-            u'but more can be added.'
-            u''
-            u'These fields are used to figure whether to take native SQL columns '
-            u'instead of JSONB fields in `raw_find` '
-            u'see also pjpersist.persistent.SimpleColumnSerialization._pj_column_fields'
-            u''
-            u'NOTE: this is a list of NAMES (str) opposed to '
-            u'IColumnSerialization._pj_column_fields are zope.schema fields!'),
+            'A list of field NAMES that represent columns '
+            'in the storage table. the default values are `id` and `data`, '
+            'but more can be added.'
+            ''
+            'These fields are used to figure whether to take native SQL columns '
+            'instead of JSONB fields in `raw_find` '
+            'see also pjpersist.persistent.SimpleColumnSerialization._pj_column_fields'
+            ''
+            'NOTE: this is a list of NAMES (str) opposed to '
+            'IColumnSerialization._pj_column_fields are zope.schema fields!'),
         default=('id', 'data'),
         required=True)
 

@@ -13,13 +13,13 @@
 ##############################################################################
 """PostGreSQL/JSONB Persistence Serialization Tests"""
 import base64
+import collections
 import datetime
 import doctest
 import persistent
 import pprint
 import copy
-import six
-import six.moves.copyreg
+import copyreg
 import pickle
 
 from pjpersist import interfaces, serialize, testing
@@ -70,7 +70,7 @@ StringConstant = StringConstant()
 class CopyReggedConstant(object):
     def custom_reduce_fn(self):
         return 'CopyReggedConstant'
-six.moves.copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
+copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
 
@@ -118,13 +118,13 @@ def doctest_link_to_parent_full_example():
     >>> blah.dict._p_jar is dm
     True
 
-    >>> blah.dict[1] = u'data'
+    >>> blah.dict[1] = 'data'
     >>> blah.dict._p_changed
     True
 
     >>> commit()
     >>> dm.root['blah'].dict
-    {1: u'data'}
+    {1: 'data'}
     """
 
 
@@ -325,8 +325,8 @@ def doctest_ObjectWriter_get_persistent_state():
       >>> foo._p_oid
       DBRef('Foo', '0001020304050607080a0b0c0', 'pjpersist_test')
       >>> dumpTable('Foo')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Foo'},
+        'id': '0001020304050607080a0b0c0'}]
 
     The next time the object simply returns its reference:
 
@@ -336,13 +336,9 @@ def doctest_ObjectWriter_get_persistent_state():
        'id': '0001020304050607080a0b0c0',
        'table': 'Foo'}
       >>> dumpTable('Foo')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Foo'},
+        'id': '0001020304050607080a0b0c0'}]
     """
-
-
-if six.PY3:
-    long = int
 
 
 def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
@@ -351,12 +347,10 @@ def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
       >>> writer = serialize.ObjectWriter(None)
       >>> writer.get_state(1)
       1
-      >>> writer.get_state(long(1))
-      1L
       >>> writer.get_state(1.0)
       1.0
-      >>> writer.get_state(u'Test')
-      u'Test'
+      >>> writer.get_state('Test')
+      'Test'
       >>> print(writer.get_state(None))
       None
     """
@@ -579,8 +573,8 @@ def doctest_ObjectWriter_store():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top'},
+        'id': '0001020304050607080a0b0c0'}]
 
     Now that we have an object, storing an object simply means updating the
     existing document:
@@ -590,9 +584,9 @@ def doctest_ObjectWriter_store():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'name': u'top'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'name': 'top'},
+        'id': '0001020304050607080a0b0c0'}]
     """
 
 def doctest_ObjectWriter_store_with_new_object_references():
@@ -611,12 +605,12 @@ def doctest_ObjectWriter_store_with_new_object_references():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'foo': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'Foo'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'foo': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'Foo'}},
+        'id': '0001020304050607080a0b0c0'}]
     """
 
 def doctest_ObjectWriter_store_sub_persistent():
@@ -634,9 +628,9 @@ def doctest_ObjectWriter_store_sub_persistent():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'top': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Tier2'}},
+        'id': '0001020304050607080a0b0c0'}]
 
     Now that we have an object, update the subobject property:
 
@@ -647,10 +641,10 @@ def doctest_ObjectWriter_store_sub_persistent():
 
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'top': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Tier2',
-                          u'name': u'top'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'top': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Tier2',
+                          'name': 'top'}},
+        'id': '0001020304050607080a0b0c0'}]
     """
 
 def doctest_ObjectWriter_store_notsub_persistent():
@@ -666,15 +660,15 @@ def doctest_ObjectWriter_store_notsub_persistent():
       DBRef('Top', '0001020304050607080a0b0c', 'pjpersist_test')
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'top': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'Foo'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'top': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'Foo'}},
+        'id': '0001020304050607080a0b0c0'}]
       >>> dumpTable('Foo')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo'},
-        'id': u'5790ba2db25d2b42d000ccd3'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Foo'},
+        'id': '5790ba2db25d2b42d000ccd3'}]
 
     Now that we have an object, update the subobject property:
 
@@ -685,19 +679,19 @@ def doctest_ObjectWriter_store_notsub_persistent():
 
       >>> dm.commit(None)
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'top': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'Foo'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'top': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'Foo'}},
+        'id': '0001020304050607080a0b0c0'}]
 
     Here we have the name set:
 
       >>> dumpTable('Foo')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo',
-                 u'name': u'top'},
-        'id': u'5790ba49b25d2b494600d22d'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Foo',
+                 'name': 'top'},
+        'id': '5790ba49b25d2b494600d22d'}]
     """
 
 def doctest_ObjectReader_simple_resolve():
@@ -868,10 +862,10 @@ def doctest_ObjectReader_resolve_lookup_with_multiple_maps():
       <class 'pjpersist.tests.test_serialize.Top2'>
 
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top'},
-        'id': u'0001020304050607080a0b0c0'},
-       {'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top2'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top'},
+        'id': '0001020304050607080a0b0c0'},
+       {'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top2'},
+        'id': '0001020304050607080a0b0c0'}]
 
     If the DBRef does not have an object id, then an import error is raised:
 
@@ -899,13 +893,13 @@ def doctest_ObjectReader_get_non_persistent_object_py_type():
 
     It is a little bit more interesting when there is some additional state:
 
-      >>> state = {u'_py_type': 'pjpersist.tests.test_serialize.Simple',
-      ...          u'name': u'Here'}
+      >>> state = {'_py_type': 'pjpersist.tests.test_serialize.Simple',
+      ...          'name': 'Here'}
       >>> save_state = copy.deepcopy(state)
 
       >>> simple = reader.get_non_persistent_object(state, None)
       >>> simple.name
-      u'Here'
+      'Here'
 
     Make sure that state is unchanged:
 
@@ -994,21 +988,21 @@ def doctest_ObjectReader_get_object_datetime():
       >>> reader.get_object(
       ...     {
       ...         '_py_type': 'datetime.date',
-      ...         'value': u'2005-07-13',
+      ...         'value': '2005-07-13',
       ...     },
       ...     None)
       datetime.date(2005, 7, 13)
       >>> reader.get_object(
       ...     {
       ...         '_py_type': 'datetime.time',
-      ...         'value': u'17:18:10.100000',
+      ...         'value': '17:18:10.100000',
       ...     },
       ...     None)
       datetime.time(17, 18, 10, 100000)
       >>> reader.get_object(
       ...     {
       ...         '_py_type': 'datetime.datetime',
-      ...         'value': u'2005-07-13T17:18:10.100000',
+      ...         'value': '2005-07-13T17:18:10.100000',
       ...     },
       ...     None)
       datetime.datetime(2005, 07, 13, 17, 18, 10, 100000)
@@ -1023,14 +1017,14 @@ def doctest_ObjectReader_get_object_datetime_BBB():
       >>> reader.get_object(
       ...     {
       ...         '_py_type': 'datetime.time',
-      ...         'value': u'17:18:10',
+      ...         'value': '17:18:10',
       ...     },
       ...     None)
       datetime.time(17, 18, 10)
       >>> reader.get_object(
       ...     {
       ...         '_py_type': 'datetime.datetime',
-      ...         'value': u'2005-07-13T17:18:10',
+      ...         'value': '2005-07-13T17:18:10',
       ...     },
       ...     None)
       datetime.datetime(2005, 7, 13, 17, 18, 10)
@@ -1071,13 +1065,13 @@ def doctest_ObjectReader_get_object_instance():
 
       >>> reader = serialize.ObjectReader(dm)
       >>> simple = reader.get_object(
-      ...     {u'_py_type': 'pjpersist.tests.test_serialize.Simple',
-      ...      u'name': u'easy'},
+      ...     {'_py_type': 'pjpersist.tests.test_serialize.Simple',
+      ...      'name': 'easy'},
       ...     None)
       >>> simple.__class__
       <class 'pjpersist.tests.test_serialize.Simple'>
       >>> simple.name
-      u'easy'
+      'easy'
     """
 
 def doctest_ObjectReader_get_object_sequence():
@@ -1167,7 +1161,7 @@ def doctest_ObjectReader_set_ghost_state():
 
       >>> reader.set_ghost_state(gobj)
       >>> gobj.name
-      u'top'
+      'top'
 
     """
 
@@ -1191,18 +1185,18 @@ def doctest_deserialize_persistent_references():
     Let's check that the objects were properly serialized.
 
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'foo': {u'_py_type': u'DBREF',
-                          u'database': u'pjpersist_test',
-                          u'id': u'0001020304050607080a0b0c0',
-                          u'table': u'Foo'},
-                 u'name': u'top'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'foo': {'_py_type': 'DBREF',
+                          'database': 'pjpersist_test',
+                          'id': '0001020304050607080a0b0c0',
+                          'table': 'Foo'},
+                 'name': 'top'},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> dumpTable('Foo')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Foo',
-                 u'name': u'foo'},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Foo',
+                 'name': 'foo'},
+        'id': '0001020304050607080a0b0c0'}]
 
     Now we access the objects objects again to see whether they got properly
     deserialized.
@@ -1211,14 +1205,14 @@ def doctest_deserialize_persistent_references():
       >>> id(top2) == id(top)
       False
       >>> top2.name
-      u'top'
+      'top'
 
       >>> id(top2.foo) == id(top.foo)
       False
       >>> top2.foo.__class__
       <class 'pjpersist.tests.test_serialize.Foo'>
       >>> top2.foo.name
-      u'foo'
+      'foo'
     """
 
 
@@ -1245,13 +1239,13 @@ def doctest_deserialize_persistent_foreign_references():
       >>> commit()
 
       >>> dumpTable('Top')
-      [{'data': {u'_py_persistent_type': u'pjpersist.tests.test_serialize.Top',
-                 u'name': u'main',
-                 u'other': {u'_py_type': u'DBREF',
-                            u'database': u'pjpersist_test_other',
-                            u'id': u'0001020304050607080a0b0c0',
-                            u'table': u'Top'}},
-        'id': u'0001020304050607080a0b0c0'}]
+      [{'data': {'_py_persistent_type': 'pjpersist.tests.test_serialize.Top',
+                 'name': 'main',
+                 'other': {'_py_type': 'DBREF',
+                            'database': 'pjpersist_test_other',
+                            'id': '0001020304050607080a0b0c0',
+                            'table': 'Top'}},
+        'id': '0001020304050607080a0b0c0'}]
 
       >>> top = dm.root['top']
       >>> print(top.name)
@@ -1259,7 +1253,7 @@ def doctest_deserialize_persistent_foreign_references():
       >>> print(top.other.name)
       top_other
       >>> top.other.state
-      {u'complex_data': u'value'}
+      {'complex_data': 'value'}
     """
 
 
@@ -1340,13 +1334,7 @@ def doctest_table_decorator():
     """
 
 
-if six.PY3:
-    from collections import UserDict
-else:
-    from UserDict import UserDict
-
-
-class CustomDict(UserDict, object):
+class CustomDict(collections.UserDict, object):
     def __getstate__(self):
         return self.data
 

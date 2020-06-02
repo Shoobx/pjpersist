@@ -12,7 +12,6 @@
 # FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-from __future__ import print_function
 import doctest
 import json
 import pprint
@@ -66,45 +65,45 @@ def doctest_operators():
     We can do simple matches of strings:
 
        >>> select(conn, {'foo': 'bar'})
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
     And numbers:
 
        >>> select(conn, {'nr': 42})
-       {u'nr': 42}
-       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
+       {'nr': 42}
+       {'day': 'Friday', 'drink': 'whiskey', 'nr': 42, 'plan': 'getdown'}
 
     We can query for an element in the list:
 
        >>> select(conn, {'some.numbers': 69})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
     Comparison operators:
 
        >>> select(conn, {'nr': {'$gt': 40}})
-       {u'nr': 42}
-       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
-       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
+       {'nr': 42}
+       {'more': {'strings': ['a', 'f', 'x']}, 'nr': [1, None]}
+       {'day': 'Friday', 'drink': 'whiskey', 'nr': 42, 'plan': 'getdown'}
 
     List searches:
 
        >>> select(conn, {'nr': {'$in': [40, 41, 42]}})
-       {u'nr': 42}
-       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
+       {'nr': 42}
+       {'day': 'Friday', 'drink': 'whiskey', 'nr': 42, 'plan': 'getdown'}
 
        >>> select(conn, {'foo': {'$in': ['foo', 'bar', 'baz']}})
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
        >>> select(conn, {'foo': {'$nin': ['foo', 'baz']}})
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
        >>> select(conn, {'more.strings': {'$in': ['a', 'g']}})
-       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
+       {'more': {'strings': ['a', 'f', 'x']}, 'nr': [1, None]}
 
        >>> select(conn, {'more.strings': {'$in': ['h', 'g']}})
 
        >>> select(conn, {'some.numbers': {'$in': [42, 200]}})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
        >>> select(conn, {'some.numbers': {'$in': [80, 200]}})
 
@@ -115,42 +114,42 @@ def doctest_operators():
 
        >>> select(conn, {'nr': {'$nin': []}}, True)
        SQL>  SELECT mq.data FROM mq WHERE 't'
-       {u'foo': u'bar'}
-       {u'nr': 42}
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
-       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
+       {'foo': 'bar'}
+       {'nr': 42}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
+       {'more': {'strings': ['a', 'f', 'x']}, 'nr': [1, None]}
+       {'day': 'Friday', 'drink': 'whiskey', 'nr': 42, 'plan': 'getdown'}
 
 
     Existence of keys:
 
        >>> select(conn, {'some.numbers': {'$exists': True}})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
        >>> select(conn, {'nr': {'$exists': False}})
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
     Negation of comparisons:
 
        >>> select(conn, {'nr': {'$not': {'$gt': 40}}})
-       {u'foo': u'bar'}
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'foo': 'bar'}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
        >>> select(conn, {'nr': {'$not': {'$gt': 42}}})
-       {u'foo': u'bar'}
-       {u'nr': 42}
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'day': u'Friday', u'drink': u'whiskey', u'nr': 42, u'plan': u'getdown'}
+       {'foo': 'bar'}
+       {'nr': 42}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
+       {'day': 'Friday', 'drink': 'whiskey', 'nr': 42, 'plan': 'getdown'}
 
     List sizes:
 
        >>> select(conn, {'some.numbers': {'$size': 3}})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
     $all:
 
        >>> select(conn, {'some.numbers': {'$all': [69, 42]}})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
        >>> select(conn, {'some.numbers': {'$all': [69, 43]}})
 
@@ -159,7 +158,7 @@ def doctest_operators():
 
        >>> select(conn, {'some.numbers': {'$elemMatch':
        ...                   [{'$gt': 68}, {'$lt': 70}]}})
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
 
        >>> select(conn, {'some.numbers': {'$elemMatch':
        ...                   [{'$gt': 60}, {'$lt': 65}]}})
@@ -168,11 +167,11 @@ def doctest_operators():
 
        >>> select(conn, {'_id': 1}, True)
        SQL>  SELECT mq.data FROM mq WHERE ((mq.id) = (1))
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
        >>> select(conn, {'_id': {'$lt': 2}}, True)
        SQL>  SELECT mq.data FROM mq WHERE ((mq.id) < (2))
-       {u'foo': u'bar'}
+       {'foo': 'bar'}
 
     Comparing to null in Mongo matches if the value is indeed null, or
     if the value does not exist, or ir the value is a list containing null!
@@ -182,9 +181,9 @@ def doctest_operators():
                WHERE ((((mq.data) -> ('nr')) = ('null'))
                    OR ((('[null]'::jsonb) <@ ((mq.data) -> ('nr')))
                    OR (((mq.data) -> ('nr')) IS NULL)))
-       {u'foo': u'bar'}
-       {u'nr': None, u'some': {u'numbers': [42, 69, 105]}}
-       {u'more': {u'strings': [u'a', u'f', u'x']}, u'nr': [1, None]}
+       {'foo': 'bar'}
+       {'nr': None, 'some': {'numbers': [42, 69, 105]}}
+       {'more': {'strings': ['a', 'f', 'x']}, 'nr': [1, None]}
 
     """
 
