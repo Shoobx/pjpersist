@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-2.0.0 (unreleased)
+2.0.0 (2020-06-02)
 ------------------
 
 - Drop Python 2.7 and 3.6 support, add 3.8.
