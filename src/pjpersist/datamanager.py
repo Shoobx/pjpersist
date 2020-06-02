@@ -641,6 +641,9 @@ class PJDataManager(object):
 
         # Let's now reset all objects as if they were not modified:
         for obj_id in flushed:
+            # Another nested flush already took care of this object.
+            if obj_id not in self._registered_objects:
+                continue
             obj = self._registered_objects[obj_id]
             obj._p_changed = False
 
