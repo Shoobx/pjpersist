@@ -6,7 +6,8 @@ CHANGES
 2.0.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fixed persisting tuple keyed dicts. Persisting such objects worked,
+  but reading failed.
 
 
 2.0.0 (2020-06-02)
@@ -17,9 +18,9 @@ CHANGES
 - Remove buildout support.
 
 - Support for nested flushing. In complex use cases it can happen that during
-  serialization of an object, a query is made to look up another obejct. Taht
+  serialization of an object, a query is made to look up another object. That
   in turn causes a flush, resulting in a flush inside a flush. The `flush()`
-  method did not expect that behavior and fialed if the inner flush would
+  method did not expect that behavior and failed if the inner flush would
   flush objects that the outer flush had already handled.
 
 
