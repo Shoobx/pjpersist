@@ -424,6 +424,19 @@ def doctest_ObjectWriter_get_state_mappings():
       >>> pprint.pprint(sorted(state['dict_data']))
       [('1', 1), ('dict_data', 'works?')]
 
+    It gets even worse with tuple keyed mappings,
+    tuple keys get converted to JSON as a list,
+    which need to be handled then by get_object
+
+      >>> mapping = {
+      ...     (1, 'key-one', None): 'value-one',
+      ...     (2, 'key-two', True): 'value-two',
+      ...     'key-three': 'value-three'}
+      >>> pprint.pprint(writer.get_state(mapping))
+      {'dict_data': [([1, 'key-one', None], 'value-one'),
+                     ([2, 'key-two', True], 'value-two'),
+                     ('key-three', 'value-three')]}
+
     """
 
 def doctest_ObjectWriter_get_state_Persistent():
@@ -1100,6 +1113,19 @@ def doctest_ObjectReader_get_object_mapping():
       ...     {'dict_data': [(1, '1'), (2, '2'), (3, '3')]},
       ...     None)))
       {1: '1', 2: '2', 3: '3'}
+
+    It gets even worse with tuple keyed mappings,
+    tuple keys get converted to JSON as a list,
+    which need to be handled then by get_object
+
+      >>> inp = {'dict_data': [([1, 'key-one', None], 'value-one'),
+      ...                      ([2, 'key-two', True], 'value-two'),
+      ...                      ('key-three', 'value-three')]}
+      >>> pprint.pprint(dict(reader.get_object(inp, None)))
+      {'key-three': 'value-three',
+       (1, 'key-one', None): 'value-one',
+       (2, 'key-two', True): 'value-two'}
+
     """
 
 def doctest_ObjectReader_get_object_constant():

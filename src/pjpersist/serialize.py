@@ -374,7 +374,7 @@ class ObjectWriter(object):
                         key==DICT_NON_STRING_KEY_MARKER):
                     has_non_compliant_key = True
             if not has_non_compliant_key:
-                # The easy case: all keys are complaint:
+                # The easy case: all keys are compliant:
                 return dict(data)
             else:
                 # We first need to reduce the keys and then produce a data
@@ -673,11 +673,24 @@ class ObjectReader(object):
             # Note: see comments at the definition of DICT_NON_STRING_KEY_MARKER
             if DICT_NON_STRING_KEY_MARKER in state:
                 items = state[DICT_NON_STRING_KEY_MARKER]
+                # a dict can NOT have an unhashable key,
+                # most commonly used is a tuple (which converts to JSON as a
+                # list, what then would fail here)
+                # so convert a list-ish key to tuple
+                keyConverter = lambda key: (
+                    tuple(key)
+                    if isinstance(key, (list, PersistentList))
+                    else key)
+                sub_obj = {
+                    keyConverter(self.get_object(name, obj)):
+                        self.get_object(value, obj)
+                    for name, value in items}
             else:
-                items = state.items()
-            sub_obj = dict(
-                [(self.get_object(name, obj), self.get_object(value, obj))
-                 for name, value in items])
+                # for performance reasons we keep a separate implementation
+                sub_obj = {
+                    self.get_object(name, obj):
+                        self.get_object(value, obj)
+                    for name, value in state.items()}
             if self.preferPersistent:
                 sub_obj = PersistentDict(sub_obj)
                 setattr(sub_obj, interfaces.DOC_OBJECT_ATTR_NAME, obj)
