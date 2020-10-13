@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-2.0.1 (unreleased)
+2.0.1 (2020-10-13)
 ------------------
 
 - Fixed persisting tuple keyed dicts. Persisting such objects worked,
