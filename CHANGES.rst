@@ -6,7 +6,8 @@ CHANGES
 2.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Handle SystemExit gracefully if raised while PJDataManager is
+  joining the transaction in two-phase-commit mode.
 
 
 2.0.1 (2020-10-13)
