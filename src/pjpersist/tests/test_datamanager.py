@@ -1609,6 +1609,269 @@ class DirtyTestCase(testing.PJTestCase):
             transaction.commit()
 
 
+class DatamanagerFailedTransactionTest(testing.PJTestCase):
+
+    def setUp(self):
+        super(DatamanagerFailedTransactionTest, self).setUp()
+
+        # get rid of the previous transaction
+        transaction.abort()
+
+        tpc_patch = mock.patch(
+            "pjpersist.datamanager.PJ_TWO_PHASE_COMMIT_ENABLED", True)
+        self.patches = [tpc_patch]
+        for p in self.patches:
+            p.start()
+
+        # First PJDataManager instantiation creates tables, what makes the dm
+        # dirty, which we want to avoid here.
+        self.conn = testing.getConnection(testing.DBNAME)
+        self.dm = datamanager.PJDataManager(self.conn)
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+        super(DatamanagerFailedTransactionTest, self).tearDown()
+
+    def beginTransaction(self, tpc=True):
+        datamanager.PJ_TWO_PHASE_COMMIT_ENABLED = tpc
+        transaction.abort()
+        self.dm = datamanager.PJDataManager(self.conn)
+
+    def test_broken_transaction_commit(self):
+        self.beginTransaction(tpc=False)
+
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Commit the transaction, no changes are persisted
+        transaction.commit()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+    def test_broken_transaction_abort(self):
+        self.beginTransaction(tpc=False)
+
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Abort the transaction
+        transaction.abort()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+    def test_broken_transaction_abort_voted(self):
+        # Corner case: sombody breaks our data manager's
+        # postgres transaction, eats the error and tries to commit anyway.
+        # Meanwhile, another data manager has joined the transaction,
+        # and it fails when voting, right after our data manager had voted.
+        #
+        # Our data manager now must abort the transaction and leave
+        # the connection in non-broken state.
+
+        class VotingFailure(Exception):
+            pass
+
+        class OtherDataManager:
+            def sortKey(self):
+                return 'ZZZ:OtherDataManager:0'  # vote last
+            def tpc_begin(self, transaction):
+                pass
+            def tpc_vote(self, transaction):
+                raise VotingFailure('boom')
+            def tpc_finish(self, transaction):
+                pass
+            def tpc_abort(self, transaction):
+                pass
+            def commit(self, transaction):
+                pass
+            def abort(self, transaction):
+                pass
+
+        self.beginTransaction(tpc=False)
+        transaction.get().join(OtherDataManager())
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Attempt to commit the transaction.  No changes are persisted.
+        with self.assertRaises(VotingFailure):
+            transaction.commit()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # Since we failed to commit, we must now abort
+        self.assertEqual(transaction.get().status, 'Commit failed')
+        transaction.abort()
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+    def test_tpc_broken_transaction_commit(self):
+        self.beginTransaction(tpc=True)
+
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Commit the transaction, no changes are persisted
+        transaction.commit()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+    def test_tpc_broken_transaction_abort(self):
+        self.beginTransaction(tpc=True)
+
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Abort the transaction
+        transaction.abort()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+    def test_tpc_broken_transaction_abort_voted(self):
+        # Corner case: sombody breaks our data manager's
+        # postgres transaction, eats the error and tries to commit anyway.
+        # Meanwhile, another data manager has joined the transaction,
+        # and it fails when voting, right after our data manager had voted.
+        #
+        # Our data manager now must abort the transaction and leave
+        # the connection in non-broken state.
+
+        class VotingFailure(Exception):
+            pass
+
+        class OtherDataManager:
+            def sortKey(self):
+                return 'ZZZ:OtherDataManager:0'  # vote last
+            def tpc_begin(self, transaction):
+                pass
+            def tpc_vote(self, transaction):
+                raise VotingFailure('boom')
+            def tpc_finish(self, transaction):
+                pass
+            def tpc_abort(self, transaction):
+                pass
+            def commit(self, transaction):
+                pass
+            def abort(self, transaction):
+                pass
+
+        self.beginTransaction(tpc=True)
+        transaction.get().join(OtherDataManager())
+        # Make changes
+        self.dm.root['foo1'] = Foo('foo-first')
+        # Someone broke the postgres transaction using dm's connection
+        with self.conn.cursor() as cursor:
+            with self.assertRaises(psycopg2.Error):
+                cursor.execute("FAULTY SQL")
+        # No more changes can be made
+        with self.assertRaises(psycopg2.errors.InFailedSqlTransaction):
+            self.dm.root['bar1'] = Foo('bar-first')
+
+        # Attempt to commit the transaction.  No changes are persisted.
+        with self.assertRaises(VotingFailure):
+            transaction.commit()
+        # The connection is returned to the ready state
+        self.assertEqual(self.conn.status, psycopg2.extensions.STATUS_READY)
+
+        # Since we failed to commit, we must now abort
+        self.assertEqual(transaction.get().status, 'Commit failed')
+        transaction.abort()
+
+        # We can process another transaction with same connection
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertNotIn('foo1', self.dm.root)
+
+        self.dm.root['foo2'] = Foo('foo-second')
+        transaction.commit()
+
+        self.dm = datamanager.PJDataManager(self.conn)
+        self.assertIn('foo2', self.dm.root)
+
+
 def test_suite():
     dtsuite = doctest.DocTestSuite(
         setUp=testing.setUp, tearDown=testing.tearDown,
@@ -1622,4 +1885,5 @@ def test_suite():
         unittest.makeSuite(QueryLoggingTestCase),
         unittest.makeSuite(TransactionOptionsTestCase),
         unittest.makeSuite(DirtyTestCase),
+        unittest.makeSuite(DatamanagerFailedTransactionTest),
         ))

@@ -6,7 +6,11 @@ CHANGES
 2.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add handling of failed postgres transactions when two-phase-commit
+  is enabled.  A corner case, when someone re-uses a connection used
+  by PJDataManager, executes bad SQL leaving the postgres transaction
+  in failed state, and finally tries to commit or abort the python
+  transaction.
 
 
 2.0.1 (2020-10-13)

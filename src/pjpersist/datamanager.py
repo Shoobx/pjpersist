@@ -785,7 +785,16 @@ class PJDataManager(object):
         self._report_stats()
         try:
             if self._tpc_activated:
-                self._conn.tpc_rollback()
+                try:
+                    self._conn.tpc_rollback()
+                except psycopg2.errors.UndefinedObject:
+                    # This happens when some code used data manager's
+                    # connection to execute faulty SQL, but catches
+                    # the error, leaving postgres transaction in failed state.
+                    # Calling tpc_prepare in failed state does not create
+                    # a prepared transaction in postgres, hence the failure
+                    # to roll back.
+                    self._conn.reset()
             else:
                 self._conn.rollback()
         except DISCONNECTED_EXCEPTIONS:
@@ -895,7 +904,16 @@ class PJDataManager(object):
     def tpc_finish(self, transaction):
         if self._tpc_activated:
             self._report_stats()
-            self._might_execute_with_error(self._conn.tpc_commit)
+            try:
+                self._might_execute_with_error(self._conn.tpc_commit)
+            except psycopg2.errors.UndefinedObject:
+                # This happens when some code used data manager's
+                # connection to execute faulty SQL, but catches
+                # the error, leaving postgres transaction in failed state.
+                # Calling tpc_prepare in failed state does not create
+                # a prepared transaction in postgres, hence the failure
+                # to commit.
+                self._conn.reset()
             self._release(self._conn)
             self._dirty = False
 
