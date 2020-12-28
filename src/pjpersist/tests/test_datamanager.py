@@ -17,6 +17,7 @@ import doctest
 import persistent
 import unittest
 import psycopg2
+import psycopg2.errors
 from pprint import pprint
 
 import transaction
@@ -1322,6 +1323,20 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         with self.assertRaises(interfaces.ConflictError):
             transaction.commit()
+
+    def test_catch_bad_sql(self):
+        """Test breaks psycopg2 transaction but tries to commit anyway."""
+
+        # An offending piece of code swallows psycopg2 exception,
+        # leaving psycopg2 transaction in a failed state
+        with self.dm.getCursor() as cursor:
+            with self.assertRaises(psycopg2.errors.SyntaxError):
+                cursor.execute("BAD SQL")
+
+        # The transaction is now marked as doomed, so we cannot commit it
+        with self.assertRaises(transaction.interfaces.DoomedTransaction):
+            transaction.commit()
+        transaction.abort()
 
     def test_db_disconnect(self):
         """check_for_disconnect converts some psycopg2 exceptions to
