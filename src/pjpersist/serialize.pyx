@@ -1,3 +1,5 @@
+# cython: language_level=3
+# cython: profile=False
 ##############################################################################
 #
 # Copyright (c) 2011 Zope Foundation and Contributors.

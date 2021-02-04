@@ -2,6 +2,7 @@
 """
 import os
 from setuptools import setup, find_packages
+from Cython.Build import cythonize
 
 
 def read(*rnames):
@@ -36,7 +37,7 @@ TESTS_REQUIRE = [
 
 setup(
     name='pjpersist',
-    version='2.0.2.dev0',
+    version='2.0.2.dev1',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',
@@ -63,13 +64,14 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     data_files=[('pjpersist', ['README.rst'])],  # in order to test it with tox
-    extras_require = dict(
+    extras_require=dict(
         test=TESTS_REQUIRE,
         zope=(
             'zope.container',
         ),
     ),
     install_requires=[
+        'Cython',
         'future',
         'persistent',
         'transaction',
@@ -85,6 +87,7 @@ setup(
     ],
     include_package_data=True,
     zip_safe=False,
+    ext_modules=cythonize(["src/pjpersist/serialize.pyx"]),
     entry_points='''
     [console_scripts]
     profile = pjpersist.tests.performance:main
