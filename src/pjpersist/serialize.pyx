@@ -145,6 +145,10 @@ class PersistentList(persistent.list.PersistentList):
 
 
 class DBRef(object):
+    _table: str
+    _id: str
+    _database: str
+    hash: int
 
     def __init__(self, table, id, database=None):
         self._table = table
@@ -153,7 +157,7 @@ class DBRef(object):
         self.__calculate_hash()
 
     def __calculate_hash(self):
-        self.hash = hash(str(self.database)+str(self.table)+str(self.id))
+        self.hash = hash(str(self._database)+str(self._table)+str(self._id))
 
     @property
     def database(self):
@@ -186,9 +190,9 @@ class DBRef(object):
         self.__init__(state['table'], state['id'], state['database'])
 
     def __getstate__(self):
-        return {'database': self.database,
-                'table': self.table,
-                'id': self.id}
+        return {'database': self._database,
+                'table': self._table,
+                'id': self._id}
 
     def __hash__(self):
         return self.hash
@@ -200,16 +204,16 @@ class DBRef(object):
         return self.hash != other.hash
 
     def __repr__(self):
-        return 'DBRef(%r, %r, %r)' %(self.table, self.id, self.database)
+        return 'DBRef(%r, %r, %r)' % (self._table, self._id, self._database)
 
     def as_tuple(self):
-        return self.database, self.table, self.id
+        return self._database, self._table, self._id
 
     def as_json(self):
         return {'_py_type': 'DBREF',
-                'database': self.database,
-                'table': self.table,
-                'id': self.id}
+                'database': self._database,
+                'table': self._table,
+                'id': self._id}
 
 
 class Binary(str):
@@ -601,9 +605,9 @@ class ObjectReader(object):
         # the code was:
         # if isinstance(state, dict) and state.get('_py_type') == 'DBREF':
         # this methods gets called a gazillion times, so being fast is crucial
-        stateIsDict = isinstance(state, dict)
+        stateIsDict: int = isinstance(state, dict)
         if stateIsDict:
-            state_py_type = state.get('_py_type')
+            state_py_type :str = state.get('_py_type')
             if state_py_type == 'BINARY':
                 # Binary data in Python 2 is presented as a string. We will
                 # convert back to binary when serializing again.
