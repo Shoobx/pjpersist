@@ -211,6 +211,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
             # Join the transaction, because failed queries require
             # aborting the transaction.
             self.datamanager._join_txn()
+            self.datamanager._doom_txn()
             check_for_conflict(e, sql, beacon=beacon)
             check_for_disconnect(e, sql, beacon=beacon)
             # otherwise let it fly away
@@ -256,6 +257,7 @@ class PJPersistCursor(psycopg2.extras.DictCursor):
                 # Join the transaction, because failed queries require
                 # aborting the transaction.
                 self.datamanager._join_txn()
+                self.datamanager._doom_txn()
                 check_for_conflict(e, sql, beacon=beacon)
                 check_for_disconnect(e, sql, beacon=beacon)
                 raise
@@ -664,6 +666,16 @@ class PJDataManager(object):
             transaction.join(self)
             self._needs_to_join = False
             self._begin(transaction)
+
+    def _doom_txn(self):
+        try:
+            transaction = self.transaction_manager.get()
+            transaction.doom()
+            return True
+        except ValueError:
+            # We are not in active trasaction phase,
+            # so it cannot be doomed.
+            return False
 
     def dump(self, obj):
         res = self._writer.store(obj)
