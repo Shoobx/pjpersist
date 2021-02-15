@@ -632,7 +632,6 @@ def doctest_PJContainer_concurrent_adds():
 
       >>> dm.root['people'] = container.IdNamesPJContainer('person')
       >>> dm.root['people'].add(Person('Roy'))
-      >>> dm.commit(None)
       >>> commit()
 
     Let's register a query stats listener:
@@ -655,7 +654,7 @@ def doctest_PJContainer_concurrent_adds():
       ...     def add_person():
       ...         conn2 = testing.getConnection(testing.DBNAME)
       ...         try:
-      ...             dm2 = datamanager.PJDataManager(conn2)
+      ...             dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
       ...             ppl = dm2.root['people']
       ...
       ...             ppl.add(Person('Stephan %s' % i))
@@ -1906,12 +1905,12 @@ class ContainerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         dm2.root['c']['stephan'] = SimplePerson('Stephan')
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
 
         dm1.root['c']['stephan'] = SimplePerson('Stephan')
 
@@ -1933,12 +1932,12 @@ class ContainerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
 
         dm1.root['c']['stephan'] = SimplePerson('Stephan')
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         dm2.root['c']['stephan'] = SimplePerson('Stephan')
 
@@ -1961,12 +1960,12 @@ class ContainerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         dm2.root['c']['stephan'] = Person('Stephan')
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
 
         dm1.root['c']['stephan'] = Person('Stephan')
 
@@ -1989,12 +1988,12 @@ class ContainerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
 
         dm1.root['c']['stephan'] = Person('Stephan')
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         dm2.root['c']['stephan'] = Person('Stephan')
 
@@ -2017,10 +2016,10 @@ class ContainerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
         dm1.createId = lambda: 'abcd'
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
         dm2.createId = lambda: 'abcd'
 
         dm1.root['c']['stephan1'] = Person('Stephan1')

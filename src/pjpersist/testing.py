@@ -60,6 +60,30 @@ DBNAME = 'pjpersist_test'
 DBNAME_OTHER = 'pjpersist_test_other'
 
 
+class DummyConnectionPool:
+    def __init__(self, conn):
+        self._available = conn
+        self._taken = None
+
+    def getconn(self):
+        if self._available is None:
+            raise PoolError("Connection is already taken")
+        self._available.reset()
+        self._available.set_isolation_level(
+            psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
+        self._taken = self._available
+        self._available = None
+        return self._taken
+
+    def putconn(self, conn, key=None, close=False):
+        assert conn is self._taken
+        self._available = self._taken
+        self._taken = None
+
+    def isTaken(self):
+        return self._taken is not None
+
+
 @zope.interface.implementer(interfaces.IPJDataManagerProvider)
 class SimpleDataManagerProvider(object):
     def __init__(self, dms, default=None):
@@ -134,14 +158,14 @@ def setUp(test):
     cleanDB(g['conn'])
     cleanDB(g['conn_other'])
     g['commit'] = transaction.commit
-    g['dm'] = datamanager.PJDataManager(g['conn'])
-    g['dm_other'] = datamanager.PJDataManager(g['conn_other'])
+    g['dm'] = datamanager.PJDataManager(DummyConnectionPool(g['conn']))
+    g['dm_other'] = datamanager.PJDataManager(DummyConnectionPool(g['conn_other']))
 
     def dumpTable(table, flush=True, isolate=False):
         if isolate:
             conn = getConnection(database=DBNAME)
         else:
-            conn = g['dm']._conn
+            conn = g['conn']
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             try:
                 cur.execute('SELECT * FROM ' + table)
@@ -212,7 +236,7 @@ class PJTestCase(unittest.TestCase):
         setUpSerializers(self)
         self.conn = getConnection(DBNAME)
         cleanDB(self.conn)
-        self.dm = datamanager.PJDataManager(self.conn)
+        self.dm = datamanager.PJDataManager(DummyConnectionPool(self.conn))
 
     def tearDown(self):
         datamanager.CONFLICT_TRACEBACK_INFO.traceback = None
