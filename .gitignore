@@ -9,7 +9,9 @@ develop-eggs
 src/pjpersist.egg-info/
 .installed.cfg
 tmp
-*.py?
+*.pyc
+*.so
+*.c
 .coverage
 htmlcov
 coverage
