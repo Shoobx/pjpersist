@@ -36,7 +36,7 @@ TESTS_REQUIRE = [
 
 setup(
     name='pjpersist',
-    version='2.0.2.dev6',
+    version='3.0.0',
     author="Shoobx Team",
     author_email="dev@shoobx.com",
     url='https://github.com/Shoobx/pjpersist',

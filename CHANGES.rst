@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.0.0 (unreleased)
+3.0.0 (2021-02-22)
 ------------------
 
 - Backwards incompatible change: PJDataManager now accepts a pool instead
