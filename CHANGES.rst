@@ -3,8 +3,17 @@ CHANGES
 =======
 
 
-2.0.2 (unreleased)
+3.0.0 (unreleased)
 ------------------
+
+- Backwards incompatible change: PJDataManager now accepts a pool instead
+  of connection object. PJDataManager will get the connection from the pool
+  when joining the transaction, and return it back when transaction
+  completes (aborts or commits). This allows for more flexible connection
+  management. The connection pool must implement IPJConnectionPool interface
+  (it is compatible with psycopg2.pool).
+
+- `IPJDataManager.begin()` is renamed to `setTransactionOptions()`
 
 - Errors executing SQL statements now doom the entire transaction,
   causing `transaction.interfaces.DoomedTransaction` exception on

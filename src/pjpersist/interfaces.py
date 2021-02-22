@@ -46,6 +46,10 @@ class DatabaseDisconnected(transaction.interfaces.TransientError):
     pass
 
 
+class ReadOnlyDataManagerError(transaction.interfaces.TransactionError):
+    """Attempt to modify objects governed by a read-only data manager."""
+
+
 class IObjectSerializer(zope.interface.Interface):
     """An object serializer allows for custom serialization output for
     objects."""
@@ -114,6 +118,20 @@ class IObjectReader(zope.interface.Interface):
         """
 
 
+class IPJConnectionPool(zope.interface.Interface):
+    def getconn():
+        """Get connection from the pool"""
+
+    def putconn(conn):
+        """Put conncetion back to the pool"""
+
+    def closeall():
+        """Close all connection in the pool"""
+
+    def reopen():
+        """Reopen the pool after it was closed"""
+
+
 class IPJDataManager(persistent.interfaces.IPersistentDataManager):
     """A persistent data manager that stores data in PostGreSQL/JSONB."""
 
@@ -168,6 +186,15 @@ class IPJDataManager(persistent.interfaces.IPersistentDataManager):
 
     def setDirty():
         """Set dirty flag"""
+
+    def setTransactionOptions(
+        readonly: bool = None,
+        deferrable: bool = None,
+        isolation_level: int = None) -> None:
+        """Set the options for the future transaction
+
+        Options can only be set before the postgres transaction has started
+        """
 
 
 class IPJDataManagerProvider(zope.interface.Interface):

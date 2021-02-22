@@ -123,9 +123,9 @@ def doctest_PJDataManager_get_table_from_object():
 
       >>> foo = Foo('1')
       >>> foo_ref = dm.insert(foo)
-      >>> dm.reset()
 
       >>> dbname, table = dm._get_table_from_object(foo)
+      >>> dm.reset()
 
     We are returning the database and table name pair.
 
@@ -143,7 +143,7 @@ def doctest_PJDataManager_object_dump_load_reset():
     psycopg2 connection is required:
 
       >>> dm = datamanager.PJDataManager(
-      ...     conn,
+      ...     testing.DummyConnectionPool(conn),
       ...     root_table = 'proot')
 
     There are two convenience methods that let you serialize and de-serialize
@@ -908,7 +908,7 @@ def doctest_PJDataManager_complex_sub_objects():
       >>> dm.root['one'] = foo
       >>> commit()
 
-      >>> cur = dm._conn.cursor()
+      >>> cur = conn.cursor()
       >>> cur.execute('SELECT tablename from pg_tables;')
       >>> sorted(e[0] for e in cur.fetchall()
       ...        if not e[0].startswith('pg_') and not e[0].startswith('sql_'))
@@ -1022,7 +1022,7 @@ def doctest_PJDataManager_table_sharing():
       >>> dm.root['app'].three
       <Sub three>
 
-      >>> dm.tpc_finish(None)
+      >>> transaction.commit()
 
     Let's now load everything again:
 
@@ -1032,17 +1032,16 @@ def doctest_PJDataManager_table_sharing():
       <Sub two>
       >>> dm.root['app'].three
       <Sub three>
-      >>> dm.tpc_finish(None)
+      >>> transaction.commit()
 
     Make sure that after a restart, the objects can still be stored.
 
       >>> serialize.AVAILABLE_NAME_MAPPINGS = set()
       >>> serialize.PATH_RESOLVE_CACHE = {}
-
-      >>> dm2 = datamanager.PJDataManager(conn)
+      >>> dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn))
 
       >>> dm2.root['app'].four = Sub('four')
-      >>> dm2.tpc_finish(None)
+      >>> transaction.commit()
 
       >>> serialize.AVAILABLE_NAME_MAPPINGS = set()
       >>> serialize.PATH_RESOLVE_CACHE = {}
@@ -1182,11 +1181,11 @@ class DatamanagerConflictTest(testing.PJTestCase):
         conn1 = testing.getConnection(testing.DBNAME)
         conn2 = testing.getConnection(testing.DBNAME)
 
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
 
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
         self.assertEqual(dm1.root['foo'].name, 'foo-first')
         dm1.root['foo'].name = 'foo-second'
 
@@ -1210,14 +1209,14 @@ class DatamanagerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
 
         self.assertEqual(dm1.root['foo'].name, 'foo-first')
 
         dm1.root['foo'].name = 'foo-second'
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         self.assertEqual(dm2.root['foo'].name, 'foo-first')
         del dm2.root['foo']
@@ -1249,11 +1248,11 @@ class DatamanagerConflictTest(testing.PJTestCase):
         transaction.commit()
 
         conn2 = testing.getConnection(testing.DBNAME)
-        dm2 = datamanager.PJDataManager(conn2)
+        dm2 = datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
         del dm2.root['foo']
 
         conn1 = testing.getConnection(testing.DBNAME)
-        dm1 = datamanager.PJDataManager(conn1)
+        dm1 = datamanager.PJDataManager(testing.DummyConnectionPool(conn1))
         dm1.root['foo'].name = 'foo-second'
 
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
@@ -1273,7 +1272,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         # start another transaction and verify the traceback
         # is reset
-        datamanager.PJDataManager(conn2)
+        datamanager.PJDataManager(testing.DummyConnectionPool(conn2))
 
         ctb = datamanager.CONFLICT_TRACEBACK_INFO.traceback
         self.assertIsNone(ctb)
@@ -1296,6 +1295,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
         # First, get the error, that psycopg throws in such case
         # The example is taken from https://wiki.postgresql.org/wiki/SSI
         conn1 = self.conn
+
         conn2 = testing.getConnection(testing.DBNAME)
 
         with conn1.cursor() as cur:
@@ -1306,7 +1306,7 @@ class DatamanagerConflictTest(testing.PJTestCase):
                 "INSERT INTO mytab VALUES (1, 10), (1, 20), (2, 100), (2, 200)")
         conn1.commit()
 
-        with conn1.cursor() as cur1, conn2.cursor() as cur2:
+        with self.dm.getCursor() as cur1, conn2.cursor() as cur2:
             cur1.execute("SELECT SUM(value) FROM mytab WHERE class = 1")
             cur1.execute("INSERT INTO mytab VALUES (2, 30)")
 
@@ -1318,9 +1318,6 @@ class DatamanagerConflictTest(testing.PJTestCase):
 
         # Now datamanager, holding conn1 is in doomed state. it is expected to
         # fail on commit attempt.
-        txn = transaction.get()
-        txn.join(self.dm)
-
         with self.assertRaises(interfaces.ConflictError):
             transaction.commit()
 
@@ -1439,12 +1436,12 @@ class TransactionOptionsTestCase(testing.PJTestCase):
 
         super(TransactionOptionsTestCase, self).tearDown()
 
-    def test_begin(self):
+    def test_setTransactionOptions_setIsolation(self):
         """It is possible to request transaction options before first
         statement is executed
         """
 
-        self.dm.begin(isolation_level="READ COMMITTED")
+        self.dm.setTransactionOptions(isolation_level="READ COMMITTED")
 
         cur = self.dm.getCursor()
         cur.execute('SHOW transaction_isolation')
@@ -1461,7 +1458,7 @@ class TransactionOptionsTestCase(testing.PJTestCase):
         transaction.commit()
 
         # Now change it
-        self.dm.begin(isolation_level="REPEATABLE READ")
+        self.dm.setTransactionOptions(isolation_level="REPEATABLE READ")
         cur = self.dm.getCursor()
         cur.execute('SHOW transaction_isolation')
         res = cur.fetchone()
@@ -1497,7 +1494,7 @@ class DirtyTestCase(testing.PJTestCase):
         # First PJDataManager instantiation creates tables, what makes the dm
         # dirty, which we want to avoid here.
         self.conn = testing.getConnection(testing.DBNAME)
-        self.dm = datamanager.PJDataManager(self.conn)
+        self.dm = datamanager.PJDataManager(testing.DummyConnectionPool(self.conn))
 
     def tearDown(self):
         for p in self.patches:
@@ -1612,10 +1609,90 @@ class DirtyTestCase(testing.PJTestCase):
         self.assertTrue('tpc_prepare' in str(prep_mock_p.call_args_list))
         self.assertTrue('tpc_commit' in str(prep_mock_p.call_args_list))
 
+    def test_release_on_destroy(self):
+        # When DM is destroyed without committing or aborting the transaction
+        # (for whatever awkward reason), connection should be released.
+        conn = testing.getConnection(testing.DBNAME)
+        pool = testing.DummyConnectionPool(conn)
+        dm = datamanager.PJDataManager(pool)
+        dm.getCursor()  # join the transaction
+        self.assertTrue(pool.isTaken())
+
+        # WHEN
+        # simulate the garbage collection
+        dm.__del__()
+
+        # THEN
+        self.assertFalse(pool.isTaken())
+
+    def test_release_on_new_transaction(self):
+        # When new transaction is started, connection is released because
+        # the previous one is aborted.
+        # GIVEN
+        conn = testing.getConnection(testing.DBNAME)
+        pool = testing.DummyConnectionPool(conn)
+        dm = datamanager.PJDataManager(pool)
+        dm.getCursor()  # join the transaction
+        self.assertTrue(pool.isTaken())
+
+        # WHEN
+
+        # Create new transaction to release the reference to our data manager
+        # and allow it to be destroyed
+        transaction.begin()
+
+        # THEN
+        self.assertFalse(pool.isTaken())
+
+    def test_release_on_commit(self):
+        # GIVEN
+        transaction.abort()
+        pool = testing.DummyConnectionPool(self.conn)
+        dm = datamanager.PJDataManager(pool)
+        dm.getCursor()  # join the transaction
+        self.assertTrue(pool.isTaken())
+
+        # WHEN
+
+        # Create new transaction to release the reference to our data manager
+        # and allow it to be destroyed
+        transaction.commit()
+
+        # THEN
+        self.assertFalse(pool.isTaken())
+
+    def test_release_on_abort(self):
+        # GIVEN
+        transaction.abort()
+        pool = testing.DummyConnectionPool(self.conn)
+        dm = datamanager.PJDataManager(pool)
+        dm.getCursor()  # join the transaction
+        self.assertTrue(pool.isTaken())
+
+        # WHEN
+
+        # Create new transaction to release the reference to our data manager
+        # and allow it to be destroyed
+        transaction.abort()
+
+        # THEN
+        self.assertFalse(pool.isTaken())
+
+    def test_readonly_fail_on_write(self):
+        transaction.abort()
+        pool = testing.DummyConnectionPool(self.conn)
+        dm = datamanager.PJDataManager(pool)
+        dm.setTransactionOptions(readonly=True)
+
+        # WHEN, THEN
+        with self.assertRaises(interfaces.ReadOnlyDataManagerError):
+            with dm.getCursor() as cur:
+                cur.execute("INSERT INTO mytab VALUES (1, '10')")
+
     @contextlib.contextmanager
     def cursor(self, abort=False):
         transaction.abort()
-        self.dm = datamanager.PJDataManager(self.conn)
+        self.dm = datamanager.PJDataManager(testing.DummyConnectionPool(self.conn))
         cur = self.dm.getCursor()
         yield cur
         if abort:

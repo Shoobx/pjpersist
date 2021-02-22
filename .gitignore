@@ -14,5 +14,6 @@ tmp
 htmlcov
 coverage
 coverage.xml
+dist
 .tox/
 .venv/

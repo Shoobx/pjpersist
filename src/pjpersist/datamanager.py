@@ -17,11 +17,6 @@ import binascii
 import hashlib
 import logging
 import os
-import psycopg2
-import psycopg2.extensions
-import psycopg2.extras
-import psycopg2.errorcodes
-import pjpersist.sqlbuilder as sb
 import random
 import re
 import socket
@@ -29,11 +24,18 @@ import struct
 import threading
 import time
 import traceback
-import transaction
 import uuid
-import zope.interface
 from collections.abc import MutableMapping
+from typing import Optional
 
+import psycopg2
+import psycopg2.errorcodes
+import psycopg2.extensions
+import psycopg2.extras
+import transaction
+
+import pjpersist.sqlbuilder as sb
+import zope.interface
 from pjpersist import interfaces, serialize
 from pjpersist.querystats import QueryReport
 
@@ -427,13 +429,29 @@ class PJDataManager(object):
     _pristine = True
 
     # Flag showing whether there is any write in the current transaction
-    _dirty = False
+    _dirty: bool
 
-    def __init__(self, conn, root_table=None):
-        self._conn = conn
-        self.database = get_database_name_from_dsn(conn.dsn)
+    _isolation_level: Optional[str]
+    _readonly: Optional[bool]
+    _deferrable: Optional[bool]
+
+    def __init__(self, pool, root_table=None):
+        self._pool = pool
         self._reader = serialize.ObjectReader(self)
         self._writer = serialize.ObjectWriter(self)
+        self.transaction_manager = transaction.manager
+        self._query_report = QueryReport()
+        self._reset_data_manager()
+
+        if self.root is None:
+            # Getting Root can call self._join_txn when the table gets
+            # auto-created, that calls self._begin, that might set
+            # self._tpc_activated, so do this after setting self._tpc_activated
+            self.root = Root(self, root_table)
+
+    def _reset_data_manager(self):
+        self._conn = None
+        self.database = None
         # All of the following object lists are keys by object id. This is
         # needed when testing containment, since that can utilize `__cmp__()`
         # which can have undesired side effects. `id()` is guaranteed to not
@@ -442,6 +460,12 @@ class PJDataManager(object):
         self._loaded_objects = {}
         self._inserted_objects = {}
         self._removed_objects = {}
+        self._dirty = False
+
+        self._readonly = None
+        self._deferrable = None
+        self._isolation_level = None
+
         # The latest states written to the database.
         self._latest_states = {}
         self._needs_to_join = True
@@ -449,17 +473,7 @@ class PJDataManager(object):
         self.annotations = {}
 
         self._txn_active = False
-
-        self.transaction_manager = transaction.manager
         self._tpc_activated = False
-
-        if self.root is None:
-            # Getting Root can call self._join_txn when the table gets
-            # auto-created, that calls self._begin, that might set
-            # self._tpc_activated, so do this after setting self._tpc_activated
-            self.root = Root(self, root_table)
-
-        self._query_report = QueryReport()
 
     def getCursor(self, flush=True):
         self._join_txn()
@@ -662,6 +676,8 @@ class PJDataManager(object):
 
     def _join_txn(self):
         if self._needs_to_join:
+            self._acquire_conn()
+            # once we have a working connection, we can join the transaction
             transaction = self.transaction_manager.get()
             transaction.join(self)
             self._needs_to_join = False
@@ -686,12 +702,14 @@ class PJDataManager(object):
         return res
 
     def load(self, dbref, klass=None):
+        self._join_txn()
         dm = self
         if dbref.database != self.database:
             # This is a reference of object from different database! We need to
             # locate the suitable data manager for this.
             dmp = zope.component.getUtility(interfaces.IPJDataManagerProvider)
             dm = dmp.get(dbref.database)
+            dm._join_txn()
             assert dm.database == dbref.database, (dm.database, dbref.database)
             return dm.load(dbref, klass)
 
@@ -702,17 +720,21 @@ class PJDataManager(object):
         # DB updates, not just reset PJDataManager state
         self.abort(None)
 
-    def _release(self, conn):
+    def _acquire_conn(self):
+        """Get connection from connection pool"""
+        self._conn = self._pool.getconn()
+        assert self._conn.status == psycopg2.extensions.STATUS_READY
+        self.database = get_database_name_from_dsn(self._conn.dsn)
+
+    def _release_conn(self, conn):
         """Release the connection after transaction is complete
         """
         if not conn.closed:
             # Set transaction options back to their default values so that next
             # transaction is not affected
-            conn.set_session(
-                isolation_level="DEFAULT",
-                readonly="DEFAULT",
-                deferrable="DEFAULT")
-        self.__init__(conn)
+            conn.reset()
+        self._pool.putconn(conn)
+        self._reset_data_manager()
 
     def insert(self, obj, oid=None):
         self._join_txn()
@@ -780,6 +802,9 @@ class PJDataManager(object):
     def register(self, obj):
         self._join_txn()
 
+        if self._readonly:
+            raise interfaces.ReadOnlyDataManagerError()
+
         # Do not bring back removed objects. But only main the document
         # objects can be removed, so check for that.
         if id(self._get_doc_object(obj)) in self._removed_objects:
@@ -794,6 +819,9 @@ class PJDataManager(object):
                     obj_registered(self)
 
     def abort(self, transaction):
+        if self._conn is None:
+            # Connection was never aqcuired - nothing to abort
+            return
         self._report_stats()
         try:
             if self._tpc_activated:
@@ -804,7 +832,7 @@ class PJDataManager(object):
             # this happens usually when PG is restarted and the connection dies
             # our only chance to exit the spiral is to abort the transaction
             pass
-        self._release(self._conn)
+        self._release_conn(self._conn)
         self._dirty = False
 
     def _might_execute_with_error(self, op):
@@ -816,26 +844,23 @@ class PJDataManager(object):
             check_for_disconnect(e, "DataManager.commit")
             raise
 
-    def begin(self, readonly=None, deferrable=None, isolation_level=None):
-        """Join transaction and begin it with given options
-
-        This only works for new database transactions and fail if a
-        transaction was already started on current connection.
-        """
-
-        assert self._conn.status == psycopg2.extensions.STATUS_READY
-
-        try:
-            self._conn.set_session(isolation_level=isolation_level,
-                                   deferrable=deferrable,
-                                   readonly=readonly)
-        except psycopg2.Error as e:
-            check_for_disconnect(e, 'PJDataManager.begin')
-            raise
-
-        self._join_txn()
+    def setTransactionOptions(
+            self,
+            readonly: bool = None,
+            deferrable: bool = None,
+            isolation_level: int = None):
+        if isolation_level is not None:
+            self._isolation_level = isolation_level
+        if readonly is not None:
+            self._readonly = readonly
+        if deferrable is not None:
+            self._deferrable = deferrable
 
     def _begin(self, transaction):
+        self._conn.set_session(isolation_level=self._isolation_level,
+                               deferrable=self._deferrable,
+                               readonly=self._readonly)
+
         # This function is called when PJDataManager joins transaction. When
         # two phase commit is requested, we will assign transaction id to
         # underlying connection.
@@ -880,9 +905,11 @@ class PJDataManager(object):
         self._log_rw_stats()
 
         if not self._tpc_activated:
-            self._might_execute_with_error(self._conn.commit)
-            self._release(self._conn)
-            self._dirty = False
+            try:
+                self._might_execute_with_error(self._conn.commit)
+                self._dirty = False
+            finally:
+                self._release_conn(self._conn)
 
     def tpc_begin(self, transaction):
         pass
@@ -907,9 +934,11 @@ class PJDataManager(object):
     def tpc_finish(self, transaction):
         if self._tpc_activated:
             self._report_stats()
-            self._might_execute_with_error(self._conn.tpc_commit)
-            self._release(self._conn)
-            self._dirty = False
+            try:
+                self._might_execute_with_error(self._conn.tpc_commit)
+                self._dirty = False
+            finally:
+                self._release_conn(self._conn)
 
     def tpc_abort(self, transaction):
         self.abort(transaction)
@@ -935,7 +964,17 @@ class PJDataManager(object):
         return self._dirty or bool(self._registered_objects)
 
     def setDirty(self):
+        if self._readonly:
+            raise interfaces.ReadOnlyDataManagerError()
         self._dirty = True
+
+    def __del__(self):
+        if self._conn is None:
+            return
+
+        LOG.warning("Releasing connection after destroying PJDataManager. "
+                    "Active transaction will be aborted.")
+        self._release_conn(self._conn)
 
 
 def get_database_name_from_dsn(dsn):
