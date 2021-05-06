@@ -18,6 +18,7 @@ import logging
 import os
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 import re
 import sys
 import threading
@@ -28,7 +29,7 @@ from pprint import pprint
 import zope.component
 from zope.testing import module, renormalizing
 
-from pjpersist import datamanager, serialize, serializers, interfaces
+from pjpersist import datamanager, serialize, interfaces
 
 py3checkers = [
     # Mangle unicode strings
@@ -67,7 +68,7 @@ class DummyConnectionPool:
 
     def getconn(self):
         if self._available is None:
-            raise PoolError("Connection is already taken")
+            raise psycopg2.pool.PoolError("Connection is already taken")
         self._available.reset()
         self._available.set_isolation_level(
             psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
