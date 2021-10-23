@@ -282,7 +282,8 @@ class PJContainer(contained.Contained,
     def _load_one(self, id, doc, use_cache=True):
         """Get the python object from the id/doc state"""
         if use_cache:
-            obj = self._cache.get(self._cache_get_key(id, doc))
+            cache = self._cache
+            obj = cache.get(self._cache_get_key(id, doc))
             if obj is not None:
                 return obj
         # Create a DBRef object and then load the full state of the object.
@@ -293,7 +294,7 @@ class PJContainer(contained.Contained,
         self._locate(obj, id, doc)
         # Add the object into the local container cache.
         if use_cache:
-            self._cache[obj.__name__] = obj
+            cache[obj.__name__] = obj
         return obj
 
     def __cmp__(self, other):
