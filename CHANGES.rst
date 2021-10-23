@@ -8,6 +8,8 @@ CHANGES
 
 - Fix imports in `testing.py`
 
+- Declare Python 3.9 compatibility
+
 
 3.0.0 (2021-02-22)
 ------------------

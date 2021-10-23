@@ -55,6 +55,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Framework :: ZODB',
         'License :: OSI Approved :: Zope Public License',
         'Natural Language :: English',
