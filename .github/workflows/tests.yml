@@ -1,0 +1,87 @@
+# Taken from:
+# https://github.com/zopefoundation/meta/tree/master/config/pure-python
+name: tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 12 * * 0'  # run once a week on Sunday
+  # Allow to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      # We want to see all failures:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu
+        config:
+        # [Python version, tox env]
+        #- ["3.7",   "py37"]
+        - ["3.8",   "py38"]
+        #- ["3.7",   "coverage"]
+
+    runs-on: ${{ matrix.os }}-latest
+    name: ${{ matrix.config[1] }}
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: postgres_db
+          POSTGRES_PASSWORD: postgres_password
+          POSTGRES_USER: postgres_user
+        ports:
+          - 5432:5432
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    #- echo "max_prepared_transactions = 10" | sudo tee -a /etc/postgresql/9.6/main/postgresql.conf
+    #- sudo /etc/init.d/postgresql restart
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.config[0] }}
+    - name: Create pjpersist user
+      # apparently latest action VMs have psql installed
+      run: psql -h localhost -d postgres_db -c "create user pjpersist with createdb password 'pjpersist';" -U postgres_user
+      env:
+        # postgres password is required
+        PGPASSWORD: postgres_password
+
+    - name: Setup prepared transactions
+      run: |
+        docker exec -u root postgres:14 echo "max_prepared_transactions = 10" >> /var/lib/postgresql/data/postgresql.conf
+        docker exec -u root postgres:14 service postgresql restart
+
+    - name: Pip cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.config[0] }}-${{ hashFiles('setup.*', 'tox.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.config[0] }}-
+          ${{ runner.os }}-pip-
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install tox
+    - name: Test
+      run: tox -e ${{ matrix.config[1] }}
+    - name: Coverage
+      if: matrix.config[1] == 'coverage'
+      run: |
+        pip install coveralls coverage-python-version
+        coveralls --service=github
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
