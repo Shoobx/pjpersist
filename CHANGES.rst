@@ -14,6 +14,8 @@ CHANGES
   Get the local cache just once, since the `_cache` property became
   a bit more expensive.
 
+- Added `sqlbuilder.ILIKE` -- case-insensitive pair of LIKE
+
 
 3.0.0 (2021-02-22)
 ------------------
