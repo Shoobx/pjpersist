@@ -286,3 +286,8 @@ class UnionAll(Union):
 # We can replace Union with _BetterUnion now, so all existing code uses it
 Union = _BetterUnion
 
+class ILIKE(LIKE):
+    """Case-insensitive pair of LIKE
+
+    ILIKE is a valid postgres keyword, but not implemented by sqlobject"""
+    op = "ILIKE"
