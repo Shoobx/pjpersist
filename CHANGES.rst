@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.0.1 (unreleased)
+3.0.1 (2022-02-03)
 ------------------
 
 - Fix imports in `testing.py`
