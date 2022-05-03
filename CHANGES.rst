@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.0.2 (unreleased)
+3.0.2 (2022-05-03)
 ------------------
 
 - Fix `DBRef` comparisons to return valid results instead
