@@ -6,8 +6,10 @@ CHANGES
 3.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
-
+- Fix `DBRef` comparisons to return valid results instead
+  of failing hard  when comparing to `None` and not `DBRef` instances.
+  (`__neq__` was unused because `__ne__` is the right method and `__ne__` anyway
+  delegates to `__eq__`)
 
 3.0.1 (2022-02-03)
 ------------------

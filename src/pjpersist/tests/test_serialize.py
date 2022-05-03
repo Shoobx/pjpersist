@@ -182,6 +182,21 @@ def doctest_DBRef():
       True
       >>> id(dbref1) == id(dbref11)
       False
+
+    Don't fail on various comparisons:
+
+      >>> dbref1 == None
+      False
+
+      >>> dbref1 == Simple
+      False
+
+      >>> dbref1 != None
+      True
+
+      >>> dbref1 != Simple
+      True
+
     """
 
 def doctest_ObjectSerializer():

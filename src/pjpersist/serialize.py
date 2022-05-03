@@ -192,10 +192,11 @@ class DBRef(object):
         return self.hash
 
     def __eq__(self, other):
-        return self.hash == other.hash
-
-    def __neq__(self, other):
-        return self.hash != other.hash
+        try:
+            return self.hash == other.hash
+        except AttributeError:
+            # `other` is not a DBRef or is None
+            return False
 
     def __repr__(self):
         return 'DBRef(%r, %r, %r)' %(self.table, self.id, self.database)
