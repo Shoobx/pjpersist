@@ -73,6 +73,22 @@ class CopyReggedConstant(object):
 copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
+class MyDict(collections.Mapping):
+    def __init__(self, dct):
+        self._dct = dct
+
+    def __getitem__(self, key):
+        return self._dct[key]
+
+    def __iter__(self):
+        return iter(self._dct)
+
+    def __len__(self):
+        return len(self._dct)
+
+    def __repr__(self):
+        return '{self.__class__.__name__}({self._dct})'.format(self=self)
+
 
 def doctest_link_to_parent():
     """Link to Parent
@@ -290,7 +306,7 @@ def doctest_ObjectWriter_get_non_persistent_state():
 
     A simple old-style class:
 
-      >>> class That(object):
+      >>> class That:
       ...     def __init__(self, num):
       ...         self.num = num
 
@@ -368,6 +384,22 @@ def doctest_ObjectWriter_get_state_PJ_NATIVE_TYPES():
       'Test'
       >>> print(writer.get_state(None))
       None
+    """
+
+def doctest_ObjectWriter_get_state_collection_abc_mappingviews():
+    """ObjectWriter: get_state(): collections.abc.MappingView subclasses
+
+      >>> writer = serialize.ObjectWriter(None)
+      >>> mapping = MyDict({'abc': 'cde'})
+
+      >>> pprint.pprint(writer.get_state(mapping.keys()))
+      ['abc']
+
+      >>> pprint.pprint(writer.get_state(mapping.values()))
+      ['cde']
+
+      >>> pprint.pprint(writer.get_state(mapping.items()))
+      [['abc', 'cde']]
     """
 
 def doctest_ObjectWriter_get_state_constant():
@@ -1154,6 +1186,69 @@ def doctest_ObjectReader_get_object_constant():
       >>> reader.get_object(
       ...     {'_py_constant': 'pjpersist.interfaces.IObjectWriter'}, None)
       <InterfaceClass pjpersist.interfaces.IObjectWriter>
+    """
+
+def doctest_ObjectReader_get_object_collections_abc_mappingviews():
+    """ObjectReader: get_object(): collections.abc.MappingView subclasses
+
+      >>> reader = serialize.ObjectReader(dm)
+
+      >>> inp = {
+      ...     '_mapping': {'_dct': {'abc': 'cde'},
+      ...                  '_py_type': 'pjpersist.tests.test_serialize.MyDict'},
+      ...     '_py_type': 'collections.abc.KeysView'}
+
+      >>> reader.get_object(inp, None)
+      KeysView(MyDict({'abc': 'cde'}))
+
+      >>> inp = {
+      ...     '_mapping': {'_dct': {'abc': 'cde'},
+      ...                  '_py_type': 'pjpersist.tests.test_serialize.MyDict'},
+      ...     '_py_type': 'collections.abc.ValuesView'}
+
+      >>> reader.get_object(inp, None)
+      ValuesView(MyDict({'abc': 'cde'}))
+
+      >>> inp = {
+      ...     '_mapping': {'_dct': {'abc': 'cde'},
+      ...                  '_py_type': 'pjpersist.tests.test_serialize.MyDict'},
+      ...     '_py_type': 'collections.abc.ItemsView'}
+
+      >>> reader.get_object(inp, None)
+      ItemsView(MyDict({'abc': 'cde'}))
+    """
+
+def doctest_ObjectReader_get_object_collections_abc_mappingviews_failed():
+    """ObjectReader: get_object(): collections.abc.MappingView subclasses
+
+      Check loading of such broken states, where _mapping is missing
+
+      >>> log = testing.setUpLogging(serialize.LOG)
+
+      >>> reader = serialize.ObjectReader(dm)
+
+      >>> inp = {'_py_type': 'collections.abc.KeysView'}
+      >>> reader.get_object(inp, 'abc')
+      KeysView({})
+
+      >>> inp = {'_py_type': 'collections.abc.ValuesView'}
+      >>> reader.get_object(inp, 'cde')
+      ValuesView({})
+
+      >>> inp = {'_py_type': 'collections.abc.ItemsView'}
+      >>> reader.get_object(inp, None)
+      ItemsView({})
+
+      >>> pprint.pprint(log.getvalue().split('\\n'))
+      ["Found a broken collections.abc.KeysView state, hint: 'abc', returning empty "
+       '{}',
+       "Found a broken collections.abc.ValuesView state, hint: 'cde', returning "
+       'empty {}',
+       'Found a broken collections.abc.ItemsView state, hint: None, returning empty '
+       '{}',
+       '']
+
+      >>> testing.tearDownLogging(serialize.LOG)
     """
 
 def doctest_ObjectReader_get_ghost():
