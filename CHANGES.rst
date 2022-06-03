@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.1.0 (unreleased)
+3.1.0 (2022-06-03)
 ------------------
 
 - Fix `collections.abc.MappingView` subclass persistence. It was very bad, did not
