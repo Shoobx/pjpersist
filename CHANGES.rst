@@ -3,10 +3,13 @@ CHANGES
 =======
 
 
-3.0.3 (unreleased)
+3.1.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix `collections.abc.MappingView` subclass persistence. It was very bad, did not
+  store the underlying mapping at all, **caused silent data loss**.
+  Urgent update advised!
+  Also failed on loading the state of such.
 
 
 3.0.2 (2022-05-03)

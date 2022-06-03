@@ -14,6 +14,8 @@
 ##############################################################################
 """Object Serialization for PostGreSQL's JSONB"""
 import base64
+import logging
+import collections.abc
 import copyreg
 import datetime
 import warnings
@@ -26,6 +28,8 @@ from zope.dottedname.resolve import resolve
 from decimal import Decimal
 
 from pjpersist import interfaces
+
+LOG = logging.getLogger(__name__)
 
 ALWAYS_READ_FULL_DOC = True
 
@@ -60,6 +64,18 @@ PYTHON_TO_PG_TYPES = {
 
 KNOWN_FACTORIES = {
     '__builtin__.set': set,
+}
+
+COLLECTIONS_ABC_MAPPINGVIEWS = {
+    collections.abc.KeysView,
+    collections.abc.ValuesView,
+    collections.abc.ItemsView,
+}
+
+COLLECTIONS_ABC_MAPPINGVIEWS_STR = {
+    'collections.abc.KeysView',
+    'collections.abc.ValuesView',
+    'collections.abc.ItemsView',
 }
 
 # we need to convert dicts and dict-ish values which have non-string keys
@@ -311,9 +327,6 @@ class ObjectWriter(object):
 
     def get_state(self, obj, pobj=None):
         objectType = type(obj)
-        # in_seen = seen
-        # if seen is None:
-        #     seen = set()
         __traceback_info__ = obj, objectType, pobj
         if objectType in interfaces.PJ_NATIVE_TYPES:
             # If we have a native type, we'll just use it as the state.
@@ -341,6 +354,12 @@ class ObjectWriter(object):
         if objectType == datetime.datetime:
             return {'_py_type': 'datetime.datetime',
                     'value': obj.strftime(FMT_DATETIME)}
+
+        # Let's handle only specific MappingView subclasses for now
+        if objectType in COLLECTIONS_ABC_MAPPINGVIEWS:
+            # Just convert all such objects to a list
+            # That was anyway the python 2.x behavior for mapping (keys|values|items)
+            return self.get_state(list(obj))
 
         if isinstance(obj, type):
             # We frequently store class and function paths as meta-data, so we
@@ -643,6 +662,23 @@ class ObjectReader(object):
                         DeprecationWarning)
                     return datetime.datetime.strptime(
                         state['value'], FMT_DATETIME_BBB)
+            if state_py_type in COLLECTIONS_ABC_MAPPINGVIEWS_STR:
+                klass = self.simple_resolve(state_py_type)
+                if '_mapping' in state:
+                    # Leaving this around, just in case we decide to persist the real
+                    # view object or find something with state
+                    sub_obj = self.get_object(state['_mapping'], obj)
+                else:
+                    # BBB: We previously FAILED to store the mapping state itself.
+                    #      Provide something that does not break the world and log.
+                    #      Do not raise an exception, that would break object loading.
+                    sub_obj = {}
+                    # How to provide more info on the state?
+                    # A traceback would be nice, but that sounds too involved
+                    LOG.error(
+                        "Found a broken %s state, hint: %r, returning empty {}",
+                        state_py_type, obj)
+                return klass(sub_obj)
 
         # Give the custom serializers a chance to weigh in.
         for serializer in SERIALIZERS:
