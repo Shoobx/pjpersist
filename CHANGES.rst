@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.1.1 (unreleased)
+3.1.1 (2022-06-06)
 ------------------
 
 - Fix `MappingView` fix, do not emit `hint` in the log message, hint object is the one
