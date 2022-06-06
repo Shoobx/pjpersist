@@ -6,7 +6,8 @@ CHANGES
 3.1.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix `MappingView` fix, do not emit `hint` in the log message, hint object is the one
+  being loaded, this just causes pain.
 
 
 3.1.0 (2022-06-03)

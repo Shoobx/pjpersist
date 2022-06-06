@@ -676,8 +676,7 @@ class ObjectReader(object):
                     # How to provide more info on the state?
                     # A traceback would be nice, but that sounds too involved
                     LOG.error(
-                        "Found a broken %s state, hint: %r, returning empty {}",
-                        state_py_type, obj)
+                        "Found a broken %s state, returning empty {}", state_py_type)
                 return klass(sub_obj)
 
         # Give the custom serializers a chance to weigh in.

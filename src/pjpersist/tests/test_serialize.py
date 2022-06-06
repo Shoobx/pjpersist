@@ -270,7 +270,7 @@ def doctest_ObjectWriter_get_table_name():
     When classes use inheritance, it often happens that all sub-objects share
     the same table. However, only one can have an entry in our mapping
     table to avoid non-unique answers. Thus we require all sub-types after the
-    first one to store their typing providing a hint for deseriealization:
+    first one to store their typing providing a hint for deserialization:
 
       >>> top2 = Top2()
       >>> writer.get_table_name(top2)
@@ -1240,12 +1240,9 @@ def doctest_ObjectReader_get_object_collections_abc_mappingviews_failed():
       ItemsView({})
 
       >>> pprint.pprint(log.getvalue().split('\\n'))
-      ["Found a broken collections.abc.KeysView state, hint: 'abc', returning empty "
-       '{}',
-       "Found a broken collections.abc.ValuesView state, hint: 'cde', returning "
-       'empty {}',
-       'Found a broken collections.abc.ItemsView state, hint: None, returning empty '
-       '{}',
+      ['Found a broken collections.abc.KeysView state, returning empty {}',
+       'Found a broken collections.abc.ValuesView state, returning empty {}',
+       'Found a broken collections.abc.ItemsView state, returning empty {}',
        '']
 
       >>> testing.tearDownLogging(serialize.LOG)
