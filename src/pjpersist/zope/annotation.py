@@ -17,7 +17,7 @@ from persistent.dict import PersistentDict
 from zope import component, interface
 from zope.annotation import interfaces
 
-from collections import MutableMapping
+from collections.abc import MutableMapping
 
 class IPJAttributeAnnotatable(interfaces.IAnnotatable):
     """Marker indicating that annotations can be stored on an attribute.

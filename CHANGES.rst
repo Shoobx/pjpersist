@@ -6,7 +6,7 @@ CHANGES
 3.1.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Replace collections with collections.abc for python 3.10 compatibility
 
 
 3.1.1 (2022-06-06)
