@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.1.2 (unreleased)
+3.1.2 (2022-07-15)
 ------------------
 
 - Replace collections with collections.abc for python 3.10 compatibility
