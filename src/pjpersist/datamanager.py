@@ -462,6 +462,10 @@ class PJDataManager(object):
         self._removed_objects = {}
         self._dirty = False
 
+        # dict[str, set[int]] - lists of registered objects for each db table.
+        # To quickly find objects to flush.
+        self._registered_by_table = {}
+
         self._readonly = None
         self._deferrable = None
         self._isolation_level = None
@@ -621,24 +625,31 @@ class PJDataManager(object):
         #
         # While writing objects, new sub-objects might be registered
         # that also need saving. We are flushing until nothing left to flush.
-        processed = set()
         while True:
             # Write every registered object, but make sure we write each
             # object just once.
-            todo = set(self._registered_objects.keys()) - processed
+            todo = set()
+            if flush_hint:
+                # Only flush objects that needs to be stored in given tables
+                for tbl in flush_hint:
+                    if tbl in self._registered_by_table:
+                        todo.update(self._registered_by_table[tbl])
+                        del self._registered_by_table[tbl]
+            else:
+                # Flush all registered objects
+                todo.update(self._registered_objects.keys())
+                self._registered_by_table = {}
+
             if not todo:
                 # Nothing left to flush
                 break
+
             for obj_id in todo:
+                if obj_id not in self._registered_objects:
+                    continue
+
                 obj = self._registered_objects[obj_id]
                 docobj = self._get_doc_object(obj)
-
-                processed.add(obj_id)
-
-                # Skip storing the object if flush hint does not indicate otherwise
-                dbname, table = self._writer.get_table_name(docobj)
-                if flush_hint and table not in flush_hint:
-                    continue
 
                 # Actually write object to the database
                 self._writer.store(docobj)
@@ -795,7 +806,8 @@ class PJDataManager(object):
 
         # Do not bring back removed objects. But only main the document
         # objects can be removed, so check for that.
-        if id(self._get_doc_object(obj)) in self._removed_objects:
+        docobj = self._get_doc_object(obj)
+        if id(docobj) in self._removed_objects:
             return
 
         if obj is not None:
@@ -805,6 +817,10 @@ class PJDataManager(object):
                 obj_registered = getattr(obj, '_pj_object_registered', None)
                 if obj_registered is not None:
                     obj_registered(self)
+
+                dbname, table = self._writer.get_table_name(docobj)
+                reg_for_table = self._registered_by_table.setdefault(table, set())
+                reg_for_table.add(obj_id)
 
     def abort(self, transaction):
         if self._conn is None:
