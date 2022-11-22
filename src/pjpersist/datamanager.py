@@ -618,50 +618,38 @@ class PJDataManager(object):
     def flush(self, flush_hint=None):
         # flush_hint contains tables that we want to flush, leaving all other
         # objects registered.
-        # Now write every registered object, but make sure we write each
-        # object just once.
+        #
+        # While writing objects, new sub-objects might be registered
+        # that also need saving. We are flushing until nothing left to flush.
         processed = set()
-        flushed = set()
-        docobject_flushed = set()
-        # Make sure that we do not compute the list of flushable objects all
-        # at once. While writing objects, new sub-objects might be registered
-        # that also need saving.
-        todo = set(self._registered_objects.keys())
-        while todo:
-            obj_id = todo.pop()
-            obj = self._registered_objects[obj_id]
-            __traceback_info__ = obj
-
-            docobj = self._get_doc_object(obj)
-            docobj_id = id(docobj)
-            processed.add(obj_id)
-
-            dbname, table = self._writer.get_table_name(docobj)
-            if flush_hint and table not in flush_hint:
-                continue
-
-            flushed.add(obj_id)
-
-            if docobj_id not in docobject_flushed:
-                self._writer.store(docobj)
-                docobject_flushed.add(docobj_id)
-
-            self.setDirty()
+        while True:
+            # Write every registered object, but make sure we write each
+            # object just once.
             todo = set(self._registered_objects.keys()) - processed
+            if not todo:
+                # Nothing left to flush
+                break
+            for obj_id in todo:
+                obj = self._registered_objects[obj_id]
+                docobj = self._get_doc_object(obj)
 
-        # Let's now reset all objects as if they were not modified:
-        for obj_id in flushed:
-            # Another nested flush already took care of this object.
-            if obj_id not in self._registered_objects:
-                continue
-            obj = self._registered_objects[obj_id]
-            obj._p_changed = False
+                processed.add(obj_id)
 
-        self._registered_objects = {
-            obj_id: obj
-            for obj_id, obj in self._registered_objects.items()
-            if obj_id not in flushed
-        }
+                # Skip storing the object if flush hint does not indicate otherwise
+                dbname, table = self._writer.get_table_name(docobj)
+                if flush_hint and table not in flush_hint:
+                    continue
+
+                # Actually write object to the database
+                self._writer.store(docobj)
+
+                # Deregister the object. Note, that another nested flush may
+                # have already took care of this object.
+                if obj_id in self._registered_objects:
+                    del self._registered_objects[obj_id]
+
+                # Reset a flushed object as if it was not modified:
+                obj._p_changed = False
 
     def _get_doc_object(self, obj):
         seen = []
