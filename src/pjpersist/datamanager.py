@@ -462,6 +462,10 @@ class PJDataManager(object):
         self._removed_objects = {}
         self._dirty = False
 
+        # dict[str, set[int]] - lists of registered objects for each db table.
+        # To quickly find objects to flush.
+        self._registered_by_table = {}
+
         self._readonly = None
         self._deferrable = None
         self._isolation_level = None
@@ -618,50 +622,45 @@ class PJDataManager(object):
     def flush(self, flush_hint=None):
         # flush_hint contains tables that we want to flush, leaving all other
         # objects registered.
-        # Now write every registered object, but make sure we write each
-        # object just once.
-        processed = set()
-        flushed = set()
-        docobject_flushed = set()
-        # Make sure that we do not compute the list of flushable objects all
-        # at once. While writing objects, new sub-objects might be registered
-        # that also need saving.
-        todo = set(self._registered_objects.keys())
-        while todo:
-            obj_id = todo.pop()
-            obj = self._registered_objects[obj_id]
-            __traceback_info__ = obj
+        #
+        # While writing objects, new sub-objects might be registered
+        # that also need saving. We are flushing until nothing left to flush.
+        while True:
+            # Write every registered object, but make sure we write each
+            # object just once.
+            todo = set()
+            if flush_hint:
+                # Only flush objects that needs to be stored in given tables
+                for tbl in flush_hint:
+                    if tbl in self._registered_by_table:
+                        todo.update(self._registered_by_table[tbl])
+                        del self._registered_by_table[tbl]
+            else:
+                # Flush all registered objects
+                todo.update(self._registered_objects.keys())
+                self._registered_by_table = {}
 
-            docobj = self._get_doc_object(obj)
-            docobj_id = id(docobj)
-            processed.add(obj_id)
+            if not todo:
+                # Nothing left to flush
+                break
 
-            dbname, table = self._writer.get_table_name(docobj)
-            if flush_hint and table not in flush_hint:
-                continue
+            for obj_id in todo:
+                if obj_id not in self._registered_objects:
+                    continue
 
-            flushed.add(obj_id)
+                obj = self._registered_objects[obj_id]
+                docobj = self._get_doc_object(obj)
 
-            if docobj_id not in docobject_flushed:
+                # Actually write object to the database
                 self._writer.store(docobj)
-                docobject_flushed.add(docobj_id)
 
-            self.setDirty()
-            todo = set(self._registered_objects.keys()) - processed
+                # Deregister the object. Note, that another nested flush may
+                # have already took care of this object.
+                if obj_id in self._registered_objects:
+                    del self._registered_objects[obj_id]
 
-        # Let's now reset all objects as if they were not modified:
-        for obj_id in flushed:
-            # Another nested flush already took care of this object.
-            if obj_id not in self._registered_objects:
-                continue
-            obj = self._registered_objects[obj_id]
-            obj._p_changed = False
-
-        self._registered_objects = {
-            obj_id: obj
-            for obj_id, obj in self._registered_objects.items()
-            if obj_id not in flushed
-        }
+                # Reset a flushed object as if it was not modified:
+                obj._p_changed = False
 
     def _get_doc_object(self, obj):
         seen = []
@@ -807,7 +806,8 @@ class PJDataManager(object):
 
         # Do not bring back removed objects. But only main the document
         # objects can be removed, so check for that.
-        if id(self._get_doc_object(obj)) in self._removed_objects:
+        docobj = self._get_doc_object(obj)
+        if id(docobj) in self._removed_objects:
             return
 
         if obj is not None:
@@ -817,6 +817,10 @@ class PJDataManager(object):
                 obj_registered = getattr(obj, '_pj_object_registered', None)
                 if obj_registered is not None:
                     obj_registered(self)
+
+                dbname, table = self._writer.get_table_name(docobj)
+                reg_for_table = self._registered_by_table.setdefault(table, set())
+                reg_for_table.add(obj_id)
 
     def abort(self, transaction):
         if self._conn is None:
