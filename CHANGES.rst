@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.1.3 (unreleased)
+3.1.3 (2022-11-23)
 ------------------
 
 - Faster PJDataManager flush() when it contains a lot of objects.
