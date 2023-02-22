@@ -22,6 +22,11 @@ import copy
 import copyreg
 import pickle
 
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
+
 from pjpersist import interfaces, serialize, testing
 
 class Top(persistent.Persistent):
@@ -73,7 +78,7 @@ class CopyReggedConstant(object):
 copyreg.pickle(CopyReggedConstant, CopyReggedConstant.custom_reduce_fn)
 CopyReggedConstant = CopyReggedConstant()
 
-class MyDict(collections.Mapping):
+class MyDict(Mapping):
     def __init__(self, dct):
         self._dct = dct
 

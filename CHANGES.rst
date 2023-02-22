@@ -6,8 +6,8 @@ CHANGES
 3.1.4 (unreleased)
 ------------------
 
-- Nothing changed yet.
-
+- Moving CI to github actions.
+- Declare Python 3.11 compatibility
 
 3.1.3 (2022-11-23)
 ------------------
