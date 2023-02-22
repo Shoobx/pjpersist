@@ -1,0 +1,65 @@
+name: pjpersist
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 12 * * 0'  # run once a week on Sunday
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image:
+          bitnami/postgresql:latest
+        env:
+          # not messing with the default postgres user and database
+          # POSTGRESQL_USERNAME: postgres
+          POSTGRESQL_PASSWORD: postgres_password
+          # POSTGRESQL_DATABASE: postgres
+          POSTGRESQL_EXTRA_FLAGS: -c max_prepared_transactions=10
+        ports:
+          - 5432:5432
+
+    strategy:
+      matrix:
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+
+    steps:
+
+    - name: Check out source
+      uses: actions/checkout@v3
+
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes postgresql-client
+
+    - name: Postgres preparations
+      run: |
+        # host is localhost because we connected postgres via 5432:5432 at services.postgres.ports
+        # wait for postgresql here
+        timeout 90s bash -c "until pg_isready -h localhost -U postgres ; do sleep 2 ; done"
+        # create the test database
+        psql -h localhost -d postgres -U postgres -c "create user pjpersist with createdb password 'pjpersist';"
+      env:
+        # postgres password is required
+        PGPASSWORD: postgres_password
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install tox tox-gh-actions
+    - name: Test with tox
+      run: tox
+    - name: Coveralls
+      uses: AndreMiras/coveralls-python-action@develop
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}

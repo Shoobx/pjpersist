@@ -1,8 +1,8 @@
 pjpersist
 =========
 
-.. image:: https://travis-ci.org/Shoobx/pjpersist.png?branch=master
-   :target: https://travis-ci.org/Shoobx/pjpersist
+.. image:: https://github.com/Shoobx/pjpersist/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/Shoobx/pjpersist/actions
 
 .. image:: https://coveralls.io/repos/github/Shoobx/pjpersist/badge.svg?branch=master
    :target: https://coveralls.io/github/Shoobx/pjpersist?branch=master
