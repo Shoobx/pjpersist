@@ -61,5 +61,6 @@ jobs:
       run: tox
     - name: Coveralls
       uses: AndreMiras/coveralls-python-action@develop
+      if: matrix.python-version == 3.11
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
