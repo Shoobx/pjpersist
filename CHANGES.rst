@@ -8,6 +8,8 @@ CHANGES
 
 - Moving CI to github actions.
 - Declare Python 3.11 compatibility
+- Fix serialization for dates where year is shorter than 4 digits long
+- Fix type checking in `serializers.py`
 
 3.1.3 (2022-11-23)
 ------------------

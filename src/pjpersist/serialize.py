@@ -347,13 +347,13 @@ class ObjectWriter(object):
 
         if objectType == datetime.date:
             return {'_py_type': 'datetime.date',
-                    'value': obj.strftime(FMT_DATE)}
+                    'value': obj.strftime(FMT_DATE).zfill(10)}
         if objectType == datetime.time:
             return {'_py_type': 'datetime.time',
                     'value': obj.strftime(FMT_TIME)}
         if objectType == datetime.datetime:
             return {'_py_type': 'datetime.datetime',
-                    'value': obj.strftime(FMT_DATETIME)}
+                    'value': obj.strftime(FMT_DATETIME).zfill(26)}
 
         # Let's handle only specific MappingView subclasses for now
         if objectType in COLLECTIONS_ABC_MAPPINGVIEWS:

@@ -28,11 +28,11 @@ class DateSerializer(serialize.ObjectSerializer):
         return datetime.datetime.strptime(state['value'], self.fmt).date()
 
     def can_write(self, obj):
-        return isinstance(obj, datetime.date)
+        return type(obj) is datetime.date
 
     def write(self, obj):
         return {'_py_type': 'datetime.date',
-                'value': obj.strftime(self.fmt)}
+                'value': obj.strftime(self.fmt).zfill(10)}
 
 
 class TimeSerializer(serialize.ObjectSerializer):
@@ -47,7 +47,7 @@ class TimeSerializer(serialize.ObjectSerializer):
         return datetime.datetime.strptime(state['value'], self.fmt).time()
 
     def can_write(self, obj):
-        return isinstance(obj, datetime.time)
+        return type(obj) is datetime.time
 
     def write(self, obj):
         return {'_py_type': 'datetime.time',
@@ -57,7 +57,7 @@ class TimeSerializer(serialize.ObjectSerializer):
 class DateTimeSerializer(serialize.ObjectSerializer):
 
     # XXX: timezone?
-    fmt = "%Y-%m-%dT%H:%M:%S"
+    fmt = "%Y-%m-%dT%H:%M:%S.%f"
 
     def can_read(self, state):
         return isinstance(state, dict) and \
@@ -67,8 +67,8 @@ class DateTimeSerializer(serialize.ObjectSerializer):
         return datetime.datetime.strptime(state['value'], self.fmt)
 
     def can_write(self, obj):
-        return isinstance(obj, datetime.datetime)
+        return type(obj) is datetime.datetime
 
     def write(self, obj):
         return {'_py_type': 'datetime.datetime',
-                'value': obj.strftime(self.fmt)}
+                'value': obj.strftime(self.fmt).zfill(26)}
