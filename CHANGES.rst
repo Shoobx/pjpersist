@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-3.1.4 (unreleased)
+3.1.4 (2024-03-27)
 ------------------
 
 - Moving CI to github actions.
