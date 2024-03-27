@@ -217,7 +217,7 @@ Of course all properties can be retrieved as python objects:
   <Phone +1-978-394-5124>
 
   >>> stephan.today
-  datetime.datetime(2011, 10, 1, 9, 45)
+  datetime.datetime(2014, 12, 4, 12, 30)
 
   >>> stephan.visited
   [u'Germany', u'USA']

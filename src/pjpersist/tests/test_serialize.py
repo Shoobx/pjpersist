@@ -1070,7 +1070,7 @@ def doctest_ObjectReader_get_object_datetime():
       ...         'value': '2005-07-13T17:18:10.100000',
       ...     },
       ...     None)
-      datetime.datetime(2005, 07, 13, 17, 18, 10, 100000)
+      datetime.datetime(2005, 7, 13, 17, 18, 10, 100000)
     """
 
 def doctest_ObjectReader_get_object_datetime_BBB():
@@ -1469,6 +1469,50 @@ def doctest_table_decorator():
       ...
       TypeError: ("Can't declare _p_pj_table", <object object at ...>)
 
+    """
+
+def doctest_ObjectWriter_date_short_year():
+    """
+    Check if serialization works with a shorter year than 4 digits
+
+    Clear custom serializers
+      >>> serialize.SERIALIZERS = []
+
+    Check date
+      >>> import datetime
+      >>> writer = serialize.ObjectWriter(dm)
+      >>> state = writer.get_state(datetime.date(111, 2, 3))
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(state, None)
+      datetime.date(111, 2, 3)
+
+    Check datetime
+      >>> import datetime 
+      >>> writer = serialize.ObjectWriter(dm)
+      >>> state = writer.get_state(datetime.datetime(342, 11, 7, 16, 57, 34, 780005))
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(state, None)
+      datetime.datetime(342, 11, 7, 16, 57, 34, 780005)
+
+    Also check custom serializers
+      >>> from pjpersist.serializers import DateSerializer, DateTimeSerializer
+      >>> serialize.SERIALIZERS = [DateTimeSerializer(), DateSerializer()]
+
+    Check date
+      >>> import datetime
+      >>> writer = serialize.ObjectWriter(dm)
+      >>> state = writer.get_state(datetime.date(5, 12, 4))
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(state, None)
+      datetime.date(5, 12, 4)
+
+    Check datetime
+      >>> import datetime 
+      >>> writer = serialize.ObjectWriter(dm)
+      >>> state = writer.get_state(datetime.datetime(23, 12, 1, 13, 33, 56, 622000))
+      >>> reader = serialize.ObjectReader(dm)
+      >>> reader.get_object(state, None)
+      datetime.datetime(23, 12, 1, 13, 33, 56)
     """
 
 

@@ -43,9 +43,6 @@ py3checkers = [
 ]
 
 checker = renormalizing.RENormalizing([
-    # Date/Time objects
-    (re.compile(r'datetime.datetime\(.*\)'),
-     'datetime.datetime(2011, 10, 1, 9, 45)'),
     # IDs
     (re.compile(r"'[0-9a-f]{24}'"), "'0001020304050607080a0b0c0'"),
     ] + py3checkers)

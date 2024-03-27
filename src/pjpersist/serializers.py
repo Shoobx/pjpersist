@@ -19,6 +19,7 @@ from pjpersist import serialize
 class DateSerializer(serialize.ObjectSerializer):
 
     fmt = "%Y-%m-%d"
+    fmtLength = 10
 
     def can_read(self, state):
         return isinstance(state, dict) and \
@@ -32,7 +33,7 @@ class DateSerializer(serialize.ObjectSerializer):
 
     def write(self, obj):
         return {'_py_type': 'datetime.date',
-                'value': obj.strftime(self.fmt)}
+                'value': obj.strftime(self.fmt).zfill(self.fmtLength)}
 
 
 class TimeSerializer(serialize.ObjectSerializer):
@@ -58,6 +59,7 @@ class DateTimeSerializer(serialize.ObjectSerializer):
 
     # XXX: timezone?
     fmt = "%Y-%m-%dT%H:%M:%S"
+    fmtLength = 19
 
     def can_read(self, state):
         return isinstance(state, dict) and \
@@ -71,4 +73,4 @@ class DateTimeSerializer(serialize.ObjectSerializer):
 
     def write(self, obj):
         return {'_py_type': 'datetime.datetime',
-                'value': obj.strftime(self.fmt)}
+                'value': obj.strftime(self.fmt).zfill(self.fmtLength)}

@@ -41,6 +41,8 @@ TABLE_KLASS_MAP = {}
 FMT_DATE = "%Y-%m-%d"
 FMT_TIME = "%H:%M:%S.%f"
 FMT_DATETIME = "%Y-%m-%dT%H:%M:%S.%f"
+FMT_DATE_LENGTH = 10
+FMT_DATETIME_LENGTH = 26
 
 # BBB: Will be removed in 2.0.
 FMT_TIME_BBB = "%H:%M:%S"
@@ -347,13 +349,13 @@ class ObjectWriter(object):
 
         if objectType == datetime.date:
             return {'_py_type': 'datetime.date',
-                    'value': obj.strftime(FMT_DATE)}
+                    'value': obj.strftime(FMT_DATE).zfill(FMT_DATE_LENGTH)}
         if objectType == datetime.time:
             return {'_py_type': 'datetime.time',
                     'value': obj.strftime(FMT_TIME)}
         if objectType == datetime.datetime:
             return {'_py_type': 'datetime.datetime',
-                    'value': obj.strftime(FMT_DATETIME)}
+                    'value': obj.strftime(FMT_DATETIME).zfill(FMT_DATETIME_LENGTH)}
 
         # Let's handle only specific MappingView subclasses for now
         if objectType in COLLECTIONS_ABC_MAPPINGVIEWS:
