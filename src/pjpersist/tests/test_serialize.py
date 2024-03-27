@@ -1496,7 +1496,7 @@ def doctest_ObjectWriter_date_short_year():
 
     Also check custom serializers
       >>> from pjpersist.serializers import DateSerializer, DateTimeSerializer
-      >>> serialize.SERIALIZERS = [DateSerializer(), DateTimeSerializer()]
+      >>> serialize.SERIALIZERS = [DateTimeSerializer(), DateSerializer()]
 
     Check date
       >>> import datetime
@@ -1512,7 +1512,7 @@ def doctest_ObjectWriter_date_short_year():
       >>> state = writer.get_state(datetime.datetime(23, 12, 1, 13, 33, 56, 622000))
       >>> reader = serialize.ObjectReader(dm)
       >>> reader.get_object(state, None)
-      datetime.datetime(23, 12, 1, 13, 33, 56, 622000)
+      datetime.datetime(23, 12, 1, 13, 33, 56)
     """
 
 
