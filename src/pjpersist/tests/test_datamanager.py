@@ -1701,6 +1701,74 @@ class DirtyTestCase(testing.PJTestCase):
             transaction.commit()
 
 
+class ConnectionProxy:
+    __conn__ = None
+    def __init__(self, conn, **kw):
+        self.__dict__['__conn__'] = conn
+        self.__dict__.update(kw)
+
+    def __getattr__(self, name):
+        return getattr(self.__conn__, name)
+
+    def __setattr__(self, name, value):
+        return setattr(self.__conn__, name, value)
+
+class TwoPhaseCommitTestCase(testing.PJTestCase):
+
+    def setUp(self):
+        super(TwoPhaseCommitTestCase, self).setUp()
+
+        # get rid of the previous transaction
+        transaction.abort()
+
+        tpc_patch = mock.patch(
+            "pjpersist.datamanager.PJ_TWO_PHASE_COMMIT_ENABLED", True)
+        no_prep_patch = mock.patch(
+            "pjpersist.datamanager."
+            "CALL_TPC_PREPARE_ON_NO_WRITE_TRANSACTION", False)
+        log_patch = mock.patch(
+            "pjpersist.datamanager.LOG_READ_WRITE_TRANSACTION", True)
+        self.patches = [tpc_patch, no_prep_patch, log_patch]
+        for p in self.patches:
+            p.start()
+
+        self.conn = testing.getConnection(testing.DBNAME)
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+        super(TwoPhaseCommitTestCase, self).tearDown()
+
+    def test_system_exit_while_joining_transaction_on_tpc_begin(self):
+        def tpc_begin(tx):
+            self.conn.tpc_begin(tx)
+            raise SystemExit(-241)
+        proxy = ConnectionProxy(self.conn, tpc_begin=tpc_begin)
+
+        with self.assertRaises(SystemExit):
+            datamanager.PJDataManager(proxy)
+
+    def test_system_exit_while_joining_transaction_before_tpc_begin(self):
+        def tpc_begin(tx):
+            raise SystemExit(-241)
+        proxy = ConnectionProxy(self.conn, tpc_begin=tpc_begin)
+
+        with self.assertRaises(SystemExit):
+            datamanager.PJDataManager(proxy)
+
+    def test_system_exit_while_joining_transaction_fail_rollback(self):
+        def tpc_begin(tx):
+            self.conn.tpc_begin(tx)
+            raise SystemExit(-241)
+        def tpc_rollback(tx):
+            raise psycopg2.OperationalError('boom')
+        proxy = ConnectionProxy(self.conn, tpc_begin=tpc_begin)
+
+        with self.assertRaises(SystemExit):
+            datamanager.PJDataManager(proxy)
+
+
 def test_suite():
     dtsuite = doctest.DocTestSuite(
         setUp=testing.setUp, tearDown=testing.tearDown,
@@ -1714,4 +1782,5 @@ def test_suite():
         unittest.makeSuite(QueryLoggingTestCase),
         unittest.makeSuite(TransactionOptionsTestCase),
         unittest.makeSuite(DirtyTestCase),
+        unittest.makeSuite(TwoPhaseCommitTestCase),
         ))

@@ -894,6 +894,20 @@ class PJDataManager(object):
         except psycopg2.Error as e:
             check_for_disconnect(e, 'PJDataManager._begin')
             raise
+        except BaseException as exc:
+            # There's a corner case when SystemExit is raised while
+            # tpc_begin is still being processed.  Because we don't
+            # know if that operation completed, we need to check
+            # transaction status so we can clean up correctly.
+            if self._conn.status == psycopg2.extensions.STATUS_BEGIN:
+                self._tpc_activated = True
+            else:
+                LOG.warning(
+                    "PJDataManager._begin: tried to call connection.tpc_begin,"
+                    " but it did not change connection status to STATUS_BEGIN,"
+                    " failing with a generic exception %s."
+                    "  Not setting TPC mode on PJDataManager.", exc)
+            raise
         self._tpc_activated = True
 
     def _log_rw_stats(self):
